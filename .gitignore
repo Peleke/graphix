@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+*.log
+coverage/
+
+# Local project storage (dev only)
+projects/
+
+# Large binary assets (keep in cloud storage)
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.webm
+*.wav
+*.mp3
+
+# But keep template assets
+!templates/**/*.png
+!templates/**/*.jpg
