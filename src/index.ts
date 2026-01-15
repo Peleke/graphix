@@ -10,6 +10,7 @@ import { serve } from "bun";
 import { config } from "./config.js";
 import { migrateDb, checkDbHealth } from "./db/client.js";
 import { app } from "./api/rest/app.js";
+import { startMCPServer } from "./api/mcp/index.js";
 
 async function main() {
   console.log("Starting Graphix server...");
@@ -38,8 +39,7 @@ async function main() {
 
   // Start MCP server (if enabled)
   if (config.server.mcpEnabled) {
-    // TODO: Start MCP server
-    console.log("  MCP server: not yet implemented");
+    await startMCPServer();
   }
 
   console.log("Graphix server ready");
