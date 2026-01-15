@@ -1,0 +1,22 @@
+# Bun configuration for Graphix
+
+[test]
+# Test configuration
+preload = ["./src/test/setup.ts"]
+
+# Coverage settings
+coverage = true
+coverageDir = "./coverage"
+
+# Timeout for tests (5 minutes for E2E)
+timeout = 300000
+
+# Test file patterns
+root = "./src/test"
+
+[install]
+# Lock file
+lockfile = "bun.lockb"
+
+# Registry
+registry = "https://registry.npmjs.org"
