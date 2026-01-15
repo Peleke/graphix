@@ -57,6 +57,8 @@ const handlers: Record<string, (name: string, args: Record<string, unknown>) => 
   panel_clear_selection: handlePanelTool,
   panel_reorder: handlePanelTool,
   panel_delete: handlePanelTool,
+  panel_generate: handlePanelTool,
+  panel_generate_variants: handlePanelTool,
 
   // Generation tools
   generation_create: handleGenerationTool,

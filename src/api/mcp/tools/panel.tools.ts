@@ -6,6 +6,7 @@
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getPanelService } from "../../../services/index.js";
+import { getPanelGenerator, type GenerateOptions, type VariantOptions } from "../../../generation/index.js";
 
 export const panelTools: Record<string, Tool> = {
   panel_create: {
@@ -202,6 +203,106 @@ export const panelTools: Record<string, Tool> = {
       required: ["panelId"],
     },
   },
+
+  panel_generate: {
+    name: "panel_generate",
+    description: "Generate an image for a panel based on its direction and characters",
+    inputSchema: {
+      type: "object",
+      properties: {
+        panelId: {
+          type: "string",
+          description: "Panel ID to generate image for",
+        },
+        model: {
+          type: "string",
+          description: "Model checkpoint to use (e.g., 'yiffInHell_yihXXXTended.safetensors')",
+        },
+        width: {
+          type: "number",
+          description: "Image width (256-4096, default 768)",
+        },
+        height: {
+          type: "number",
+          description: "Image height (256-4096, default 1024)",
+        },
+        steps: {
+          type: "number",
+          description: "Number of sampling steps (default 28)",
+        },
+        cfg: {
+          type: "number",
+          description: "CFG scale (default 7)",
+        },
+        seed: {
+          type: "number",
+          description: "Specific seed (random if not provided)",
+        },
+        sampler: {
+          type: "string",
+          description: "Sampler name (default 'euler_ancestral')",
+        },
+        quality: {
+          type: "string",
+          enum: ["draft", "standard", "high", "ultra"],
+          description: "Quality preset: draft (fast), standard (balanced), high (hi-res fix), ultra (hi-res + upscale)",
+        },
+        useIPAdapter: {
+          type: "boolean",
+          description: "Use IP-Adapter for character consistency (requires reference images)",
+        },
+        ipAdapterStrength: {
+          type: "number",
+          description: "IP-Adapter strength (0.0-1.0, default 0.8)",
+        },
+      },
+      required: ["panelId"],
+    },
+  },
+
+  panel_generate_variants: {
+    name: "panel_generate_variants",
+    description: "Generate multiple variant images for a panel with different seeds",
+    inputSchema: {
+      type: "object",
+      properties: {
+        panelId: {
+          type: "string",
+          description: "Panel ID to generate variants for",
+        },
+        count: {
+          type: "number",
+          description: "Number of variants to generate (default 4)",
+        },
+        baseSeed: {
+          type: "number",
+          description: "Base seed for variant generation (random if not provided)",
+        },
+        varyCfg: {
+          type: "boolean",
+          description: "Vary CFG scale across variants",
+        },
+        cfgMin: {
+          type: "number",
+          description: "Minimum CFG if varying (default 5)",
+        },
+        cfgMax: {
+          type: "number",
+          description: "Maximum CFG if varying (default 9)",
+        },
+        model: {
+          type: "string",
+          description: "Model checkpoint to use",
+        },
+        quality: {
+          type: "string",
+          enum: ["draft", "standard", "high", "ultra"],
+          description: "Quality preset",
+        },
+      },
+      required: ["panelId"],
+    },
+  },
 };
 
 export async function handlePanelTool(
@@ -282,6 +383,56 @@ export async function handlePanelTool(
     case "panel_delete": {
       await service.delete(args.panelId as string);
       return { success: true, message: "Panel deleted" };
+    }
+
+    case "panel_generate": {
+      const generator = getPanelGenerator();
+      const options: GenerateOptions = {
+        model: args.model as string | undefined,
+        width: args.width as number | undefined,
+        height: args.height as number | undefined,
+        steps: args.steps as number | undefined,
+        cfg: args.cfg as number | undefined,
+        seed: args.seed as number | undefined,
+        sampler: args.sampler as string | undefined,
+        quality: args.quality as "draft" | "standard" | "high" | "ultra" | undefined,
+        useIPAdapter: args.useIPAdapter as boolean | undefined,
+        ipAdapterStrength: args.ipAdapterStrength as number | undefined,
+      };
+      const result = await generator.generate(args.panelId as string, options);
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+      return {
+        success: true,
+        generatedImage: result.generatedImage,
+        seed: result.generationResult?.seed,
+        imagePath: result.generationResult?.imagePath,
+      };
+    }
+
+    case "panel_generate_variants": {
+      const generator = getPanelGenerator();
+      const variantOptions: VariantOptions = {
+        count: (args.count as number) || 4,
+        baseSeed: args.baseSeed as number | undefined,
+        varyCfg: args.varyCfg as boolean | undefined,
+        cfgRange: args.varyCfg
+          ? [(args.cfgMin as number) || 5, (args.cfgMax as number) || 9]
+          : undefined,
+        model: args.model as string | undefined,
+        quality: args.quality as "draft" | "standard" | "high" | "ultra" | undefined,
+      };
+      const result = await generator.generateVariants(args.panelId as string, variantOptions);
+      return {
+        success: result.success,
+        total: result.total,
+        successful: result.successful,
+        failed: result.failed,
+        generatedImages: result.results
+          .filter((r) => r.success)
+          .map((r) => r.generatedImage),
+      };
     }
 
     default:
