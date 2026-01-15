@@ -17,15 +17,17 @@ export const config = {
     outputDir: env.OUTPUT_DIR || "./output",
   },
 
-  // ComfyUI connection
+  // ComfyUI MCP connection (hits comfyui-mcp HTTP API)
   comfyui: {
-    // Direct HTTP to ComfyUI server
-    serverUrl: env.COMFYUI_SERVER_URL || "http://localhost:8188",
-    // REST URL for comfyui-mcp (if using MCP wrapper)
-    restUrl: env.COMFYUI_REST_URL || "http://localhost:3001",
+    // Base URL for comfyui-mcp HTTP server
+    baseUrl: env.COMFYUI_MCP_URL || "http://localhost:3001",
+    // API key for authentication (optional in dev)
+    apiKey: env.COMFYUI_API_KEY || "",
+    // API secret for HMAC signing (optional in dev)
+    apiSecret: env.COMFYUI_API_SECRET || "",
     // Default model checkpoint
     defaultModel: env.COMFYUI_DEFAULT_MODEL || "yiffInHell_yihXXXTended.safetensors",
-    // Request timeout (ms)
+    // Request timeout (ms) - generation can take a while
     timeout: parseInt(env.COMFYUI_TIMEOUT || "300000", 10),
   },
 

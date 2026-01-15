@@ -18,18 +18,18 @@ export {
   type VariantConfig,
 } from "./prompt-builder.js";
 
-// ComfyUI client
+// ComfyUI MCP client
 export {
   ComfyUIClient,
   getComfyUIClient,
   resetComfyUIClient,
-  type GenerateImageParams,
-  type Img2ImgParams,
-  type ControlNetParams,
-  type IPAdapterParams,
-  type PipelineParams,
+  type ImageGenerateRequest,
+  type ImagineRequest,
+  type PortraitRequest,
+  type TTSRequest,
+  type LipsyncRequest,
   type GenerationResult,
-  type ConnectionStatus,
+  type HealthResult,
 } from "./comfyui-client.js";
 
 // Panel generation

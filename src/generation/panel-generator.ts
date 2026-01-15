@@ -2,14 +2,18 @@
  * Panel Generator
  *
  * High-level service for generating images for panels.
- * Combines PromptBuilder and ComfyUIClient with database operations.
+ * Combines PromptBuilder with ComfyUI MCP client.
  */
 
 import { config } from "../config.js";
 import { getPanelService, getCharacterService, getGeneratedImageService } from "../services/index.js";
 import { PromptBuilder, buildPanelPrompt, generateVariantSeeds, type ModelFamily } from "./prompt-builder.js";
-import { ComfyUIClient, getComfyUIClient, type GenerationResult, type PipelineParams } from "./comfyui-client.js";
+import { ComfyUIClient, getComfyUIClient, type GenerationResult } from "./comfyui-client.js";
 import type { Panel, Character, GeneratedImage } from "../db/schema.js";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 /**
  * Generation options
@@ -33,16 +37,8 @@ export interface GenerateOptions {
   scheduler?: string;
   /** Specific seed (random if not provided) */
   seed?: number;
-  /** Quality preset */
-  quality?: "draft" | "standard" | "high" | "ultra";
-  /** Enable hi-res fix */
-  enableHiresFix?: boolean;
-  /** Enable upscaling */
-  enableUpscale?: boolean;
-  /** Use IP-Adapter for character consistency */
-  useIPAdapter?: boolean;
-  /** IP-Adapter strength (0.0-1.0) */
-  ipAdapterStrength?: number;
+  /** Upload to cloud storage */
+  uploadToCloud?: boolean;
 }
 
 /**
@@ -80,17 +76,21 @@ export interface BatchGenerationResult {
   results: PanelGenerationResult[];
 }
 
+// ============================================================================
+// Panel Generator
+// ============================================================================
+
 /**
  * Panel Generator class
  */
 export class PanelGenerator {
-  private comfyui: ComfyUIClient;
+  private client: ComfyUIClient;
   private panelService = getPanelService();
   private characterService = getCharacterService();
   private imageService = getGeneratedImageService();
 
-  constructor(comfyuiClient?: ComfyUIClient) {
-    this.comfyui = comfyuiClient ?? getComfyUIClient();
+  constructor(client?: ComfyUIClient) {
+    this.client = client ?? getComfyUIClient();
   }
 
   /**
@@ -111,39 +111,25 @@ export class PanelGenerator {
       const modelFamily = options.modelFamily ?? this.detectModelFamily(options.model);
       const prompt = buildPanelPrompt(panel, characters, modelFamily);
 
-      // Determine output path
-      const outputPath = this.generateOutputPath(panelId, options.seed);
-
-      // Prepare generation parameters
-      const params: PipelineParams = {
+      // Generate via comfyui-mcp
+      const result = await this.client.generateImage({
         prompt: prompt.positive,
-        negativePrompt: prompt.negative,
+        negative_prompt: prompt.negative,
         model: options.model ?? config.comfyui.defaultModel,
         width: options.width ?? 768,
         height: options.height ?? 1024,
         steps: options.steps ?? 28,
-        cfg: options.cfg ?? 7,
+        cfg_scale: options.cfg ?? 7,
         seed: options.seed,
         sampler: options.sampler ?? "euler_ancestral",
         scheduler: options.scheduler ?? "normal",
-        loras: prompt.characterLoras,
-        outputPath,
-        quality: options.quality ?? "standard",
-        enableHiresFix: options.enableHiresFix,
-        enableUpscale: options.enableUpscale,
-      };
-
-      // Generate with IP-Adapter if requested and references exist
-      let result: GenerationResult;
-      if (options.useIPAdapter && prompt.referenceImages.length > 0) {
-        result = await this.comfyui.generateWithIPAdapter({
-          ...params,
-          referenceImages: prompt.referenceImages,
-          ipAdapterStrength: options.ipAdapterStrength ?? 0.8,
-        });
-      } else {
-        result = await this.comfyui.executePipeline(params);
-      }
+        loras: prompt.characterLoras.map((l) => ({
+          name: l.name,
+          strength_model: l.weight,
+          strength_clip: l.weight,
+        })),
+        upload_to_cloud: options.uploadToCloud ?? true,
+      });
 
       if (!result.success) {
         return { success: false, error: result.error, generationResult: result };
@@ -152,17 +138,17 @@ export class PanelGenerator {
       // Store generation record
       const generatedImage = await this.imageService.create({
         panelId,
-        imagePath: result.imagePath!,
+        imagePath: result.localPath ?? result.signedUrl ?? "",
         params: {
-          seed: result.seed!,
-          prompt: result.prompt!,
-          negativePrompt: result.negativePrompt,
-          model: result.model,
-          width: result.width,
-          height: result.height,
-          steps: result.steps,
-          cfg: result.cfg,
-          sampler: result.sampler,
+          seed: result.seed ?? 0,
+          prompt: prompt.positive,
+          negativePrompt: prompt.negative,
+          model: options.model ?? config.comfyui.defaultModel,
+          width: options.width ?? 768,
+          height: options.height ?? 1024,
+          steps: options.steps ?? 28,
+          cfg: options.cfg ?? 7,
+          sampler: options.sampler ?? "euler_ancestral",
           loras: prompt.characterLoras,
         },
       });
@@ -200,7 +186,7 @@ export class PanelGenerator {
       // Vary CFG if requested
       if (options.varyCfg && options.cfgRange) {
         const [minCfg, maxCfg] = options.cfgRange;
-        variantOptions.cfg = minCfg + ((maxCfg - minCfg) * i) / (seeds.length - 1);
+        variantOptions.cfg = minCfg + ((maxCfg - minCfg) * i) / Math.max(seeds.length - 1, 1);
       }
 
       const result = await this.generate(panelId, variantOptions);
@@ -237,8 +223,6 @@ export class PanelGenerator {
 
     const originalParams = original.params as {
       seed?: number;
-      prompt?: string;
-      negativePrompt?: string;
       model?: string;
       width?: number;
       height?: number;
@@ -260,116 +244,6 @@ export class PanelGenerator {
     };
 
     return this.generate(original.panelId, options);
-  }
-
-  /**
-   * Generate with same seed but different prompt modifications
-   */
-  async generateWithPromptModification(
-    panelId: string,
-    promptAdditions: { positive?: string; negative?: string },
-    options: GenerateOptions = {}
-  ): Promise<PanelGenerationResult> {
-    try {
-      const panel = await this.panelService.getById(panelId);
-      if (!panel) {
-        return { success: false, error: "Panel not found" };
-      }
-
-      const characters = await this.loadPanelCharacters(panel);
-      const modelFamily = options.modelFamily ?? this.detectModelFamily(options.model);
-
-      // Build base prompt
-      const builder = new PromptBuilder(modelFamily);
-      const direction = panel.direction as {
-        sceneDescription?: string;
-        cameraAngle?: string;
-        lighting?: string;
-        mood?: string;
-        additionalPrompt?: string;
-        negativePrompt?: string;
-      } | null;
-
-      if (direction) {
-        builder.setDirection(direction);
-      }
-
-      // Add characters
-      const panelCharacters = panel.characters as Array<{
-        characterId: string;
-        position?: string;
-        action?: string;
-        expression?: string;
-      }> | null;
-
-      if (panelCharacters) {
-        for (const pc of panelCharacters) {
-          const character = characters.find((c) => c.id === pc.characterId);
-          if (character) {
-            builder.addCharacter({
-              character,
-              position: pc.position,
-              action: pc.action,
-              expression: pc.expression,
-            });
-          }
-        }
-      }
-
-      // Add prompt modifications
-      if (promptAdditions.positive) {
-        builder.addPositive(promptAdditions.positive);
-      }
-      if (promptAdditions.negative) {
-        builder.addNegative(promptAdditions.negative);
-      }
-
-      const prompt = builder.build();
-      const outputPath = this.generateOutputPath(panelId, options.seed);
-
-      const result = await this.comfyui.executePipeline({
-        prompt: prompt.positive,
-        negativePrompt: prompt.negative,
-        model: options.model ?? config.comfyui.defaultModel,
-        width: options.width ?? 768,
-        height: options.height ?? 1024,
-        steps: options.steps ?? 28,
-        cfg: options.cfg ?? 7,
-        seed: options.seed,
-        sampler: options.sampler ?? "euler_ancestral",
-        loras: prompt.characterLoras,
-        outputPath,
-        quality: options.quality ?? "standard",
-      });
-
-      if (!result.success) {
-        return { success: false, error: result.error, generationResult: result };
-      }
-
-      const generatedImage = await this.imageService.create({
-        panelId,
-        imagePath: result.imagePath!,
-        params: {
-          seed: result.seed!,
-          prompt: result.prompt!,
-          negativePrompt: result.negativePrompt,
-          model: result.model,
-          width: result.width,
-          height: result.height,
-          steps: result.steps,
-          cfg: result.cfg,
-          sampler: result.sampler,
-          loras: prompt.characterLoras,
-        },
-      });
-
-      return { success: true, generatedImage, generationResult: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Generation failed",
-      };
-    }
   }
 
   // ==================== Helper Methods ====================
@@ -410,18 +284,12 @@ export class PanelGenerator {
     if (lower.includes("sdxl") || lower.includes("xl")) return "sdxl";
     return "sd15";
   }
-
-  /**
-   * Generate output path for a new image
-   */
-  private generateOutputPath(panelId: string, seed?: number): string {
-    const timestamp = Date.now();
-    const seedStr = seed ?? "random";
-    return `${config.storage.outputDir}/panels/${panelId}/${timestamp}_${seedStr}.png`;
-  }
 }
 
-// Singleton instance
+// ============================================================================
+// Singleton
+// ============================================================================
+
 let generatorInstance: PanelGenerator | null = null;
 
 /**
