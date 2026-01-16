@@ -658,7 +658,7 @@ describe("CaptionService", () => {
       expect(caption.text).toBe("Unicode text here");
     });
 
-    it("handles special characters in text", async () => {
+    it("sanitizes HTML tags from text (XSS prevention)", async () => {
       const caption = await service.create({
         panelId,
         type: "speech",
@@ -666,7 +666,10 @@ describe("CaptionService", () => {
         position: { x: 50, y: 50 },
       });
 
-      expect(caption.text).toContain("<html>");
+      // HTML tags are stripped for XSS prevention
+      expect(caption.text).not.toContain("<html>");
+      // Safe characters like quotes and ampersand are preserved
+      expect(caption.text).toContain('&');
       expect(caption.text).toContain('"quotes"');
     });
 

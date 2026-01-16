@@ -11,8 +11,120 @@ import { getNarrativeService, type GenerateCaptionsOptions } from "@graphix/core
 import { getPanelGenerator } from "@graphix/core";
 import { compositeCaptions, type RenderableCaption } from "@graphix/core";
 import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
-import { mkdir } from "fs/promises";
-import { dirname } from "path";
+import { mkdir, access } from "fs/promises";
+import { dirname, resolve } from "path";
+
+// ============================================================================
+// Security Utilities
+// ============================================================================
+
+/**
+ * Get allowed base directories for file operations.
+ * Restricts file operations to safe locations.
+ */
+function getAllowedBaseDirs(): string[] {
+  const outputDir = process.env.GRAPHIX_OUTPUT_DIR || resolve(process.cwd(), "output");
+  const inputDir = process.env.GRAPHIX_INPUT_DIR || resolve(process.cwd(), "input");
+  const tempDir = process.env.GRAPHIX_TEMP_DIR || resolve(process.cwd(), "temp");
+  return [outputDir, inputDir, tempDir, process.cwd()];
+}
+
+/**
+ * Validate that a file path is safe and within allowed directories.
+ * Prevents path traversal attacks.
+ */
+function validateFilePath(filePath: string, operation: "read" | "write"): string {
+  if (!filePath || typeof filePath !== "string") {
+    throw new Error("File path must be a non-empty string");
+  }
+
+  // Reject null bytes
+  if (filePath.includes("\0")) {
+    throw new Error("File path contains invalid characters");
+  }
+
+  // Reject obvious traversal attempts
+  if (filePath.includes("..")) {
+    throw new Error("Path traversal is not allowed");
+  }
+
+  // Resolve the path
+  const resolvedPath = resolve(filePath);
+
+  // Check if path is within allowed directories
+  const allowedDirs = getAllowedBaseDirs();
+  const isAllowed = allowedDirs.some(dir => {
+    const resolvedDir = resolve(dir);
+    return resolvedPath.startsWith(resolvedDir + "/") || resolvedPath === resolvedDir;
+  });
+
+  if (!isAllowed) {
+    throw new Error(`File path must be within allowed directories: ${allowedDirs.join(", ")}`);
+  }
+
+  // For write operations, ensure we're not writing to sensitive locations
+  if (operation === "write") {
+    const sensitivePatterns = [
+      /^\/etc\//,
+      /^\/usr\//,
+      /^\/bin\//,
+      /^\/sbin\//,
+      /^\/var\/log\//,
+      /\.env$/,
+      /\.git\//,
+      /node_modules\//,
+    ];
+
+    for (const pattern of sensitivePatterns) {
+      if (pattern.test(resolvedPath)) {
+        throw new Error("Cannot write to sensitive system locations");
+      }
+    }
+  }
+
+  return resolvedPath;
+}
+
+/**
+ * Validate input types for common request body fields.
+ */
+function validateRequestBody(body: Record<string, unknown>, requiredFields: string[]): void {
+  for (const field of requiredFields) {
+    if (body[field] === undefined || body[field] === null) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+}
+
+/**
+ * Validate position coordinates (must be 0-100 percentage).
+ */
+function validatePosition(x: unknown, y: unknown): { x: number; y: number } {
+  const xNum = Number(x);
+  const yNum = Number(y);
+
+  if (!Number.isFinite(xNum) || !Number.isFinite(yNum)) {
+    throw new Error("Position x and y must be valid numbers");
+  }
+
+  if (xNum < 0 || xNum > 100 || yNum < 0 || yNum > 100) {
+    throw new Error("Position values must be between 0 and 100 (percentage)");
+  }
+
+  return { x: xNum, y: yNum };
+}
+
+/**
+ * Validate caption type.
+ */
+const VALID_CAPTION_TYPES = ["speech", "thought", "narration", "sfx", "whisper"];
+
+function validateCaptionType(type: unknown): CaptionType {
+  if (typeof type !== "string" || !VALID_CAPTION_TYPES.includes(type)) {
+    throw new Error(`Invalid caption type. Must be one of: ${VALID_CAPTION_TYPES.join(", ")}`);
+  }
+  return type as CaptionType;
+}
 
 const captionRoutes = new Hono();
 
@@ -111,29 +223,38 @@ captionRoutes.post("/panels/:panelId/captions/preview", async (c) => {
     );
   }
 
-  const captions = await service.getByPanel(panelId);
+  try {
+    // Validate file paths to prevent path traversal
+    const validatedInputPath = validateFilePath(body.imagePath, "read");
+    const validatedOutputPath = validateFilePath(body.outputPath, "write");
 
-  const renderableCaptions: RenderableCaption[] = captions.map((cap) => ({
-    id: cap.id,
-    type: cap.type as CaptionType,
-    text: cap.text,
-    characterId: cap.characterId ?? undefined,
-    position: cap.position as CaptionPosition,
-    tailDirection: cap.tailDirection as CaptionPosition | undefined,
-    style: cap.style as Partial<CaptionStyle> | undefined,
-    zIndex: cap.zIndex,
-  }));
+    const captions = await service.getByPanel(panelId);
 
-  // Ensure output directory exists
-  await mkdir(dirname(body.outputPath), { recursive: true });
+    const renderableCaptions: RenderableCaption[] = captions.map((cap) => ({
+      id: cap.id,
+      type: cap.type as CaptionType,
+      text: cap.text,
+      characterId: cap.characterId ?? undefined,
+      position: cap.position as CaptionPosition,
+      tailDirection: cap.tailDirection as CaptionPosition | undefined,
+      style: cap.style as Partial<CaptionStyle> | undefined,
+      zIndex: cap.zIndex,
+    }));
 
-  await compositeCaptions(body.imagePath, renderableCaptions, body.outputPath);
+    // Ensure output directory exists
+    await mkdir(dirname(validatedOutputPath), { recursive: true });
 
-  return c.json({
-    success: true,
-    outputPath: body.outputPath,
-    captionCount: captions.length,
-  });
+    await compositeCaptions(validatedInputPath, renderableCaptions, validatedOutputPath);
+
+    return c.json({
+      success: true,
+      outputPath: validatedOutputPath,
+      captionCount: captions.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to render preview";
+    return c.json({ error: message }, 400);
+  }
 });
 
 // ============================================================================
@@ -195,12 +316,14 @@ captionRoutes.post("/panels/:panelId/render-with-captions", async (c) => {
     return c.json({ error: "imagePath is required" }, 400);
   }
 
-  const enabledOnly = body.enabledOnly !== false; // Default to true
-
   try {
+    // Validate input path to prevent path traversal
+    const validatedInputPath = validateFilePath(body.imagePath, "read");
+    const enabledOnly = body.enabledOnly !== false; // Default to true
+
     const generator = getPanelGenerator();
     const outputPath = await generator.renderCaptionsOnImage(
-      body.imagePath,
+      validatedInputPath,
       panelId,
       { enabledOnly }
     );
@@ -208,11 +331,13 @@ captionRoutes.post("/panels/:panelId/render-with-captions", async (c) => {
     return c.json({
       success: true,
       outputPath,
-      originalPath: body.imagePath,
+      originalPath: validatedInputPath,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to render captions";
-    return c.json({ error: message }, 500);
+    // Use 400 for validation errors, 500 for internal errors
+    const status = message.includes("path") || message.includes("traversal") ? 400 : 500;
+    return c.json({ error: message }, status);
   }
 });
 
@@ -376,64 +501,88 @@ captionRoutes.post("/captions/render", async (c) => {
     }, 400);
   }
 
-  // Map inline captions to RenderableCaption format
-  const renderableCaptions: RenderableCaption[] = body.captions.map((cap: {
-    type: CaptionType;
-    text: string;
-    x: number;
-    y: number;
-    tailX?: number;
-    tailY?: number;
-    characterId?: string;
-    zIndex?: number;
-    fontSize?: number;
-    fontColor?: string;
-    fontFamily?: string;
-    fontWeight?: "normal" | "bold";
-    backgroundColor?: string;
-    borderColor?: string;
-    borderWidth?: number;
-    opacity?: number;
-    padding?: number;
-    maxWidth?: number;
-    effectPreset?: string;
-  }) => {
-    const style: Partial<CaptionStyle> = {};
-    if (cap.fontSize) style.fontSize = cap.fontSize;
-    if (cap.fontColor) style.fontColor = cap.fontColor;
-    if (cap.fontFamily) style.fontFamily = cap.fontFamily;
-    if (cap.fontWeight) style.fontWeight = cap.fontWeight;
-    if (cap.backgroundColor) style.backgroundColor = cap.backgroundColor;
-    if (cap.borderColor) style.borderColor = cap.borderColor;
-    if (cap.borderWidth !== undefined) style.borderWidth = cap.borderWidth;
-    if (cap.opacity !== undefined) style.opacity = cap.opacity;
-    if (cap.padding) style.padding = cap.padding;
-    if (cap.maxWidth) style.maxWidth = cap.maxWidth;
+  try {
+    // Validate file paths to prevent path traversal
+    const validatedInputPath = validateFilePath(body.imagePath, "read");
+    const validatedOutputPath = validateFilePath(body.outputPath, "write");
 
-    return {
-      type: cap.type,
-      text: cap.text,
-      characterId: cap.characterId,
-      position: { x: cap.x, y: cap.y },
-      tailDirection: cap.tailX !== undefined && cap.tailY !== undefined
-        ? { x: cap.tailX, y: cap.tailY }
-        : undefined,
-      style: Object.keys(style).length > 0 ? style : undefined,
-      zIndex: cap.zIndex,
-      effectPreset: cap.effectPreset,
-    } as RenderableCaption;
-  });
+    // Map inline captions to RenderableCaption format with validation
+    const renderableCaptions: RenderableCaption[] = body.captions.map((cap: {
+      type: CaptionType;
+      text: string;
+      x: number;
+      y: number;
+      tailX?: number;
+      tailY?: number;
+      characterId?: string;
+      zIndex?: number;
+      fontSize?: number;
+      fontColor?: string;
+      fontFamily?: string;
+      fontWeight?: "normal" | "bold";
+      backgroundColor?: string;
+      borderColor?: string;
+      borderWidth?: number;
+      opacity?: number;
+      padding?: number;
+      maxWidth?: number;
+      effectPreset?: string;
+    }, index: number) => {
+      // Validate required fields
+      if (!cap.text || typeof cap.text !== "string") {
+        throw new Error(`Caption ${index}: text is required`);
+      }
 
-  // Ensure output directory exists
-  await mkdir(dirname(body.outputPath), { recursive: true });
+      // Validate caption type
+      const validType = validateCaptionType(cap.type);
 
-  await compositeCaptions(body.imagePath, renderableCaptions, body.outputPath);
+      // Validate position
+      const position = validatePosition(cap.x, cap.y);
 
-  return c.json({
-    success: true,
-    outputPath: body.outputPath,
-    captionCount: renderableCaptions.length,
-  }, 201);
+      // Validate tail direction if provided
+      let tailDirection: { x: number; y: number } | undefined;
+      if (cap.tailX !== undefined && cap.tailY !== undefined) {
+        tailDirection = validatePosition(cap.tailX, cap.tailY);
+      }
+
+      const style: Partial<CaptionStyle> = {};
+      if (cap.fontSize) style.fontSize = cap.fontSize;
+      if (cap.fontColor) style.fontColor = cap.fontColor;
+      if (cap.fontFamily) style.fontFamily = cap.fontFamily;
+      if (cap.fontWeight) style.fontWeight = cap.fontWeight;
+      if (cap.backgroundColor) style.backgroundColor = cap.backgroundColor;
+      if (cap.borderColor) style.borderColor = cap.borderColor;
+      if (cap.borderWidth !== undefined) style.borderWidth = cap.borderWidth;
+      if (cap.opacity !== undefined) style.opacity = cap.opacity;
+      if (cap.padding) style.padding = cap.padding;
+      if (cap.maxWidth) style.maxWidth = cap.maxWidth;
+
+      return {
+        type: validType,
+        text: cap.text,
+        characterId: cap.characterId,
+        position,
+        tailDirection,
+        style: Object.keys(style).length > 0 ? style : undefined,
+        zIndex: cap.zIndex,
+        effectPreset: cap.effectPreset,
+      } as RenderableCaption;
+    });
+
+    // Ensure output directory exists
+    await mkdir(dirname(validatedOutputPath), { recursive: true });
+
+    await compositeCaptions(validatedInputPath, renderableCaptions, validatedOutputPath);
+
+    return c.json({
+      success: true,
+      outputPath: validatedOutputPath,
+      captionCount: renderableCaptions.length,
+    }, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to render captions";
+    return c.json({ error: message }, 400);
+  }
 });
 
 export { captionRoutes };

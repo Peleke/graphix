@@ -649,7 +649,7 @@ describe("Caption Generation", () => {
       expect(result.captions).toHaveLength(0);
     });
 
-    it("handles special characters in text", async () => {
+    it("sanitizes HTML tags from text (XSS prevention)", async () => {
       const beat = await narrativeService.createBeat({
         storyId,
         position: 0,
@@ -660,7 +660,23 @@ describe("Caption Generation", () => {
       await narrativeService.convertBeatToPanel(beat.id, storyboardId);
       const result = await narrativeService.generateCaptionsFromBeat(beat.id);
 
-      expect(result.captions[0].text).toBe('<script>alert("XSS")</script>');
+      // HTML tags should be stripped for XSS prevention
+      expect(result.captions[0].text).toBe('alert("XSS")');
+    });
+
+    it("preserves safe special characters in text", async () => {
+      const beat = await narrativeService.createBeat({
+        storyId,
+        position: 0,
+        visualDescription: "Scene",
+        dialogue: [{ characterId, text: "Hello! How are you? I'm fine... #awesome @user", type: "speech" }],
+      });
+
+      await narrativeService.convertBeatToPanel(beat.id, storyboardId);
+      const result = await narrativeService.generateCaptionsFromBeat(beat.id);
+
+      // Safe special characters should be preserved
+      expect(result.captions[0].text).toBe("Hello! How are you? I'm fine... #awesome @user");
     });
 
     it("handles very long dialogue", async () => {

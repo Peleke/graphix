@@ -583,10 +583,11 @@ describe("E2E: Caption System Workflows", () => {
 
       await narrativeService.convertBeatToPanel(beat.id, storyboard.id);
 
+      // Use valid position values (0-100 percentage)
       const customPositions = {
-        dialogue: { x: 100, y: 200 },
-        narration: { x: 300, y: 400 },
-        sfx: { x: 500, y: 600 },
+        dialogue: { x: 10, y: 20 },
+        narration: { x: 30, y: 40 },
+        sfx: { x: 50, y: 60 },
       };
 
       const { captions } = await narrativeService.generateCaptionsFromBeat(beat.id, {
@@ -597,9 +598,9 @@ describe("E2E: Caption System Workflows", () => {
       const narrationCap = captions.find((c) => c.type === "narration");
       const sfxCap = captions.find((c) => c.type === "sfx");
 
-      expect(speechCap?.position).toEqual({ x: 100, y: 200 });
-      expect(narrationCap?.position).toEqual({ x: 300, y: 400 });
-      expect(sfxCap?.position).toEqual({ x: 500, y: 600 });
+      expect(speechCap?.position).toEqual({ x: 10, y: 20 });
+      expect(narrationCap?.position).toEqual({ x: 30, y: 40 });
+      expect(sfxCap?.position).toEqual({ x: 50, y: 60 });
     });
   });
 
@@ -799,10 +800,13 @@ describe("E2E: Caption System Edge Cases", () => {
 
     expect(captions).toHaveLength(4);
 
-    // All special characters should be preserved
+    // Unicode characters should be preserved
     expect(captions.some((c) => c.text.includes("こんにちは"))).toBe(true);
     expect(captions.some((c) => c.text.includes("💖"))).toBe(true);
-    expect(captions.some((c) => c.text.includes("<script>"))).toBe(true);
+    // HTML tags should be STRIPPED for XSS prevention
+    expect(captions.some((c) => c.text.includes("<script>"))).toBe(false);
+    expect(captions.some((c) => c.text.includes('alert("xss")'))).toBe(true);
+    // Newlines should be preserved
     expect(captions.some((c) => c.text.includes("\n"))).toBe(true);
   });
 
@@ -838,7 +842,8 @@ describe("E2E: Caption System Edge Cases", () => {
     const { captions } = await narrativeService.generateCaptionsFromBeat(beat.id);
 
     expect(captions).toHaveLength(1);
-    expect(captions[0].text).toBe(longText);
+    // Text is trimmed during sanitization, so trailing spaces are removed
+    expect(captions[0].text).toBe(longText.trim());
   });
 
   it("handles beat deletion after caption generation", async () => {

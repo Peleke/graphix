@@ -31,6 +31,7 @@ import {
   type CaptionPosition,
 } from "../db/index.js";
 import { getPanelService } from "./panel.service.js";
+import { validatePosition as validatePositionUtil, sanitizeText } from "../utils/security.js";
 
 // ============================================================================
 // Input Types (for UI-friendly API)
@@ -814,6 +815,17 @@ export class NarrativeService {
       defaultPositions = {},
     } = options;
 
+    // Validate custom positions if provided (must be 0-100 percentage)
+    if (defaultPositions.dialogue) {
+      validatePositionUtil(defaultPositions.dialogue);
+    }
+    if (defaultPositions.narration) {
+      validatePositionUtil(defaultPositions.narration);
+    }
+    if (defaultPositions.sfx) {
+      validatePositionUtil(defaultPositions.sfx);
+    }
+
     // Default positions for different caption types
     // Track whether custom positions were provided (to skip auto-staggering)
     const hasCustomDialoguePosition = !!defaultPositions.dialogue;
@@ -840,6 +852,12 @@ export class NarrativeService {
     // Generate captions from dialogue
     if (includeDialogue && beat.dialogue && beat.dialogue.length > 0) {
       for (const dialogueLine of beat.dialogue) {
+        // Skip empty dialogue lines
+        const sanitizedText = sanitizeText(dialogueLine.text).trim();
+        if (!sanitizedText) {
+          continue;
+        }
+
         const captionType: CaptionType = dialogueLine.type === "whisper"
           ? "whisper"
           : dialogueLine.type === "thought"
@@ -858,7 +876,7 @@ export class NarrativeService {
           .values({
             panelId: beat.panelId,
             type: captionType,
-            text: dialogueLine.text,
+            text: sanitizedText,
             characterId: dialogueLine.characterId,
             position: { x: positions.dialogue.x, y: yPos },
             tailDirection: { x: 50, y: 80 }, // Point tail down toward characters
@@ -876,48 +894,54 @@ export class NarrativeService {
     }
 
     // Generate caption from narration
-    if (includeNarration && beat.narration && beat.narration.trim().length > 0) {
-      const [caption] = await this.db
-        .insert(panelCaptions)
-        .values({
-          panelId: beat.panelId,
-          type: "narration",
-          text: beat.narration.trim(),
-          characterId: null,
-          position: positions.narration,
-          tailDirection: null,
-          enabled: true,
-          orderIndex,
-          beatId: beatId,
-          generatedFromBeat: true,
-          manuallyEdited: false,
-        })
-        .returning();
+    if (includeNarration && beat.narration) {
+      const sanitizedNarration = sanitizeText(beat.narration).trim();
+      if (sanitizedNarration.length > 0) {
+        const [caption] = await this.db
+          .insert(panelCaptions)
+          .values({
+            panelId: beat.panelId,
+            type: "narration",
+            text: sanitizedNarration,
+            characterId: null,
+            position: positions.narration,
+            tailDirection: null,
+            enabled: true,
+            orderIndex,
+            beatId: beatId,
+            generatedFromBeat: true,
+            manuallyEdited: false,
+          })
+          .returning();
 
-      createdCaptions.push(caption);
-      orderIndex++;
+        createdCaptions.push(caption);
+        orderIndex++;
+      }
     }
 
     // Generate caption from SFX
-    if (includeSfx && beat.sfx && beat.sfx.trim().length > 0) {
-      const [caption] = await this.db
-        .insert(panelCaptions)
-        .values({
-          panelId: beat.panelId,
-          type: "sfx",
-          text: beat.sfx.trim().toUpperCase(), // SFX are typically uppercase
-          characterId: null,
-          position: positions.sfx,
-          tailDirection: null,
-          enabled: true,
-          orderIndex,
-          beatId: beatId,
-          generatedFromBeat: true,
-          manuallyEdited: false,
-        })
-        .returning();
+    if (includeSfx && beat.sfx) {
+      const sanitizedSfx = sanitizeText(beat.sfx).trim().toUpperCase();
+      if (sanitizedSfx.length > 0) {
+        const [caption] = await this.db
+          .insert(panelCaptions)
+          .values({
+            panelId: beat.panelId,
+            type: "sfx",
+            text: sanitizedSfx,
+            characterId: null,
+            position: positions.sfx,
+            tailDirection: null,
+            enabled: true,
+            orderIndex,
+            beatId: beatId,
+            generatedFromBeat: true,
+            manuallyEdited: false,
+          })
+          .returning();
 
-      createdCaptions.push(caption);
+        createdCaptions.push(caption);
+      }
     }
 
     return {

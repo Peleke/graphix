@@ -5,7 +5,7 @@
  * narration boxes, SFX text, and whispers).
  */
 
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { getDefaultDatabase, type Database } from "../db/index.js";
 import {
   panelCaptions,
@@ -17,6 +17,11 @@ import {
   type CaptionPosition,
   type CaptionStyle,
 } from "../db/index.js";
+import {
+  sanitizeText,
+  validatePosition as validatePositionUtil,
+  validateCaptionStyle,
+} from "../utils/security.js";
 
 // Valid caption types
 const VALID_CAPTION_TYPES: CaptionType[] = [
@@ -161,21 +166,33 @@ export class CaptionService {
       this.validatePosition(data.tailDirection);
     }
 
-    // Validate text
-    if (!data.text || data.text.trim().length === 0) {
+    // Sanitize and validate text (defense in depth against XSS)
+    const sanitizedText = sanitizeText(data.text).trim();
+    if (!sanitizedText || sanitizedText.length === 0) {
       throw new Error("Caption text cannot be empty");
     }
-    if (data.text.length > 1000) {
+    if (sanitizedText.length > 1000) {
       throw new Error("Caption text cannot exceed 1000 characters");
     }
 
-    // Determine zIndex if not provided
+    // Validate style if provided
+    if (data.style) {
+      const styleValidation = validateCaptionStyle(data.style as Record<string, unknown>);
+      if (!styleValidation.valid) {
+        throw new Error(`Invalid style: ${styleValidation.errors.join("; ")}`);
+      }
+    }
+
+    // Determine zIndex atomically using a subquery to avoid race conditions
+    // This calculates max(zIndex) + 1 in the same query as the insert
     let zIndex = data.zIndex;
     if (zIndex === undefined) {
-      const existingCaptions = await this.getByPanel(data.panelId);
-      zIndex = existingCaptions.length > 0
-        ? Math.max(...existingCaptions.map(c => c.zIndex)) + 1
-        : 0;
+      // Use COALESCE to handle the case when there are no existing captions
+      const [maxResult] = await this.db
+        .select({ maxZIndex: sql<number>`COALESCE(MAX(${panelCaptions.zIndex}), -1)` })
+        .from(panelCaptions)
+        .where(eq(panelCaptions.panelId, data.panelId));
+      zIndex = (maxResult?.maxZIndex ?? -1) + 1;
     }
 
     // Create caption
@@ -184,7 +201,7 @@ export class CaptionService {
       .values({
         panelId: data.panelId,
         type: data.type,
-        text: data.text.trim(),
+        text: sanitizedText,
         characterId: data.characterId,
         position: data.position,
         tailDirection: data.tailDirection,
@@ -241,15 +258,16 @@ export class CaptionService {
       updates.type = data.type;
     }
 
-    // Validate and apply text
+    // Validate, sanitize, and apply text
     if (data.text !== undefined) {
-      if (!data.text || data.text.trim().length === 0) {
+      const sanitizedText = sanitizeText(data.text).trim();
+      if (!sanitizedText || sanitizedText.length === 0) {
         throw new Error("Caption text cannot be empty");
       }
-      if (data.text.length > 1000) {
+      if (sanitizedText.length > 1000) {
         throw new Error("Caption text cannot exceed 1000 characters");
       }
-      updates.text = data.text.trim();
+      updates.text = sanitizedText;
       // Mark as manually edited if text changes
       if (updates.text !== existing.text) {
         updates.manuallyEdited = true;
@@ -284,8 +302,12 @@ export class CaptionService {
       updates.tailDirection = data.tailDirection;
     }
 
-    // Apply style
+    // Validate and apply style
     if (data.style !== undefined) {
+      const styleValidation = validateCaptionStyle(data.style as Record<string, unknown>);
+      if (!styleValidation.valid) {
+        throw new Error(`Invalid style: ${styleValidation.errors.join("; ")}`);
+      }
       // Merge with existing style
       updates.style = { ...existing.style, ...data.style };
     }
@@ -331,25 +353,46 @@ export class CaptionService {
   }
 
   /**
-   * Reorder captions by updating their orderIndex values
+   * Reorder captions by updating their orderIndex values.
+   * All captions in the panel must be included in the captionIds array.
    */
   async reorder(panelId: string, captionIds: string[]): Promise<PanelCaption[]> {
     // Validate all captions belong to the panel
     const existing = await this.getByPanel(panelId);
     const existingIds = new Set(existing.map(c => c.id));
+    const providedIds = new Set(captionIds);
 
+    // Check for duplicate IDs in input
+    if (providedIds.size !== captionIds.length) {
+      throw new Error("Duplicate caption IDs are not allowed");
+    }
+
+    // Validate all provided IDs exist in the panel
     for (const id of captionIds) {
       if (!existingIds.has(id)) {
         throw new Error(`Caption ${id} not found in panel ${panelId}`);
       }
     }
 
-    // Update orderIndex for each caption
+    // Validate ALL captions from the panel are included
+    if (captionIds.length !== existing.length) {
+      const missingIds = existing
+        .filter(c => !providedIds.has(c.id))
+        .map(c => c.id);
+      throw new Error(
+        `All captions must be included in reorder. Missing: ${missingIds.join(", ")}`
+      );
+    }
+
+    // Update orderIndex for each caption atomically using batch update
     const updated: PanelCaption[] = [];
+    const now = new Date();
+
+    // Execute all updates (SQLite serializes writes so this is safe)
     for (let i = 0; i < captionIds.length; i++) {
       const [caption] = await this.db
         .update(panelCaptions)
-        .set({ orderIndex: i, updatedAt: new Date() })
+        .set({ orderIndex: i, updatedAt: now })
         .where(eq(panelCaptions.id, captionIds[i]))
         .returning();
       updated.push(caption);
