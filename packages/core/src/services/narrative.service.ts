@@ -31,6 +31,7 @@ import {
   type CaptionPosition,
 } from "../db/index.js";
 import { getPanelService } from "./panel.service.js";
+import { getLLMService, type InferredCaption } from "./llm.service.js";
 import { validatePosition as validatePositionUtil, sanitizeText } from "../utils/security.js";
 
 // ============================================================================
@@ -115,6 +116,8 @@ export interface GenerateCaptionsOptions {
     narration?: CaptionPosition;
     sfx?: CaptionPosition;
   };
+  /** Infer captions from visualDescription using LLM if no explicit fields (default: true) */
+  inferFromVisual?: boolean;
 }
 
 /** Result of caption generation */
@@ -813,6 +816,7 @@ export class NarrativeService {
       includeNarration = true,
       includeSfx = true,
       defaultPositions = {},
+      inferFromVisual = true,
     } = options;
 
     // Validate custom positions if provided (must be 0-100 percentage)
@@ -835,114 +839,198 @@ export class NarrativeService {
       sfx: defaultPositions.sfx ?? { x: 75, y: 50 },
     };
 
-    const createdCaptions: PanelCaption[] = [];
-    let orderIndex = 0;
+    // Use a transaction to prevent race conditions on concurrent caption generation
+    // for the same beat. This ensures delete+insert is atomic.
+    const createdCaptions = await this.db.transaction(async (tx) => {
+      const txCaptions: PanelCaption[] = [];
+      let orderIndex = 0;
 
-    // Delete existing captions that were generated from this beat
-    await this.db
-      .delete(panelCaptions)
-      .where(
-        and(
-          eq(panelCaptions.panelId, beat.panelId),
-          eq(panelCaptions.beatId, beatId),
-          eq(panelCaptions.generatedFromBeat, true)
-        )
-      );
+      // Delete existing captions that were generated from this beat
+      await tx
+        .delete(panelCaptions)
+        .where(
+          and(
+            eq(panelCaptions.panelId, beat.panelId),
+            eq(panelCaptions.beatId, beatId),
+            eq(panelCaptions.generatedFromBeat, true)
+          )
+        );
 
-    // Generate captions from dialogue
-    if (includeDialogue && beat.dialogue && beat.dialogue.length > 0) {
-      for (const dialogueLine of beat.dialogue) {
-        // Skip empty dialogue lines
-        const sanitizedText = sanitizeText(dialogueLine.text).trim();
-        if (!sanitizedText) {
-          continue;
+      // Generate captions from dialogue
+      if (includeDialogue && beat.dialogue && beat.dialogue.length > 0) {
+        for (const dialogueLine of beat.dialogue) {
+          // Skip empty dialogue lines
+          const sanitizedText = sanitizeText(dialogueLine.text).trim();
+          if (!sanitizedText) {
+            continue;
+          }
+
+          const captionType: CaptionType = dialogueLine.type === "whisper"
+            ? "whisper"
+            : dialogueLine.type === "thought"
+              ? "thought"
+              : "speech";
+
+          // Stagger vertical position for multiple dialogue lines (only when using default positions)
+          let yPos = positions.dialogue.y;
+          if (!hasCustomDialoguePosition) {
+            const verticalOffset = orderIndex * 15;
+            yPos = Math.min(positions.dialogue.y + verticalOffset, 80);
+          }
+
+          const [caption] = await tx
+            .insert(panelCaptions)
+            .values({
+              panelId: beat.panelId,
+              type: captionType,
+              text: sanitizedText,
+              characterId: dialogueLine.characterId,
+              position: { x: positions.dialogue.x, y: yPos },
+              tailDirection: { x: 50, y: 80 }, // Point tail down toward characters
+              enabled: true,
+              orderIndex,
+              beatId: beatId,
+              generatedFromBeat: true,
+              manuallyEdited: false,
+            })
+            .returning();
+
+          txCaptions.push(caption);
+          orderIndex++;
         }
+      }
 
-        const captionType: CaptionType = dialogueLine.type === "whisper"
-          ? "whisper"
-          : dialogueLine.type === "thought"
-            ? "thought"
-            : "speech";
+      // Generate caption from narration
+      if (includeNarration && beat.narration) {
+        const sanitizedNarration = sanitizeText(beat.narration).trim();
+        if (sanitizedNarration.length > 0) {
+          const [caption] = await tx
+            .insert(panelCaptions)
+            .values({
+              panelId: beat.panelId,
+              type: "narration",
+              text: sanitizedNarration,
+              characterId: null,
+              position: positions.narration,
+              tailDirection: null,
+              enabled: true,
+              orderIndex,
+              beatId: beatId,
+              generatedFromBeat: true,
+              manuallyEdited: false,
+            })
+            .returning();
 
-        // Stagger vertical position for multiple dialogue lines (only when using default positions)
-        let yPos = positions.dialogue.y;
-        if (!hasCustomDialoguePosition) {
-          const verticalOffset = orderIndex * 15;
-          yPos = Math.min(positions.dialogue.y + verticalOffset, 80);
+          txCaptions.push(caption);
+          orderIndex++;
         }
-
-        const [caption] = await this.db
-          .insert(panelCaptions)
-          .values({
-            panelId: beat.panelId,
-            type: captionType,
-            text: sanitizedText,
-            characterId: dialogueLine.characterId,
-            position: { x: positions.dialogue.x, y: yPos },
-            tailDirection: { x: 50, y: 80 }, // Point tail down toward characters
-            enabled: true,
-            orderIndex,
-            beatId: beatId,
-            generatedFromBeat: true,
-            manuallyEdited: false,
-          })
-          .returning();
-
-        createdCaptions.push(caption);
-        orderIndex++;
       }
-    }
 
-    // Generate caption from narration
-    if (includeNarration && beat.narration) {
-      const sanitizedNarration = sanitizeText(beat.narration).trim();
-      if (sanitizedNarration.length > 0) {
-        const [caption] = await this.db
-          .insert(panelCaptions)
-          .values({
-            panelId: beat.panelId,
-            type: "narration",
-            text: sanitizedNarration,
-            characterId: null,
-            position: positions.narration,
-            tailDirection: null,
-            enabled: true,
-            orderIndex,
-            beatId: beatId,
-            generatedFromBeat: true,
-            manuallyEdited: false,
-          })
-          .returning();
+      // Generate caption from SFX
+      if (includeSfx && beat.sfx) {
+        const sanitizedSfx = sanitizeText(beat.sfx).trim().toUpperCase();
+        if (sanitizedSfx.length > 0) {
+          const [caption] = await tx
+            .insert(panelCaptions)
+            .values({
+              panelId: beat.panelId,
+              type: "sfx",
+              text: sanitizedSfx,
+              characterId: null,
+              position: positions.sfx,
+              tailDirection: null,
+              enabled: true,
+              orderIndex,
+              beatId: beatId,
+              generatedFromBeat: true,
+              manuallyEdited: false,
+            })
+            .returning();
 
-        createdCaptions.push(caption);
-        orderIndex++;
+          txCaptions.push(caption);
+          orderIndex++;
+        }
       }
-    }
 
-    // Generate caption from SFX
-    if (includeSfx && beat.sfx) {
-      const sanitizedSfx = sanitizeText(beat.sfx).trim().toUpperCase();
-      if (sanitizedSfx.length > 0) {
-        const [caption] = await this.db
-          .insert(panelCaptions)
-          .values({
-            panelId: beat.panelId,
-            type: "sfx",
-            text: sanitizedSfx,
-            characterId: null,
-            position: positions.sfx,
-            tailDirection: null,
-            enabled: true,
-            orderIndex,
-            beatId: beatId,
-            generatedFromBeat: true,
-            manuallyEdited: false,
-          })
-          .returning();
+      // LLM inference fallback: if no captions created and visualDescription exists
+      if (
+        txCaptions.length === 0 &&
+        inferFromVisual &&
+        beat.visualDescription &&
+        beat.visualDescription.trim().length > 0
+      ) {
+        try {
+          const llmService = getLLMService();
 
-        createdCaptions.push(caption);
+          // Only attempt inference if LLM service is ready
+          if (llmService.isReady()) {
+            const inferredCaptions = await llmService.inferCaptionsFromVisualDescription(
+              beat.visualDescription
+            );
+
+            // Filter by confidence and create captions
+            const highConfidenceCaptions = inferredCaptions.filter(
+              (c: InferredCaption) => c.confidence >= 0.6
+            );
+
+            for (const inferred of highConfidenceCaptions) {
+              const sanitizedText = sanitizeText(inferred.text).trim();
+              if (!sanitizedText) continue;
+
+              // Determine position based on type
+              const captionType = inferred.type as CaptionType;
+              let position: CaptionPosition;
+              let tailDirection: CaptionPosition | null = null;
+
+              switch (captionType) {
+                case "speech":
+                case "thought":
+                case "whisper":
+                  position = { x: positions.dialogue.x, y: positions.dialogue.y + orderIndex * 15 };
+                  tailDirection = { x: 50, y: 80 };
+                  break;
+                case "narration":
+                  position = positions.narration;
+                  break;
+                case "sfx":
+                  position = positions.sfx;
+                  break;
+                default:
+                  position = { x: 50, y: 50 };
+              }
+
+              const [caption] = await tx
+                .insert(panelCaptions)
+                .values({
+                  panelId: beat.panelId,
+                  type: captionType,
+                  text: captionType === "sfx" ? sanitizedText.toUpperCase() : sanitizedText,
+                  characterId: null, // Can't reliably match character from name to ID
+                  position,
+                  tailDirection,
+                  enabled: true,
+                  orderIndex,
+                  beatId: beatId,
+                  generatedFromBeat: true,
+                  manuallyEdited: false,
+                })
+                .returning();
+
+              txCaptions.push(caption);
+              orderIndex++;
+            }
+          }
+        } catch (error) {
+          // Log but don't fail - LLM inference is a best-effort fallback
+          console.warn(
+            `LLM caption inference failed for beat ${beatId}:`,
+            error instanceof Error ? error.message : "Unknown error"
+          );
+        }
       }
-    }
+
+      return txCaptions;
+    }); // End transaction
 
     return {
       captions: createdCaptions,
