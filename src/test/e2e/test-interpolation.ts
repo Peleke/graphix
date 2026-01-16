@@ -49,7 +49,7 @@ async function testInterpolation() {
   console.log("\nCreating pose-guided variant...");
 
   // First preprocess to get pose
-  const poseResult = await client.preprocessControlImage({
+  const poseResult = await client.preprocessImage({
     input_image: "arm_wrestling_ref.png",
     control_type: "openpose",
     output_path: `${OUTPUT_DIR}/pose_skeleton.png`,
@@ -64,7 +64,6 @@ async function testInterpolation() {
       negative_prompt: "human, realistic, deformed",
       control_image: `${OUTPUT_DIR}/pose_skeleton.png`,
       control_type: "openpose",
-      controlnet_model: "controlnet-openpose-sdxl-1.0.safetensors",
       strength: 0.8,
       model: "novaFurryXL_ilV130.safetensors",
       width: 768,

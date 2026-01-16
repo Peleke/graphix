@@ -5,7 +5,7 @@
  * This test runs against a real database but mocks ComfyUI generation.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { getDb, closeDb } from "../../db/client.js";
 import { getProjectService } from "../../services/project.service.js";
 import { getCharacterService } from "../../services/character.service.js";
@@ -86,12 +86,11 @@ describe("Otter Stress Relief Scenario - Phase 3.5 UAT", () => {
         name: "Mira",
         profile: {
           species: "otter",
-          gender: "female",
           bodyType: "average",
-          furColors: ["brown", "cream"],
-          eyeColor: "amber",
-          description: "Female river otter, office worker, brown fur with cream underbelly",
-          distinguishingFeatures: ["small scar on left ear", "always looks exhausted"],
+          features: ["brown fur", "cream underbelly", "amber eyes"],
+          ageDescriptors: ["adult"],
+          clothing: [],
+          distinguishing: ["small scar on left ear", "always looks exhausted"],
         },
         promptFragments: {
           positive: "female otter, anthro otter, brown fur, cream underbelly, amber eyes, curvy",
@@ -358,7 +357,7 @@ describe("Otter Stress Relief Scenario - Phase 3.5 UAT", () => {
               prompt: data.prompt,
               negativePrompt: "bad quality, deformed",
               model: "ponyDiffusion_v6.safetensors",
-              loras: [{ name: "mira_otter_v1.safetensors", strengthModel: 0.85 }],
+              loras: [{ name: "mira_otter_v1.safetensors", strength: 0.85 }],
               steps: 28,
               cfg: 7,
               sampler: "euler_ancestral",
@@ -432,8 +431,8 @@ describe("Otter Stress Relief Scenario - Phase 3.5 UAT", () => {
       expect(stats).toBeDefined();
 
       console.log(`  📊 Stats for climax variants:`);
-      console.log(`     Total: ${stats.total}`);
-      console.log(`     Avg rating: ${stats.avgRating?.toFixed(2) ?? "N/A"}`);
+      console.log(`     Top rated: ${stats.topRated.length}`);
+      console.log(`     Recommendations: ${stats.recommendations.length}`);
     });
   });
 

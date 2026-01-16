@@ -344,9 +344,6 @@ export class CompositionService {
       const result = await renderPage(options.templateId, panels, options.outputPath, {
         pageSize,
         backgroundColor: options.backgroundColor,
-        gutterSize: options.gutterSize,
-        margin: options.margin,
-        panelBorderRadius: options.panelBorderRadius,
         panelBorder: options.panelBorderWidth
           ? { width: options.panelBorderWidth, color: options.panelBorderColor ?? "#000000" }
           : undefined,
@@ -382,8 +379,7 @@ export class CompositionService {
     try {
       const result = await renderGrid(options.imagePaths, options.outputPath, {
         columns: options.columns ?? 4,
-        thumbnailSize: options.thumbnailSize ?? 300,
-        gap: options.gap ?? 10,
+        gutter: options.gap ?? 10,
         backgroundColor: options.backgroundColor ?? "#ffffff",
       });
 
