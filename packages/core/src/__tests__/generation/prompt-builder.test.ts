@@ -17,7 +17,7 @@ import {
   type PromptDirection,
   type ModelFamily,
 } from "../../generation/prompt-builder.js";
-import type { Character, Panel } from "../../db/schema.js";
+import type { Character, Panel, CharacterProfile } from "../../db/schema.js";
 
 describe("PromptBuilder", () => {
   beforeEach(async () => {
@@ -26,6 +26,43 @@ describe("PromptBuilder", () => {
 
   afterEach(() => {
     teardownTestDatabase();
+  });
+
+  // ==========================================================================
+  // Shared Mock Helpers
+  // ==========================================================================
+  const createMockCharacter = (profileOverrides: Partial<CharacterProfile> = {}): Character => ({
+    id: "char-1",
+    projectId: "proj-1",
+    name: "Test Character",
+    profile: {
+      species: "human",
+      bodyType: "average",
+      features: ["blue hair", "red eyes"],
+      ageDescriptors: ["young adult"],
+      clothing: [],
+      distinguishing: [],
+      basePrompt: "1girl, blue hair, red eyes",
+      ...profileOverrides,
+    },
+    promptFragments: { positive: "1girl, blue hair, red eyes", negative: "", triggers: [] },
+    referenceImages: [],
+    lora: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const createMockPanel = (overrides: Partial<Panel> = {}): Panel => ({
+    id: "panel-1",
+    storyboardId: "sb-1",
+    position: 0,
+    description: "Test panel",
+    direction: null,
+    characterIds: [],
+    selectedOutputId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
   });
 
   // ==========================================================================
@@ -123,10 +160,21 @@ describe("PromptBuilder", () => {
       id: "char-1",
       projectId: "proj-1",
       name: "Test Character",
-      basePrompt: "1girl, blue hair, red eyes",
       profile: {
-        basePrompt: "1girl, blue hair, red eyes",
+        species: "human",
+        bodyType: "average",
+        features: ["blue hair", "red eyes"],
+        ageDescriptors: ["young adult"],
+        clothing: [],
+        distinguishing: [],
       },
+      promptFragments: {
+        positive: "1girl, blue hair, red eyes",
+        negative: "",
+        triggers: [],
+      },
+      referenceImages: [],
+      lora: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -135,13 +183,11 @@ describe("PromptBuilder", () => {
     const mockPanel = (overrides: Partial<Panel> = {}): Panel => ({
       id: "panel-1",
       storyboardId: "sb-1",
-      sequenceIndex: 0,
+      position: 0,
       description: "Test panel",
-      status: "draft",
       direction: null,
       characterIds: [],
-      generationParams: null,
-      metadata: null,
+      selectedOutputId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       ...overrides,
@@ -207,15 +253,23 @@ describe("PromptBuilder", () => {
   // PromptBuilder - Character Placement
   // ==========================================================================
   describe("Character Placement", () => {
-    const createMockCharacter = (profile: Record<string, unknown> = {}): Character => ({
+    const createMockCharacter = (profileOverrides: Partial<CharacterProfile> = {}): Character => ({
       id: "char-1",
       projectId: "proj-1",
       name: "Test Character",
-      basePrompt: "1girl, silver hair",
       profile: {
+        species: "human",
+        bodyType: "average",
+        features: ["silver hair", "golden eyes"],
+        ageDescriptors: [],
+        clothing: [],
+        distinguishing: [],
         basePrompt: "1girl, silver hair, golden eyes",
-        ...profile,
+        ...profileOverrides,
       },
+      promptFragments: { positive: "", negative: "", triggers: [] },
+      referenceImages: [],
+      lora: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -293,13 +347,13 @@ describe("PromptBuilder", () => {
         ...createMockCharacter(),
         id: "char-1",
         name: "Character 1",
-        profile: { basePrompt: "1girl, red hair" },
+        profile: { ...createMockCharacter().profile, basePrompt: "1girl, red hair" },
       };
       const char2: Character = {
         ...createMockCharacter(),
         id: "char-2",
         name: "Character 2",
-        profile: { basePrompt: "1boy, blue hair" },
+        profile: { ...createMockCharacter().profile, basePrompt: "1boy, blue hair" },
       };
 
       builder.addCharacter({ character: char1 });
@@ -315,7 +369,7 @@ describe("PromptBuilder", () => {
       const char1 = createMockCharacter();
       const char2: Character = {
         ...createMockCharacter(),
-        profile: { basePrompt: "different character" },
+        profile: { ...createMockCharacter().profile, basePrompt: "different character" },
       };
 
       builder.addCharacter({ character: char1 });
@@ -326,16 +380,11 @@ describe("PromptBuilder", () => {
       expect(result.positive).toContain("different character");
     });
 
-    it("handles character without profile", () => {
+    it("handles character without basePrompt", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
-        name: "Minimal Character",
-        basePrompt: "",
-        profile: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        ...createMockCharacter(),
+        profile: { ...createMockCharacter().profile, basePrompt: undefined },
       };
 
       builder.addCharacter({ character });
@@ -350,22 +399,17 @@ describe("PromptBuilder", () => {
   // PromptBuilder - LoRA Integration
   // ==========================================================================
   describe("LoRA Integration", () => {
-    it("extracts LoRA from character profile", () => {
+    it("extracts LoRA from character", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "LoRA Character",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          lora: {
-            path: "character_lora_v1.safetensors",
-            weight: 0.85,
-          },
+        lora: {
+          path: "character_lora_v1.safetensors",
+          strength: 0.85,
+          trainedAt: new Date().toISOString(),
+          trainingImages: 10,
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
       builder.addCharacter({ character });
@@ -376,21 +420,17 @@ describe("PromptBuilder", () => {
       expect(result.characterLoras[0].weight).toBe(0.85);
     });
 
-    it("uses default weight when not specified", () => {
+    it("uses default weight when strength not specified", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "LoRA Character",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          lora: {
-            path: "my_lora.safetensors",
-          },
+        lora: {
+          path: "my_lora.safetensors",
+          strength: 0.8,
+          trainedAt: new Date().toISOString(),
+          trainingImages: 5,
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
       builder.addCharacter({ character });
@@ -403,29 +443,17 @@ describe("PromptBuilder", () => {
       const builder = new PromptBuilder("illustrious");
 
       const char1: Character = {
+        ...createMockCharacter(),
         id: "char-1",
-        projectId: "proj-1",
         name: "Character 1",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          lora: { path: "lora1.safetensors", weight: 0.7 },
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        lora: { path: "lora1.safetensors", strength: 0.7, trainedAt: new Date().toISOString(), trainingImages: 8 },
       };
 
       const char2: Character = {
+        ...createMockCharacter(),
         id: "char-2",
-        projectId: "proj-1",
         name: "Character 2",
-        basePrompt: "1boy",
-        profile: {
-          basePrompt: "1boy",
-          lora: { path: "lora2.safetensors", weight: 0.9 },
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        lora: { path: "lora2.safetensors", strength: 0.9, trainedAt: new Date().toISOString(), trainingImages: 12 },
       };
 
       builder.addCharacter({ character: char1 });
@@ -435,22 +463,12 @@ describe("PromptBuilder", () => {
       expect(result.characterLoras).toHaveLength(2);
     });
 
-    it("extracts reference images from character profile", () => {
+    it("extracts reference images from character", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "Character",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          referenceImages: [
-            { path: "/refs/char_front.png", isPrimary: true },
-            { path: "/refs/char_side.png", isPrimary: false },
-          ],
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        referenceImages: ["/refs/char_front.png", "/refs/char_side.png"],
       };
 
       builder.addCharacter({ character });
@@ -677,16 +695,13 @@ describe("PromptBuilder", () => {
     it("includes character-specific negative prompts", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "Character",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          negativePrompt: "wrong hair color",
+        promptFragments: {
+          positive: "1girl",
+          negative: "wrong hair color",
+          triggers: [],
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
       builder.addCharacter({ character });
@@ -698,16 +713,13 @@ describe("PromptBuilder", () => {
     it("combines all negative prompt sources", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "Character",
-        basePrompt: "1girl",
-        profile: {
-          basePrompt: "1girl",
-          negativePrompt: "character-specific negative",
+        promptFragments: {
+          positive: "1girl",
+          negative: "character-specific negative",
+          triggers: [],
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
       builder.setDirection({ negativePrompt: "direction negative" });
@@ -794,13 +806,12 @@ describe("PromptBuilder", () => {
     it("clears all accumulated state", () => {
       const builder = new PromptBuilder("illustrious");
       const character: Character = {
-        id: "char-1",
-        projectId: "proj-1",
+        ...createMockCharacter(),
         name: "Character",
-        basePrompt: "1girl",
-        profile: { basePrompt: "1girl, test character" },
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        profile: {
+          ...createMockCharacter().profile,
+          basePrompt: "1girl, test character",
+        },
       };
 
       builder.addCharacter({ character });
@@ -888,40 +899,16 @@ describe("PromptBuilder", () => {
   // buildPanelPrompt - Integration
   // ==========================================================================
   describe("buildPanelPrompt - Integration", () => {
-    const mockPanel = (overrides: Partial<Panel> = {}): Panel => ({
-      id: "panel-1",
-      storyboardId: "sb-1",
-      sequenceIndex: 0,
-      description: "Test panel",
-      status: "draft",
-      direction: null,
-      characterIds: [],
-      generationParams: null,
-      metadata: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ...overrides,
-    });
-
-    const mockCharacter = (id: string, profile: Record<string, unknown>): Character => ({
-      id,
-      projectId: "proj-1",
-      name: `Character ${id}`,
-      basePrompt: "",
-      profile,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
     it("builds prompt from panel with direction", () => {
-      const panel = mockPanel({
+      const panel: Panel = {
+        ...createMockPanel(),
+        description: "beach at sunset",
         direction: {
-          sceneDescription: "beach at sunset",
           cameraAngle: "wide shot",
           lighting: "golden hour",
           mood: "peaceful",
         },
-      });
+      };
 
       const result = buildPanelPrompt(panel, [], "illustrious");
 
@@ -932,14 +919,30 @@ describe("PromptBuilder", () => {
     });
 
     it("includes characters from characterIds", () => {
-      const panel = mockPanel({
+      const panel: Panel = {
+        ...createMockPanel(),
         characterIds: ["char-1", "char-2"],
-      });
+      };
 
       const characters: Character[] = [
-        mockCharacter("char-1", { basePrompt: "first character" }),
-        mockCharacter("char-2", { basePrompt: "second character" }),
-        mockCharacter("char-3", { basePrompt: "not included" }),
+        {
+          ...createMockCharacter(),
+          id: "char-1",
+          name: "Character 1",
+          profile: { ...createMockCharacter().profile, basePrompt: "first character" },
+        },
+        {
+          ...createMockCharacter(),
+          id: "char-2",
+          name: "Character 2",
+          profile: { ...createMockCharacter().profile, basePrompt: "second character" },
+        },
+        {
+          ...createMockCharacter(),
+          id: "char-3",
+          name: "Character 3",
+          profile: { ...createMockCharacter().profile, basePrompt: "not included" },
+        },
       ];
 
       const result = buildPanelPrompt(panel, characters, "illustrious");
@@ -950,7 +953,7 @@ describe("PromptBuilder", () => {
     });
 
     it("handles panel with no direction", () => {
-      const panel = mockPanel({ direction: null });
+      const panel: Panel = { ...createMockPanel(), direction: null };
       const result = buildPanelPrompt(panel, [], "illustrious");
 
       // Should still have quality tags
@@ -958,19 +961,25 @@ describe("PromptBuilder", () => {
     });
 
     it("handles empty characterIds array", () => {
-      const panel = mockPanel({ characterIds: [] });
+      const panel: Panel = { ...createMockPanel(), characterIds: [] };
       const result = buildPanelPrompt(panel, [], "illustrious");
 
       expect(result.positive).toContain("masterpiece");
     });
 
     it("skips missing characters gracefully", () => {
-      const panel = mockPanel({
+      const panel: Panel = {
+        ...createMockPanel(),
         characterIds: ["char-1", "char-missing"],
-      });
+      };
 
       const characters: Character[] = [
-        mockCharacter("char-1", { basePrompt: "existing character" }),
+        {
+          ...createMockCharacter(),
+          id: "char-1",
+          name: "Character 1",
+          profile: { ...createMockCharacter().profile, basePrompt: "existing character" },
+        },
       ];
 
       const result = buildPanelPrompt(panel, characters, "illustrious");
@@ -979,7 +988,7 @@ describe("PromptBuilder", () => {
     });
 
     it("defaults to illustrious model family", () => {
-      const panel = mockPanel();
+      const panel: Panel = createMockPanel();
       const result = buildPanelPrompt(panel, []);
 
       expect(result.positive).toContain("very aesthetic"); // Illustrious-specific
