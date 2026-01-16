@@ -87,7 +87,7 @@ export class PanelService {
 
     // Determine position
     let position = data.position;
-    if (!position) {
+    if (position === undefined || position === null) {
       // Get max position and add 1
       const [maxPos] = await this.db
         .select({ max: sql<number>`MAX(position)` })

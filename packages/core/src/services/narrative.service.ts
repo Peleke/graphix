@@ -628,6 +628,44 @@ export class NarrativeService {
 
     const mappedCameraAngle = cameraAngleMap[beat.cameraAngle ?? "medium"] ?? "medium shot";
 
+    // Map beat emotional tones to valid panel moods
+    // Valid moods: dramatic, romantic, comedic, tense, peaceful, action, mysterious, melancholic, joyful, neutral
+    const moodMap: Record<string, string> = {
+      "cheerful": "joyful",
+      "happy": "joyful",
+      "excited": "action",
+      "anxious": "tense",
+      "fearful": "tense",
+      "nervous": "tense",
+      "sad": "melancholic",
+      "sorrowful": "melancholic",
+      "calm": "peaceful",
+      "serene": "peaceful",
+      "angry": "dramatic",
+      "intense": "dramatic",
+      "suspenseful": "tense",
+      "curious": "mysterious",
+      "loving": "romantic",
+      "tender": "romantic",
+      "funny": "comedic",
+      "playful": "comedic",
+      "hopeful": "joyful",
+      "determined": "action",
+      // Direct mappings for already-valid moods
+      "dramatic": "dramatic",
+      "romantic": "romantic",
+      "comedic": "comedic",
+      "tense": "tense",
+      "peaceful": "peaceful",
+      "action": "action",
+      "mysterious": "mysterious",
+      "melancholic": "melancholic",
+      "joyful": "joyful",
+      "neutral": "neutral",
+    };
+
+    const mappedMood = moodMap[beat.emotionalTone ?? "neutral"] ?? "neutral";
+
     // Create the panel from beat data
     const panel = await panelService.create({
       storyboardId,
@@ -635,7 +673,7 @@ export class NarrativeService {
       description: beat.visualDescription,
       direction: {
         cameraAngle: mappedCameraAngle,
-        mood: beat.emotionalTone ?? "neutral",
+        mood: mappedMood,
         lighting: "natural",
       },
       characterIds: beat.characterIds,
