@@ -213,3 +213,39 @@ export type {
   BatchGenerateResult,
   BatchRenderResult,
 } from "./batch.service.js";
+
+// Narrative Service
+export {
+  NarrativeService,
+  createNarrativeService,
+  getNarrativeService,
+  resetNarrativeService,
+} from "./narrative.service.js";
+export type {
+  CreatePremiseInput,
+  UpdatePremiseInput,
+  CreateStoryInput,
+  UpdateStoryInput,
+  CreateBeatInput,
+  UpdateBeatInput,
+} from "./narrative.service.js";
+
+// LLM Service
+export {
+  LLMService,
+  createLLMService,
+  getLLMService,
+  resetLLMService,
+} from "./llm.service.js";
+export type {
+  LLMProvider,
+  LLMModel,
+  LLMConfig,
+  PremisePrompt,
+  StoryOptions,
+  BeatOptions,
+  GeneratedPremise,
+  GeneratedStory,
+  GeneratedBeat,
+  FullStoryGeneration,
+} from "./llm.service.js";

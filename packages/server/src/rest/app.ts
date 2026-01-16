@@ -19,6 +19,7 @@ import { consistencyRoutes } from "./routes/consistency.js";
 import { captionRoutes } from "./routes/captions.js";
 import { storyRoutes } from "./routes/story.js";
 import { batchRoutes } from "./routes/batch.js";
+import { narrativeRoutes } from "./routes/narrative.js";
 import { getDefaultConnection, checkDatabaseHealth, getConfig } from "@graphix/core";
 
 type Variables = {
@@ -73,6 +74,7 @@ api.route("/composition", compositionRoutes);
 api.route("/consistency", consistencyRoutes);
 api.route("/story", storyRoutes);
 api.route("/batch", batchRoutes);
+api.route("/narrative", narrativeRoutes);
 
 // Caption routes (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
 api.route("/", captionRoutes);
