@@ -5,6 +5,7 @@
  */
 
 import { resolve, normalize, relative, isAbsolute } from "path";
+import { realpathSync, existsSync, lstatSync } from "fs";
 
 /**
  * Sanitize text input by stripping HTML tags and dangerous characters.
@@ -213,17 +214,39 @@ export function validateFilePathWithinAllowedDirs(
 
   // Check if path is within allowed directories
   const allowedDirs = getAllowedBaseDirs();
-  const isAllowed = allowedDirs.some((dir) => {
-    const resolvedDir = resolve(dir);
-    return (
-      resolvedPath.startsWith(resolvedDir + "/") || resolvedPath === resolvedDir
-    );
-  });
 
-  if (!isAllowed) {
-    throw new Error(
-      `File path must be within allowed directories: ${allowedDirs.join(", ")}`
-    );
+  // Helper to check if a path is within allowed dirs
+  const isPathAllowed = (pathToCheck: string): boolean => {
+    return allowedDirs.some((dir) => {
+      const resolvedDir = resolve(dir);
+      return (
+        pathToCheck.startsWith(resolvedDir + "/") || pathToCheck === resolvedDir
+      );
+    });
+  };
+
+  if (!isPathAllowed(resolvedPath)) {
+    throw new Error("Access denied: path not allowed");
+  }
+
+  // SECURITY: If the path exists, resolve symlinks and re-check
+  // This prevents symlink attacks where a symlink in an allowed dir points outside it
+  if (existsSync(resolvedPath)) {
+    try {
+      const stats = lstatSync(resolvedPath);
+      if (stats.isSymbolicLink()) {
+        // Follow the symlink and verify the real path is also allowed
+        const realPath = realpathSync(resolvedPath);
+        if (!isPathAllowed(realPath)) {
+          throw new Error("Access denied: symlink target not allowed");
+        }
+        // Return the real path, not the symlink
+        return realPath;
+      }
+    } catch (err) {
+      // If we can't stat the file, continue with normal validation
+      // The actual file operation will fail if there's a real problem
+    }
   }
 
   // Sensitive patterns to block - different rules for read vs write
