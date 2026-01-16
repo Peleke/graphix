@@ -106,18 +106,14 @@ export function validateFilePath(
   // Ensure the resolved path is within the base directory
   const relativePath = relative(resolvedBase, normalizedPath);
   if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
-    throw new Error(
-      `Path "${path}" resolves outside allowed directory "${baseDir}"`
-    );
+    throw new Error("Access denied: path resolves outside allowed directory");
   }
 
   // Check file extension if restrictions are specified
   if (allowedExtensions.length > 0) {
     const ext = normalizedPath.substring(normalizedPath.lastIndexOf("."));
     if (!allowedExtensions.includes(ext.toLowerCase())) {
-      throw new Error(
-        `File extension "${ext}" is not allowed. Allowed: ${allowedExtensions.join(", ")}`
-      );
+      throw new Error("Access denied: file extension not allowed");
     }
   }
 
