@@ -1241,6 +1241,42 @@ Accumulated 2000+ lines of changes across 100+ files on main without a single co
 
 ---
 
+### 12. GitHub CLI: Check Labels Before Using Them
+
+**Principle:** When creating GitHub issues with labels via `gh issue create --label`, first verify the label exists and create it if not.
+
+**Why it matters:**
+- `gh issue create --label "high-priority"` fails if that label doesn't exist
+- The error is cryptic: "could not add label: 'high-priority' not found"
+- CI/CD scripts that create issues will fail silently or abort
+
+**Pattern:**
+```bash
+# Check if label exists, create if not
+gh label create "high-priority" --repo owner/repo --color "d93f0b" --description "High priority issues" 2>/dev/null || true
+
+# Now safe to use the label
+gh issue create --title "Bug" --body "..." --label "bug,high-priority"
+```
+
+**Or as a helper function:**
+```bash
+ensure_label() {
+  local label="$1"
+  local color="${2:-ededed}"
+  gh label create "$label" --color "$color" 2>/dev/null || true
+}
+
+ensure_label "high-priority" "d93f0b"
+ensure_label "needs-review" "0052cc"
+gh issue create --label "high-priority,needs-review" ...
+```
+
+**Planning prompt addition:**
+> "When using `gh issue create` with labels, first ensure the label exists with `gh label create ... 2>/dev/null || true`. Never assume labels exist in a repo—create them defensively before use."
+
+---
+
 ### Summary: The Pre-Planning Checklist
 
 When starting a new project with similar architecture, include these in your initial planning:
