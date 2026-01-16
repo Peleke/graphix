@@ -5,7 +5,7 @@
  * Supports the Premise → Story → Beat pipeline for generating comic stories.
  */
 
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, sql, inArray } from "drizzle-orm";
 import { getDefaultDatabase, type Database } from "../db/index.js";
 import {
   premises,
@@ -815,6 +815,8 @@ export class NarrativeService {
     } = options;
 
     // Default positions for different caption types
+    // Track whether custom positions were provided (to skip auto-staggering)
+    const hasCustomDialoguePosition = !!defaultPositions.dialogue;
     const positions = {
       dialogue: defaultPositions.dialogue ?? { x: 50, y: 20 },
       narration: defaultPositions.narration ?? { x: 50, y: 10 },
@@ -844,9 +846,12 @@ export class NarrativeService {
             ? "thought"
             : "speech";
 
-        // Stagger vertical position for multiple dialogue lines
-        const verticalOffset = orderIndex * 15;
-        const yPos = Math.min(positions.dialogue.y + verticalOffset, 80);
+        // Stagger vertical position for multiple dialogue lines (only when using default positions)
+        let yPos = positions.dialogue.y;
+        if (!hasCustomDialoguePosition) {
+          const verticalOffset = orderIndex * 15;
+          yPos = Math.min(positions.dialogue.y + verticalOffset, 80);
+        }
 
         const [caption] = await this.db
           .insert(panelCaptions)
@@ -956,22 +961,28 @@ export class NarrativeService {
   }
 
   /**
-   * Get captions for a panel, optionally filtered by enabled status
+   * Get captions for a panel, optionally filtered by enabled status and type
    */
   async getCaptionsForPanel(
     panelId: string,
-    options: { enabledOnly?: boolean } = {}
+    options: { enabledOnly?: boolean; types?: CaptionType[] } = {}
   ): Promise<PanelCaption[]> {
-    const { enabledOnly = false } = options;
+    const { enabledOnly = false, types } = options;
 
-    const conditions = enabledOnly
-      ? and(eq(panelCaptions.panelId, panelId), eq(panelCaptions.enabled, true))
-      : eq(panelCaptions.panelId, panelId);
+    const conditions: ReturnType<typeof eq>[] = [eq(panelCaptions.panelId, panelId)];
+
+    if (enabledOnly) {
+      conditions.push(eq(panelCaptions.enabled, true));
+    }
+
+    if (types && types.length > 0) {
+      conditions.push(inArray(panelCaptions.type, types));
+    }
 
     return await this.db
       .select()
       .from(panelCaptions)
-      .where(conditions)
+      .where(and(...conditions))
       .orderBy(asc(panelCaptions.orderIndex));
   }
 
@@ -998,6 +1009,34 @@ export class NarrativeService {
       .returning();
 
     return updated;
+  }
+
+  /**
+   * Delete all captions for a panel that were generated from a specific beat
+   * If beatId is provided, only delete captions from that beat
+   * Otherwise, delete all generated captions for the panel
+   */
+  async deleteCaptionsForPanel(beatId: string): Promise<number> {
+    const beat = await this.getBeat(beatId);
+    if (!beat) {
+      throw new Error(`Beat not found: ${beatId}`);
+    }
+
+    if (!beat.panelId) {
+      throw new Error(`Beat ${beatId} has no associated panel.`);
+    }
+
+    const result = await this.db
+      .delete(panelCaptions)
+      .where(
+        and(
+          eq(panelCaptions.panelId, beat.panelId),
+          eq(panelCaptions.generatedFromBeat, true)
+        )
+      )
+      .returning();
+
+    return result.length;
   }
 }
 

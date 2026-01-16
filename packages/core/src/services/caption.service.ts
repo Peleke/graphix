@@ -250,6 +250,10 @@ export class CaptionService {
         throw new Error("Caption text cannot exceed 1000 characters");
       }
       updates.text = data.text.trim();
+      // Mark as manually edited if text changes
+      if (updates.text !== existing.text) {
+        updates.manuallyEdited = true;
+      }
     }
 
     // Validate and apply character
@@ -327,7 +331,7 @@ export class CaptionService {
   }
 
   /**
-   * Reorder captions by updating their zIndex values
+   * Reorder captions by updating their orderIndex values
    */
   async reorder(panelId: string, captionIds: string[]): Promise<PanelCaption[]> {
     // Validate all captions belong to the panel
@@ -340,18 +344,18 @@ export class CaptionService {
       }
     }
 
-    // Update zIndex for each caption
+    // Update orderIndex for each caption
     const updated: PanelCaption[] = [];
     for (let i = 0; i < captionIds.length; i++) {
       const [caption] = await this.db
         .update(panelCaptions)
-        .set({ zIndex: i, updatedAt: new Date() })
+        .set({ orderIndex: i, updatedAt: new Date() })
         .where(eq(panelCaptions.id, captionIds[i]))
         .returning();
       updated.push(caption);
     }
 
-    return updated.sort((a, b) => a.zIndex - b.zIndex);
+    return updated.sort((a, b) => a.orderIndex - b.orderIndex);
   }
 
   /**

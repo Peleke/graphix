@@ -123,6 +123,11 @@ export async function setupTestDatabase(): Promise<DatabaseConnection> {
       tail_direction TEXT,
       style TEXT,
       z_index INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      beat_id TEXT REFERENCES beats(id) ON DELETE SET NULL,
+      generated_from_beat INTEGER NOT NULL DEFAULT 0,
+      manually_edited INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
