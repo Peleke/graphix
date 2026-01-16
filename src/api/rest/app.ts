@@ -14,9 +14,16 @@ import { characterRoutes } from "./routes/characters.js";
 import { storyboardRoutes } from "./routes/storyboards.js";
 import { panelRoutes } from "./routes/panels.js";
 import { generationRoutes } from "./routes/generations.js";
+import { compositionRoutes } from "./routes/composition.js";
+import { consistencyRoutes } from "./routes/consistency.js";
+import { captionRoutes } from "./routes/captions.js";
 import { checkDbHealth } from "../../db/client.js";
 
-const app = new Hono();
+type Variables = {
+  requestId: string;
+};
+
+const app = new Hono<{ Variables: Variables }>();
 
 // Middleware
 app.use("*", logger());
@@ -58,6 +65,11 @@ api.route("/characters", characterRoutes);
 api.route("/storyboards", storyboardRoutes);
 api.route("/panels", panelRoutes);
 api.route("/generations", generationRoutes);
+api.route("/composition", compositionRoutes);
+api.route("/consistency", consistencyRoutes);
+
+// Caption routes (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
+api.route("/", captionRoutes);
 
 // Mount API under /api prefix
 app.route("/api", api);

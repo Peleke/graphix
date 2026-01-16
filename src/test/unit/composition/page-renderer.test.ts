@@ -254,7 +254,7 @@ describe("PageRenderer", () => {
       expect(true).toBe(true);
     });
 
-    test("renders "generation pending" indicator", () => {
+    test("renders generation pending indicator", () => {
       // Panel marked as generating should show indicator
       expect(true).toBe(true);
     });

@@ -42,3 +42,19 @@ export {
   type PanelGenerationResult,
   type BatchGenerationResult,
 } from "./panel-generator.js";
+
+// ControlNet stacking
+export {
+  ControlNetStackClient,
+  getControlNetStack,
+  resetControlNetStack,
+  CONTROL_STACK_PRESETS,
+  type ControlType,
+  type ControlCondition,
+  type ControlNetStackRequest,
+  type ControlStackPreset,
+  type PreprocessorOptions,
+} from "./controlnet-stack.js";
+
+// Model catalog system
+export * from "./models/index.js";

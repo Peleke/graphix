@@ -145,11 +145,11 @@ describe("PanelService", () => {
   describe("character assignment", () => {
     test("assigns characters to panel", async () => {
       const panelData = factories.panel(testStoryboardId, 1, {
-        characters: ["char_1", "char_2"],
+        characterIds: ["char_1", "char_2"],
       });
 
-      expect(panelData.characters).toContain("char_1");
-      expect(panelData.characters).toContain("char_2");
+      expect(panelData.characterIds).toContain("char_1");
+      expect(panelData.characterIds).toContain("char_2");
     });
 
     test("removes character from panel", async () => {

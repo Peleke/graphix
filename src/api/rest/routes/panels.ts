@@ -6,10 +6,19 @@
 
 import { Hono } from "hono";
 import { getPanelService, getGeneratedImageService } from "../../../services/index.js";
+import { getPanelGenerator } from "../../../generation/index.js";
+import {
+  getConfigEngine,
+  listSizePresets,
+  listQualityPresets,
+  type QualityPresetId,
+  type SlotContext,
+} from "../../../generation/config/index.js";
 
 const panelRoutes = new Hono();
 const service = getPanelService();
 const imageService = getGeneratedImageService();
+const generator = getPanelGenerator();
 
 // Get panel by ID
 panelRoutes.get("/:id", async (c) => {
@@ -116,11 +125,168 @@ panelRoutes.post("/:id/reorder", async (c) => {
   return c.json(panel);
 });
 
+// Generate image for panel
+panelRoutes.post("/:id/generate", async (c) => {
+  const panelId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+
+  // Build slot context if composition params provided
+  let forComposition: SlotContext | undefined;
+  if (body.forComposition) {
+    forComposition = {
+      templateId: body.forComposition.templateId,
+      slotId: body.forComposition.slotId,
+      pageSizePreset: body.forComposition.pageSizePreset,
+    };
+  }
+
+  const result = await generator.generate(panelId, {
+    model: body.model,
+    modelFamily: body.modelFamily,
+    width: body.width,
+    height: body.height,
+    steps: body.steps,
+    cfg: body.cfg,
+    seed: body.seed,
+    sampler: body.sampler,
+    scheduler: body.scheduler,
+    // Config engine presets
+    sizePreset: body.sizePreset,
+    qualityPreset: body.qualityPreset as QualityPresetId | undefined,
+    forComposition,
+  });
+
+  if (!result.success) {
+    return c.json({ error: result.error }, 500);
+  }
+
+  return c.json({
+    success: true,
+    generatedImage: result.generatedImage,
+    seed: result.generationResult?.seed,
+    localPath: result.generationResult?.localPath,
+  }, 201);
+});
+
+// Generate multiple variants for panel
+panelRoutes.post("/:id/generate/variants", async (c) => {
+  const panelId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+
+  // Build slot context if composition params provided
+  let forComposition: SlotContext | undefined;
+  if (body.forComposition) {
+    forComposition = {
+      templateId: body.forComposition.templateId,
+      slotId: body.forComposition.slotId,
+      pageSizePreset: body.forComposition.pageSizePreset,
+    };
+  }
+
+  const result = await generator.generateVariants(panelId, {
+    count: body.count ?? 4,
+    baseSeed: body.baseSeed,
+    varyCfg: body.varyCfg,
+    cfgRange: body.cfgRange,
+    model: body.model,
+    modelFamily: body.modelFamily,
+    width: body.width,
+    height: body.height,
+    // Config engine presets
+    sizePreset: body.sizePreset,
+    qualityPreset: body.qualityPreset as QualityPresetId | undefined,
+    forComposition,
+  });
+
+  return c.json({
+    success: result.success,
+    total: result.total,
+    successful: result.successful,
+    failed: result.failed,
+    generatedImages: result.results
+      .filter((r) => r.success)
+      .map((r) => ({
+        id: r.generatedImage?.id,
+        seed: r.generationResult?.seed,
+        localPath: r.generationResult?.localPath,
+      })),
+  }, result.success ? 201 : 207);
+});
+
 // Delete panel
 panelRoutes.delete("/:id", async (c) => {
   await service.delete(c.req.param("id"));
 
   return c.body(null, 204);
+});
+
+// ============================================================================
+// Config Presets
+// ============================================================================
+
+// List available size presets
+panelRoutes.get("/config/sizes", async (c) => {
+  const presets = listSizePresets();
+  return c.json({ presets });
+});
+
+// List available quality presets
+panelRoutes.get("/config/quality", async (c) => {
+  const presets = listQualityPresets();
+  return c.json({ presets });
+});
+
+// Get recommended size for a slot
+panelRoutes.post("/config/recommend-size", async (c) => {
+  const body = await c.req.json();
+  const { templateId, slotId, pageSizePreset, modelFamily } = body;
+
+  if (!templateId || !slotId) {
+    return c.json({ error: "templateId and slotId are required" }, 400);
+  }
+
+  const engine = getConfigEngine();
+  const dimensions = engine.getDimensionsForSlot(templateId, slotId, {
+    pageSizePreset,
+    modelFamily,
+  });
+
+  return c.json({
+    templateId,
+    slotId,
+    pageSizePreset: pageSizePreset ?? "comic_standard",
+    modelFamily: modelFamily ?? "pony",
+    recommended: dimensions,
+  });
+});
+
+// Get sizes for all slots in a template
+panelRoutes.post("/config/template-sizes", async (c) => {
+  const body = await c.req.json();
+  const { templateId, pageSizePreset, modelFamily } = body;
+
+  if (!templateId) {
+    return c.json({ error: "templateId is required" }, 400);
+  }
+
+  const engine = getConfigEngine();
+  const sizeMap = engine.getTemplateSizeMap(templateId, {
+    pageSizePreset,
+    modelFamily,
+  });
+
+  // Convert Map to object for JSON serialization
+  const slots: Record<string, { width: number; height: number; aspectRatio: number; presetId?: string }> = {};
+  for (const [slotId, dimensions] of sizeMap) {
+    slots[slotId] = dimensions;
+  }
+
+  return c.json({
+    templateId,
+    pageSizePreset: pageSizePreset ?? "comic_standard",
+    modelFamily: modelFamily ?? "pony",
+    slots,
+  });
 });
 
 export { panelRoutes };

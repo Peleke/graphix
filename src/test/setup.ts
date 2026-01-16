@@ -91,7 +91,7 @@ export const factories = {
     ...overrides,
   }),
 
-  character: (projectId: string, overrides = {}) => ({
+  character: (projectId: string, overrides: Record<string, unknown> = {}) => ({
     projectId,
     name: `Test Character ${Date.now()}`,
     profile: {
@@ -105,7 +105,7 @@ export const factories = {
     promptFragments: {
       positive: "anthro wolf, gray fur, amber eyes, athletic build",
       negative: "human, realistic",
-      triggers: [],
+      triggers: [] as string[],
     },
     ...overrides,
   }),
@@ -117,11 +117,11 @@ export const factories = {
     ...overrides,
   }),
 
-  panel: (storyboardId: string, position: number, overrides = {}) => ({
+  panel: (storyboardId: string, position: number, overrides: Record<string, unknown> = {}) => ({
     storyboardId,
     position,
     description: `Panel ${position} description`,
-    characters: [],
+    characterIds: [] as string[],
     direction: {
       cameraAngle: "eye level",
       mood: "neutral",

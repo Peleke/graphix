@@ -6,7 +6,8 @@
  * model families (Illustrious, Pony, SDXL, Flux, etc.).
  */
 
-import type { Character, Panel } from "../db/schema.js";
+import type { Character, Panel, SceneLightingConfig } from "../db/schema.js";
+import { getLightingService } from "../services/lighting.service.js";
 
 /**
  * Character placement in a panel with modifiers
@@ -175,6 +176,7 @@ export class PromptBuilder {
   private direction: PanelDirection = {};
   private customPositive: string[] = [];
   private customNegative: string[] = [];
+  private sceneLighting: SceneLightingConfig | null = null;
 
   constructor(modelFamily: ModelFamily = "illustrious") {
     this.modelFamily = modelFamily;
@@ -217,6 +219,17 @@ export class PromptBuilder {
    */
   setDirection(direction: PanelDirection): this {
     this.direction = direction;
+    return this;
+  }
+
+  /**
+   * Set scene lighting configuration (from storyboard)
+   *
+   * This will auto-inject lighting keywords into the prompt.
+   * Takes precedence over direction.lighting if both are set.
+   */
+  setSceneLighting(config: SceneLightingConfig | null): this {
+    this.sceneLighting = config;
     return this;
   }
 
@@ -301,8 +314,15 @@ export class PromptBuilder {
       }
     }
 
-    // Lighting
-    if (this.direction.lighting) {
+    // Lighting - scene lighting takes precedence over direction.lighting
+    if (this.sceneLighting) {
+      // Generate lighting fragment from scene lighting config
+      const lightingService = getLightingService();
+      const sceneLightingFragment = lightingService.generatePromptFragment(this.sceneLighting);
+      if (sceneLightingFragment) {
+        positive.push(sceneLightingFragment);
+      }
+    } else if (this.direction.lighting) {
       const lightingFragment = LIGHTING_STYLES[this.direction.lighting.toLowerCase()];
       if (lightingFragment) {
         positive.push(lightingFragment);
@@ -395,6 +415,7 @@ export class PromptBuilder {
     this.direction = {};
     this.customPositive = [];
     this.customNegative = [];
+    this.sceneLighting = null;
     return this;
   }
 }
@@ -417,24 +438,13 @@ export function buildPanelPrompt(
     builder.setDirection(direction);
   }
 
-  // Extract character placements from panel
-  const panelCharacters = panel.characters as Array<{
-    characterId: string;
-    position?: string;
-    action?: string;
-    expression?: string;
-  }> | null;
-
-  if (panelCharacters) {
-    for (const pc of panelCharacters) {
-      const character = characters.find((c) => c.id === pc.characterId);
+  // Add characters from panel's characterIds
+  const characterIds = panel.characterIds;
+  if (characterIds && characterIds.length > 0) {
+    for (const characterId of characterIds) {
+      const character = characters.find((c) => c.id === characterId);
       if (character) {
-        builder.addCharacter({
-          character,
-          position: pc.position,
-          action: pc.action,
-          expression: pc.expression,
-        });
+        builder.addCharacter({ character });
       }
     }
   }

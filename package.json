@@ -1,16 +1,23 @@
 {
-  "name": "graphix",
+  "name": "graphix-monorepo",
   "version": "0.1.0",
+  "private": true,
   "description": "GenAI art + video workflow system - static panels, interactive I2V, animated shorts",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "bun run --filter @graphix/server dev",
+    "start": "bun run --filter @graphix/server start",
+    "build": "bun run --filter '*' typecheck",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "test": "bun test",
+    "test:core": "bun test --filter @graphix/core",
+    "test:server": "bun test --filter @graphix/server",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +26,7 @@
     "@paralleldrive/cuid2": "^2.2.2",
     "drizzle-orm": "^0.38.0",
     "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
     "nanoid": "^5.0.9",
     "sharp": "^0.33.5",
     "zod": "^3.24.0"

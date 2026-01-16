@@ -6,11 +6,12 @@
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { getCharacterService } from "../../../services/index.js";
+import type { CharacterProfile, PromptFragments } from "../../../db/schema.js";
 
 export const characterTools: Record<string, Tool> = {
   character_create: {
     name: "character_create",
-    description: "Create a new character in a project",
+    description: "Create a new character in a project with profile and prompt fragments",
     inputSchema: {
       type: "object",
       properties: {
@@ -22,20 +23,35 @@ export const characterTools: Record<string, Tool> = {
           type: "string",
           description: "Character name",
         },
-        description: {
+        species: {
           type: "string",
-          description: "Character description",
+          description: "Species (e.g., 'otter', 'wolf', 'human')",
         },
-        basePrompt: {
+        bodyType: {
           type: "string",
-          description: "Base prompt fragment for this character (e.g., 'anthro otter, brown fur, green eyes')",
+          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average"],
+          description: "Body type",
+        },
+        features: {
+          type: "array",
+          items: { type: "string" },
+          description: "Physical features (e.g., ['brown fur', 'green eyes'])",
+        },
+        positivePrompt: {
+          type: "string",
+          description: "Base positive prompt fragment for this character",
         },
         negativePrompt: {
           type: "string",
           description: "Negative prompt additions for this character",
         },
+        triggers: {
+          type: "array",
+          items: { type: "string" },
+          description: "LoRA trigger words",
+        },
       },
-      required: ["projectId", "name"],
+      required: ["projectId", "name", "species"],
     },
   },
 
@@ -71,7 +87,7 @@ export const characterTools: Record<string, Tool> = {
 
   character_update: {
     name: "character_update",
-    description: "Update a character's basic info",
+    description: "Update a character's name, profile, or prompt fragments",
     inputSchema: {
       type: "object",
       properties: {
@@ -83,28 +99,23 @@ export const characterTools: Record<string, Tool> = {
           type: "string",
           description: "New character name",
         },
-        description: {
+        species: {
           type: "string",
-          description: "New character description",
+          description: "New species",
         },
-      },
-      required: ["characterId"],
-    },
-  },
-
-  character_update_prompt: {
-    name: "character_update_prompt",
-    description: "Update a character's prompt fragments",
-    inputSchema: {
-      type: "object",
-      properties: {
-        characterId: {
+        bodyType: {
           type: "string",
-          description: "Character ID",
+          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average"],
+          description: "New body type",
         },
-        basePrompt: {
+        features: {
+          type: "array",
+          items: { type: "string" },
+          description: "New physical features",
+        },
+        positivePrompt: {
           type: "string",
-          description: "New base prompt fragment",
+          description: "New positive prompt fragment",
         },
         negativePrompt: {
           type: "string",
@@ -128,10 +139,6 @@ export const characterTools: Record<string, Tool> = {
         imagePath: {
           type: "string",
           description: "Path to the reference image",
-        },
-        isPrimary: {
-          type: "boolean",
-          description: "Whether this is the primary reference image",
         },
       },
       required: ["characterId", "imagePath"],
@@ -169,11 +176,34 @@ export const characterTools: Record<string, Tool> = {
         },
         loraPath: {
           type: "string",
-          description: "Path to the LoRA file (null to remove)",
+          description: "Path to the LoRA file",
         },
-        loraWeight: {
+        strength: {
           type: "number",
-          description: "LoRA weight (0.0-1.0, default 0.8)",
+          description: "LoRA strength (0.0-1.0, default 0.7)",
+        },
+        strengthClip: {
+          type: "number",
+          description: "LoRA CLIP strength (optional)",
+        },
+        trainingImages: {
+          type: "number",
+          description: "Number of images used for training",
+        },
+      },
+      required: ["characterId", "loraPath", "trainingImages"],
+    },
+  },
+
+  character_clear_lora: {
+    name: "character_clear_lora",
+    description: "Clear LoRA from a character",
+    inputSchema: {
+      type: "object",
+      properties: {
+        characterId: {
+          type: "string",
+          description: "Character ID",
         },
       },
       required: ["characterId"],
@@ -204,14 +234,22 @@ export async function handleCharacterTool(
 
   switch (name) {
     case "character_create": {
+      const profile: Partial<CharacterProfile> = {
+        species: args.species as string,
+      };
+      if (args.bodyType) profile.bodyType = args.bodyType as CharacterProfile["bodyType"];
+      if (args.features) profile.features = args.features as string[];
+
+      const promptFragments: Partial<PromptFragments> = {};
+      if (args.positivePrompt) promptFragments.positive = args.positivePrompt as string;
+      if (args.negativePrompt) promptFragments.negative = args.negativePrompt as string;
+      if (args.triggers) promptFragments.triggers = args.triggers as string[];
+
       const character = await service.create({
         projectId: args.projectId as string,
         name: args.name as string,
-        description: args.description as string | undefined,
-        profile: {
-          basePrompt: args.basePrompt as string | undefined,
-          negativePrompt: args.negativePrompt as string | undefined,
-        },
+        profile,
+        promptFragments,
       });
       return { success: true, character };
     }
@@ -225,37 +263,46 @@ export async function handleCharacterTool(
     }
 
     case "character_list": {
-      const characters = await service.listByProject(args.projectId as string);
+      const characters = await service.getByProject(args.projectId as string);
       return { success: true, characters, count: characters.length };
     }
 
     case "character_update": {
+      const profile: Partial<CharacterProfile> | undefined =
+        args.species || args.bodyType || args.features
+          ? {
+              ...(args.species ? { species: args.species as string } : {}),
+              ...(args.bodyType ? { bodyType: args.bodyType as CharacterProfile["bodyType"] } : {}),
+              ...(args.features ? { features: args.features as string[] } : {}),
+            }
+          : undefined;
+
+      const promptFragments: Partial<PromptFragments> | undefined =
+        args.positivePrompt || args.negativePrompt
+          ? {
+              ...(args.positivePrompt ? { positive: args.positivePrompt as string } : {}),
+              ...(args.negativePrompt ? { negative: args.negativePrompt as string } : {}),
+            }
+          : undefined;
+
       const character = await service.update(args.characterId as string, {
         name: args.name as string | undefined,
-        description: args.description as string | undefined,
-      });
-      return { success: true, character };
-    }
-
-    case "character_update_prompt": {
-      const character = await service.updatePrompt(args.characterId as string, {
-        basePrompt: args.basePrompt as string | undefined,
-        negativePrompt: args.negativePrompt as string | undefined,
+        profile,
+        promptFragments,
       });
       return { success: true, character };
     }
 
     case "character_add_reference": {
-      const character = await service.addReferenceImage(
+      const character = await service.addReference(
         args.characterId as string,
-        args.imagePath as string,
-        args.isPrimary as boolean | undefined
+        args.imagePath as string
       );
       return { success: true, character };
     }
 
     case "character_remove_reference": {
-      const character = await service.removeReferenceImage(
+      const character = await service.removeReference(
         args.characterId as string,
         args.imagePath as string
       );
@@ -263,11 +310,17 @@ export async function handleCharacterTool(
     }
 
     case "character_set_lora": {
-      const character = await service.setLora(
-        args.characterId as string,
-        args.loraPath as string | null | undefined,
-        args.loraWeight as number | undefined
-      );
+      const character = await service.setLora(args.characterId as string, {
+        path: args.loraPath as string,
+        strength: args.strength as number | undefined,
+        strengthClip: args.strengthClip as number | undefined,
+        trainingImages: args.trainingImages as number,
+      });
+      return { success: true, character };
+    }
+
+    case "character_clear_lora": {
+      const character = await service.clearLora(args.characterId as string);
       return { success: true, character };
     }
 

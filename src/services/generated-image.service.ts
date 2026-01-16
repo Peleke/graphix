@@ -4,7 +4,7 @@
  * CRUD operations for generated images with metadata tracking.
  */
 
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, asc } from "drizzle-orm";
 import { getDb, type Database } from "../db/client.js";
 import {
   generatedImages,
@@ -303,6 +303,347 @@ export class GeneratedImageService {
       .select()
       .from(generatedImages)
       .where(eq(generatedImages.seed, seed))
+      .orderBy(desc(generatedImages.createdAt));
+  }
+
+  // ============================================================================
+  // CURATION METHODS (Phase 3.5)
+  // ============================================================================
+
+  /**
+   * Get generations for comparison UI
+   *
+   * Returns images with comparison-relevant metadata grouped for side-by-side display.
+   */
+  async getForComparison(
+    panelId: string,
+    imageIds?: string[]
+  ): Promise<{
+    images: GeneratedImage[];
+    metadata: {
+      totalCount: number;
+      ratedCount: number;
+      avgRating: number | null;
+      favoriteCount: number;
+      selectedId: string | null;
+    };
+  }> {
+    // Get all or specific images
+    let images: GeneratedImage[];
+    if (imageIds && imageIds.length > 0) {
+      images = await this.db
+        .select()
+        .from(generatedImages)
+        .where(and(eq(generatedImages.panelId, panelId), inArray(generatedImages.id, imageIds)))
+        .orderBy(desc(generatedImages.createdAt));
+    } else {
+      images = await this.getByPanel(panelId);
+    }
+
+    // Calculate metadata
+    const totalCount = images.length;
+    const ratedImages = images.filter((img) => img.rating !== null);
+    const ratedCount = ratedImages.length;
+    const avgRating =
+      ratedCount > 0
+        ? ratedImages.reduce((sum, img) => sum + (img.rating ?? 0), 0) / ratedCount
+        : null;
+    const favoriteCount = images.filter((img) => img.isFavorite).length;
+    const selectedId = images.find((img) => img.isSelected)?.id ?? null;
+
+    return {
+      images,
+      metadata: {
+        totalCount,
+        ratedCount,
+        avgRating,
+        favoriteCount,
+        selectedId,
+      },
+    };
+  }
+
+  /**
+   * Batch rate multiple images at once
+   */
+  async batchRate(
+    ratings: Array<{ imageId: string; rating: number | null }>
+  ): Promise<{
+    updated: string[];
+    failed: Array<{ imageId: string; error: string }>;
+  }> {
+    const updated: string[] = [];
+    const failed: Array<{ imageId: string; error: string }> = [];
+
+    for (const { imageId, rating } of ratings) {
+      try {
+        if (rating !== null && (rating < 1 || rating > 5)) {
+          failed.push({ imageId, error: "Rating must be between 1 and 5" });
+          continue;
+        }
+
+        await this.db
+          .update(generatedImages)
+          .set({ rating, updatedAt: new Date() })
+          .where(eq(generatedImages.id, imageId));
+
+        updated.push(imageId);
+      } catch (error) {
+        failed.push({
+          imageId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    return { updated, failed };
+  }
+
+  /**
+   * Get comparison statistics for a set of images
+   */
+  async getComparisonStats(imageIds: string[]): Promise<{
+    byRating: Record<number, number>;
+    bySeed: Record<number, number>;
+    byCfg: Record<number, number>;
+    bySampler: Record<string, number>;
+    byModel: Record<string, number>;
+    topRated: GeneratedImage[];
+    recommendations: string[];
+  }> {
+    if (imageIds.length === 0) {
+      return {
+        byRating: {},
+        bySeed: {},
+        byCfg: {},
+        bySampler: {},
+        byModel: {},
+        topRated: [],
+        recommendations: [],
+      };
+    }
+
+    const images = await this.db
+      .select()
+      .from(generatedImages)
+      .where(inArray(generatedImages.id, imageIds));
+
+    // Count by rating
+    const byRating: Record<number, number> = {};
+    for (const img of images) {
+      if (img.rating !== null) {
+        byRating[img.rating] = (byRating[img.rating] ?? 0) + 1;
+      }
+    }
+
+    // Count by seed
+    const bySeed: Record<number, number> = {};
+    for (const img of images) {
+      bySeed[img.seed] = (bySeed[img.seed] ?? 0) + 1;
+    }
+
+    // Count by CFG
+    const byCfg: Record<number, number> = {};
+    for (const img of images) {
+      byCfg[img.cfg] = (byCfg[img.cfg] ?? 0) + 1;
+    }
+
+    // Count by sampler
+    const bySampler: Record<string, number> = {};
+    for (const img of images) {
+      bySampler[img.sampler] = (bySampler[img.sampler] ?? 0) + 1;
+    }
+
+    // Count by model
+    const byModel: Record<string, number> = {};
+    for (const img of images) {
+      byModel[img.model] = (byModel[img.model] ?? 0) + 1;
+    }
+
+    // Top rated images
+    const topRated = images
+      .filter((img) => img.rating !== null)
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      .slice(0, 5);
+
+    // Generate recommendations based on patterns
+    const recommendations: string[] = [];
+
+    // Find best performing CFG
+    const ratedByCfg = images.filter((img) => img.rating !== null);
+    if (ratedByCfg.length > 2) {
+      const cfgAvgRatings = new Map<number, { sum: number; count: number }>();
+      for (const img of ratedByCfg) {
+        const entry = cfgAvgRatings.get(img.cfg) ?? { sum: 0, count: 0 };
+        entry.sum += img.rating ?? 0;
+        entry.count += 1;
+        cfgAvgRatings.set(img.cfg, entry);
+      }
+
+      let bestCfg = 0;
+      let bestAvg = 0;
+      for (const [cfg, { sum, count }] of cfgAvgRatings) {
+        const avg = sum / count;
+        if (avg > bestAvg) {
+          bestAvg = avg;
+          bestCfg = cfg;
+        }
+      }
+
+      if (bestCfg > 0) {
+        recommendations.push(`CFG ${bestCfg} has the highest average rating (${bestAvg.toFixed(1)})`);
+      }
+    }
+
+    // Find best performing sampler
+    const samplerAvgRatings = new Map<string, { sum: number; count: number }>();
+    for (const img of ratedByCfg) {
+      const entry = samplerAvgRatings.get(img.sampler) ?? { sum: 0, count: 0 };
+      entry.sum += img.rating ?? 0;
+      entry.count += 1;
+      samplerAvgRatings.set(img.sampler, entry);
+    }
+
+    let bestSampler = "";
+    let bestSamplerAvg = 0;
+    for (const [sampler, { sum, count }] of samplerAvgRatings) {
+      const avg = sum / count;
+      if (avg > bestSamplerAvg) {
+        bestSamplerAvg = avg;
+        bestSampler = sampler;
+      }
+    }
+
+    if (bestSampler) {
+      recommendations.push(
+        `Sampler "${bestSampler}" has the highest average rating (${bestSamplerAvg.toFixed(1)})`
+      );
+    }
+
+    return {
+      byRating,
+      bySeed,
+      byCfg,
+      bySampler,
+      byModel,
+      topRated,
+      recommendations,
+    };
+  }
+
+  /**
+   * Quick select the best image based on criteria
+   */
+  async quickSelect(
+    panelId: string,
+    criteria: "highest_rating" | "most_recent" | "oldest" | "favorite"
+  ): Promise<GeneratedImage | null> {
+    const images = await this.getByPanel(panelId);
+
+    if (images.length === 0) {
+      return null;
+    }
+
+    let selected: GeneratedImage | undefined;
+
+    switch (criteria) {
+      case "highest_rating": {
+        const rated = images.filter((img) => img.rating !== null);
+        if (rated.length === 0) {
+          return null; // No rated images
+        }
+        selected = rated.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
+        break;
+      }
+
+      case "most_recent":
+        // Already sorted by desc(createdAt)
+        selected = images[0];
+        break;
+
+      case "oldest":
+        selected = images[images.length - 1];
+        break;
+
+      case "favorite": {
+        const favorites = images.filter((img) => img.isFavorite);
+        if (favorites.length === 0) {
+          return null; // No favorites
+        }
+        // Return highest rated favorite, or most recent if no ratings
+        const ratedFavorites = favorites.filter((img) => img.rating !== null);
+        if (ratedFavorites.length > 0) {
+          selected = ratedFavorites.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
+        } else {
+          selected = favorites[0]; // Most recent favorite
+        }
+        break;
+      }
+    }
+
+    if (!selected) {
+      return null;
+    }
+
+    // Deselect current selection if any
+    await this.db
+      .update(generatedImages)
+      .set({ isSelected: false, updatedAt: new Date() })
+      .where(and(eq(generatedImages.panelId, panelId), eq(generatedImages.isSelected, true)));
+
+    // Select the new one
+    const [updated] = await this.db
+      .update(generatedImages)
+      .set({ isSelected: true, updatedAt: new Date() })
+      .where(eq(generatedImages.id, selected.id))
+      .returning();
+
+    // Update panel's selectedOutputId
+    await this.db.update(panels).set({ selectedOutputId: updated.id }).where(eq(panels.id, panelId));
+
+    return updated;
+  }
+
+  /**
+   * Batch toggle favorites
+   */
+  async batchFavorite(
+    imageIds: string[],
+    favorite: boolean
+  ): Promise<{
+    updated: string[];
+    failed: Array<{ imageId: string; error: string }>;
+  }> {
+    const updated: string[] = [];
+    const failed: Array<{ imageId: string; error: string }> = [];
+
+    for (const imageId of imageIds) {
+      try {
+        await this.db
+          .update(generatedImages)
+          .set({ isFavorite: favorite, updatedAt: new Date() })
+          .where(eq(generatedImages.id, imageId));
+
+        updated.push(imageId);
+      } catch (error) {
+        failed.push({
+          imageId,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    return { updated, failed };
+  }
+
+  /**
+   * Get unrated images for a panel (for curation workflow)
+   */
+  async getUnrated(panelId: string): Promise<GeneratedImage[]> {
+    return await this.db
+      .select()
+      .from(generatedImages)
+      .where(and(eq(generatedImages.panelId, panelId), sql`${generatedImages.rating} IS NULL`))
       .orderBy(desc(generatedImages.createdAt));
   }
 }

@@ -47,6 +47,36 @@ export interface ImagineRequest {
 }
 
 /**
+ * ControlNet generation request (maps to POST /controlnet)
+ */
+export interface ControlNetRequest {
+  prompt: string;
+  negative_prompt?: string;
+  control_image: string;
+  control_type: "canny" | "depth" | "openpose" | "lineart" | "scribble";
+  strength?: number;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg_scale?: number;
+  sampler?: string;
+  model?: string;
+  seed?: number;
+  loras?: Array<{ name: string; strength_model?: number; strength_clip?: number }>;
+  output_path?: string;
+  upload_to_cloud?: boolean;
+}
+
+/**
+ * Preprocess request (maps to POST /preprocess)
+ */
+export interface PreprocessRequest {
+  input_image: string;
+  control_type: "canny" | "depth" | "openpose" | "lineart" | "scribble";
+  output_path?: string;
+}
+
+/**
  * Portrait generation request (maps to POST /portrait)
  */
 export interface PortraitRequest {
@@ -79,6 +109,51 @@ export interface LipsyncRequest {
   audio: string;
   fps?: number;
   duration?: number;
+  output_path?: string;
+  upload_to_cloud?: boolean;
+}
+
+/**
+ * Inpainting request (maps to POST /inpaint) - Phase 3.5
+ */
+export interface InpaintRequest {
+  prompt: string;
+  negative_prompt?: string;
+  source_image: string;
+  mask_image: string;
+  mask_blur?: number;
+  inpaint_full_res?: boolean;
+  inpaint_padding?: number;
+  denoising_strength?: number;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg_scale?: number;
+  sampler?: string;
+  model?: string;
+  seed?: number;
+  loras?: Array<{ name: string; strength_model?: number; strength_clip?: number }>;
+  output_path?: string;
+  upload_to_cloud?: boolean;
+}
+
+/**
+ * Img2Img / InstructPix2Pix request (maps to POST /img2img) - Phase 3.5
+ * Use for text-based image editing without explicit masks
+ */
+export interface Img2ImgRequest {
+  prompt: string;
+  negative_prompt?: string;
+  source_image: string;
+  denoising_strength?: number;
+  width?: number;
+  height?: number;
+  steps?: number;
+  cfg_scale?: number;
+  sampler?: string;
+  model?: string;
+  seed?: number;
+  loras?: Array<{ name: string; strength_model?: number; strength_clip?: number }>;
   output_path?: string;
   upload_to_cloud?: boolean;
 }
@@ -269,6 +344,28 @@ export class ComfyUIClient {
   }
 
   // ==========================================================================
+  // ControlNet Generation
+  // ==========================================================================
+
+  /**
+   * Generate image with ControlNet guidance (POST /controlnet)
+   *
+   * Use a reference image to guide generation (pose, edges, depth, etc.)
+   */
+  async generateWithControlNet(request: ControlNetRequest): Promise<GenerationResult> {
+    return this.post("/controlnet", request);
+  }
+
+  /**
+   * Preprocess image for ControlNet (POST /preprocess)
+   *
+   * Extract control signal (canny edges, depth map, pose skeleton, etc.)
+   */
+  async preprocessImage(request: PreprocessRequest): Promise<GenerationResult> {
+    return this.post("/preprocess", request);
+  }
+
+  // ==========================================================================
   // Audio/Video Generation
   // ==========================================================================
 
@@ -284,6 +381,30 @@ export class ComfyUIClient {
    */
   async lipsync(request: LipsyncRequest): Promise<GenerationResult> {
     return this.post("/lipsync", request);
+  }
+
+  // ==========================================================================
+  // Inpainting & Editing (Phase 3.5)
+  // ==========================================================================
+
+  /**
+   * Inpaint a region of an image (POST /inpaint)
+   *
+   * Use a mask to specify which regions to regenerate.
+   * White areas in mask = inpaint, black areas = preserve.
+   */
+  async inpaint(request: InpaintRequest): Promise<GenerationResult> {
+    return this.post("/inpaint", request);
+  }
+
+  /**
+   * Image-to-image transformation (POST /img2img)
+   *
+   * Use for text-based image editing without explicit masks.
+   * Lower denoising_strength preserves more of the original.
+   */
+  async img2img(request: Img2ImgRequest): Promise<GenerationResult> {
+    return this.post("/img2img", request);
   }
 
   // ==========================================================================

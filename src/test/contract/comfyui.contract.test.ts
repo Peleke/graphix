@@ -269,10 +269,10 @@ export function validateResponse(
   const contract = CONTRACTS[endpoint];
   const errors: string[] = [];
   const responseContract = isError
-    ? contract.response.error
+    ? (contract.response as { error?: { required: string[] } }).error
     : contract.response.success;
 
-  if ("required" in responseContract) {
+  if (responseContract && "required" in responseContract) {
     for (const field of responseContract.required) {
       if (!(field in response)) {
         errors.push(`Missing required response field: ${field}`);

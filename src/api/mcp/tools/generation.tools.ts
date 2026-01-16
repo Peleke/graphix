@@ -2,7 +2,6 @@
  * Generation MCP Tools
  *
  * Tools for managing generated images via MCP.
- * Note: Actual generation is triggered via panel_generate (not yet implemented).
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
@@ -19,7 +18,7 @@ export const generationTools: Record<string, Tool> = {
           type: "string",
           description: "Panel ID this image was generated for",
         },
-        imagePath: {
+        localPath: {
           type: "string",
           description: "Path to the generated image file",
         },
@@ -59,6 +58,10 @@ export const generationTools: Record<string, Tool> = {
           type: "string",
           description: "Sampler used",
         },
+        scheduler: {
+          type: "string",
+          description: "Scheduler used",
+        },
         loras: {
           type: "array",
           description: "LoRAs applied during generation",
@@ -66,12 +69,13 @@ export const generationTools: Record<string, Tool> = {
             type: "object",
             properties: {
               name: { type: "string" },
-              weight: { type: "number" },
+              strength: { type: "number" },
+              strengthClip: { type: "number" },
             },
           },
         },
       },
-      required: ["panelId", "imagePath", "seed", "prompt"],
+      required: ["panelId", "localPath", "seed", "prompt", "model", "width", "height", "steps", "cfg", "sampler"],
     },
   },
 
@@ -104,10 +108,6 @@ export const generationTools: Record<string, Tool> = {
           type: "boolean",
           description: "Only return favorited images",
         },
-        minRating: {
-          type: "number",
-          description: "Minimum rating filter (1-5)",
-        },
       },
       required: ["panelId"],
     },
@@ -123,18 +123,14 @@ export const generationTools: Record<string, Tool> = {
           type: "string",
           description: "Generated image ID",
         },
-        isFavorite: {
-          type: "boolean",
-          description: "Favorite status (true/false)",
-        },
       },
-      required: ["generationId", "isFavorite"],
+      required: ["generationId"],
     },
   },
 
   generation_rate: {
     name: "generation_rate",
-    description: "Rate a generated image (1-5 stars)",
+    description: "Rate a generated image (1-5 stars, or null to clear)",
     inputSchema: {
       type: "object",
       properties: {
@@ -144,10 +140,10 @@ export const generationTools: Record<string, Tool> = {
         },
         rating: {
           type: "number",
-          description: "Rating from 1 to 5",
+          description: "Rating from 1 to 5 (or null to clear)",
         },
       },
-      required: ["generationId", "rating"],
+      required: ["generationId"],
     },
   },
 
@@ -177,19 +173,18 @@ export async function handleGenerationTool(
     case "generation_create": {
       const generation = await service.create({
         panelId: args.panelId as string,
-        imagePath: args.imagePath as string,
-        params: {
-          seed: args.seed as number,
-          prompt: args.prompt as string,
-          negativePrompt: args.negativePrompt as string | undefined,
-          model: args.model as string | undefined,
-          width: args.width as number | undefined,
-          height: args.height as number | undefined,
-          steps: args.steps as number | undefined,
-          cfg: args.cfg as number | undefined,
-          sampler: args.sampler as string | undefined,
-          loras: args.loras as Array<{ name: string; weight: number }> | undefined,
-        },
+        localPath: args.localPath as string,
+        seed: args.seed as number,
+        prompt: args.prompt as string,
+        negativePrompt: args.negativePrompt as string | undefined,
+        model: args.model as string,
+        width: args.width as number,
+        height: args.height as number,
+        steps: args.steps as number,
+        cfg: args.cfg as number,
+        sampler: args.sampler as string,
+        scheduler: args.scheduler as string | undefined,
+        loras: args.loras as Array<{ name: string; strength: number; strengthClip?: number }> | undefined,
       });
       return { success: true, generation };
     }
@@ -203,25 +198,24 @@ export async function handleGenerationTool(
     }
 
     case "generation_list": {
-      const generations = await service.listByPanel(args.panelId as string, {
-        favoritesOnly: args.favoritesOnly as boolean | undefined,
-        minRating: args.minRating as number | undefined,
-      });
+      let generations;
+      if (args.favoritesOnly) {
+        generations = await service.getFavorites(args.panelId as string);
+      } else {
+        generations = await service.getByPanel(args.panelId as string);
+      }
       return { success: true, generations, count: generations.length };
     }
 
     case "generation_favorite": {
-      const generation = await service.toggleFavorite(
-        args.generationId as string,
-        args.isFavorite as boolean
-      );
+      const generation = await service.toggleFavorite(args.generationId as string);
       return { success: true, generation };
     }
 
     case "generation_rate": {
-      const generation = await service.rate(
+      const generation = await service.setRating(
         args.generationId as string,
-        args.rating as number
+        args.rating as number | null
       );
       return { success: true, generation };
     }
