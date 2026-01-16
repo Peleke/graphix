@@ -8,17 +8,21 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter @graphix/server dev",
-    "start": "bun run --filter @graphix/server start",
-    "build": "bun run --filter '*' typecheck",
+    "dev": "bun run --cwd packages/server dev",
+    "start": "bun run --cwd packages/server start",
+    "build": "tsc --build",
+    "clean": "rm -rf packages/*/dist && rm -rf dist",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/db/migrate.ts",
+    "db:migrate": "bun run packages/core/src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "bun test",
-    "test:core": "bun test --filter @graphix/core",
-    "test:server": "bun test --filter @graphix/server",
-    "typecheck": "tsc --noEmit"
+    "test": "bun test packages/core",
+    "test:core": "bun test packages/core",
+    "test:server": "bun test packages/server",
+    "test:all": "bun test packages/core && bun test packages/server",
+    "test:coverage": "bun test packages/core --coverage",
+    "typecheck": "tsc --build",
+    "lint": "echo 'ESLint not configured yet'"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
