@@ -6,6 +6,8 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import * as fs from "fs/promises";
+import * as path from "path";
 import type {
   Premise,
   Story,
@@ -14,8 +16,15 @@ import type {
   BeatDialogue,
   StoryStructure,
   Character,
+  ReviewIssue,
 } from "../db/index.js";
 import { getCharacterService } from "./character.service.js";
+import {
+  DEFAULT_VISION_CONFIG,
+  type ImageAnalysis,
+  type PanelContext,
+  type VisionProviderConfig,
+} from "./review.types.js";
 
 // ============================================================================
 // Constants
@@ -620,6 +629,300 @@ Only output the JSON, no other text.`;
     const beats = await this.generateBeats(storyObj, premiseObj);
 
     return { premise, story, beats };
+  }
+
+  // ==========================================================================
+  // Image Analysis Methods
+  // ==========================================================================
+
+  /**
+   * Analyze an image for prompt adherence.
+   * Uses Ollama vision models first, falls back to Claude Vision.
+   *
+   * @param imagePath - Path to the image file to analyze
+   * @param prompt - The original generation prompt
+   * @param context - Optional panel context for richer analysis
+   * @param visionConfig - Optional vision provider configuration
+   * @returns Analysis result with score, issues, and element detection
+   */
+  async analyzeImagePromptAdherence(
+    imagePath: string,
+    prompt: string,
+    context?: PanelContext,
+    visionConfig?: Partial<VisionProviderConfig>
+  ): Promise<ImageAnalysis> {
+    const config: VisionProviderConfig = {
+      ...DEFAULT_VISION_CONFIG,
+      ...visionConfig,
+      // Use ANTHROPIC_API_KEY for Claude fallback if available
+      claudeApiKey: visionConfig?.claudeApiKey ?? this.config.apiKey,
+    };
+
+    // Build the analysis prompt
+    const analysisPrompt = this.buildImageAnalysisPrompt(prompt, context);
+
+    // Try Ollama first
+    if (config.provider === "ollama") {
+      try {
+        return await this.analyzeWithOllama(imagePath, analysisPrompt, config);
+      } catch (error) {
+        // Fall back to Claude if Ollama fails and we have an API key
+        if (config.claudeApiKey) {
+          console.warn(
+            `Ollama vision failed: ${error instanceof Error ? error.message : "Unknown error"}. Falling back to Claude Vision.`
+          );
+          return await this.analyzeWithClaude(imagePath, analysisPrompt, config);
+        }
+        throw new Error(
+          `Vision analysis failed: Ollama unavailable and Claude not configured. Original error: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
+    }
+
+    // Use Claude directly if configured as primary
+    if (!config.claudeApiKey) {
+      throw new Error("Claude Vision requires an API key");
+    }
+    return await this.analyzeWithClaude(imagePath, analysisPrompt, config);
+  }
+
+  /**
+   * Build the prompt for image analysis
+   */
+  private buildImageAnalysisPrompt(prompt: string, context?: PanelContext): string {
+    const contextSection = context
+      ? `
+PANEL CONTEXT:
+- Description: ${context.description || "Not specified"}
+- Characters: ${context.characterNames?.join(", ") || "Not specified"}
+- Mood: ${context.mood || "Not specified"}
+- Camera Angle: ${context.cameraAngle || "Not specified"}
+- Narrative Context: ${context.narrativeContext || "Not specified"}
+`
+      : "";
+
+    return `You are an expert image reviewer for AI-generated comic panels. Analyze this image against its generation prompt.
+
+GENERATION PROMPT:
+"${prompt}"
+${contextSection}
+TASK:
+1. Identify which elements from the prompt are PRESENT in the image
+2. Identify which elements from the prompt are MISSING or incorrectly rendered
+3. Assess overall prompt adherence on a scale of 0-1
+4. Note any quality issues (artifacts, anatomical errors, etc.)
+
+Respond with a JSON object:
+{
+  "adherenceScore": 0.0-1.0,
+  "foundElements": ["element1 from prompt that is present", "element2 that is present"],
+  "missingElements": ["element from prompt that is missing", "element that is wrong"],
+  "issues": [
+    {
+      "type": "missing_element" | "wrong_composition" | "wrong_character" | "wrong_action" | "quality" | "other",
+      "description": "Clear description of the issue",
+      "severity": "critical" | "major" | "minor",
+      "suggestedFix": "Optional suggestion for fixing this in regeneration"
+    }
+  ],
+  "qualityNotes": "Optional notes about overall image quality"
+}
+
+SCORING GUIDE:
+- 0.9-1.0: All key elements present, excellent adherence
+- 0.7-0.89: Most elements present, minor issues
+- 0.5-0.69: Some elements missing or wrong, needs improvement
+- 0.3-0.49: Significant issues, major regeneration needed
+- 0.0-0.29: Does not match prompt at all
+
+Be strict but fair. Focus on the key visual elements mentioned in the prompt.
+Only output the JSON, no other text.`;
+  }
+
+  /**
+   * Analyze image using Ollama vision model (llava, etc.)
+   */
+  private async analyzeWithOllama(
+    imagePath: string,
+    analysisPrompt: string,
+    config: VisionProviderConfig
+  ): Promise<ImageAnalysis> {
+    const baseUrl = config.ollamaBaseUrl || "http://localhost:11434";
+    const model = config.ollamaModel || "llava";
+
+    // Read image and convert to base64
+    const imageBuffer = await fs.readFile(imagePath);
+    const imageBase64 = imageBuffer.toString("base64");
+
+    const response = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt: analysisPrompt,
+        images: [imageBase64],
+        stream: false,
+        options: {
+          temperature: 0.3, // Lower temperature for more consistent analysis
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ollama API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const rawResponse = result.response || "";
+
+    return this.parseAnalysisResponse(rawResponse);
+  }
+
+  /**
+   * Analyze image using Claude Vision
+   */
+  private async analyzeWithClaude(
+    imagePath: string,
+    analysisPrompt: string,
+    config: VisionProviderConfig
+  ): Promise<ImageAnalysis> {
+    if (!config.claudeApiKey) {
+      throw new Error("Claude API key is required for vision analysis");
+    }
+
+    // Read image and convert to base64
+    const imageBuffer = await fs.readFile(imagePath);
+    const imageBase64 = imageBuffer.toString("base64");
+
+    // Determine media type from file extension
+    const ext = path.extname(imagePath).toLowerCase();
+    const mediaType =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".jpg" || ext === ".jpeg"
+          ? "image/jpeg"
+          : ext === ".gif"
+            ? "image/gif"
+            : ext === ".webp"
+              ? "image/webp"
+              : "image/png";
+
+    // Use the existing client or create a temporary one
+    const client = this.client || new Anthropic({ apiKey: config.claudeApiKey });
+
+    const response = await client.messages.create({
+      model: config.claudeModel || "claude-sonnet-4-20250514",
+      max_tokens: 2048,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType,
+                data: imageBase64,
+              },
+            },
+            {
+              type: "text",
+              text: analysisPrompt,
+            },
+          ],
+        },
+      ],
+    });
+
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response type from Claude Vision");
+    }
+
+    return this.parseAnalysisResponse(content.text);
+  }
+
+  /**
+   * Parse the analysis response from either vision provider
+   */
+  private parseAnalysisResponse(rawResponse: string): ImageAnalysis {
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      let jsonStr = rawResponse;
+      const jsonMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      } else {
+        // Try to find JSON object in the response
+        const jsonObjMatch = rawResponse.match(/\{[\s\S]*\}/);
+        if (jsonObjMatch) {
+          jsonStr = jsonObjMatch[0];
+        }
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // Validate and normalize the response
+      const analysis: ImageAnalysis = {
+        adherenceScore: Math.max(0, Math.min(1, Number(parsed.adherenceScore) || 0)),
+        foundElements: Array.isArray(parsed.foundElements) ? parsed.foundElements : [],
+        missingElements: Array.isArray(parsed.missingElements) ? parsed.missingElements : [],
+        issues: this.normalizeIssues(parsed.issues),
+        qualityNotes: parsed.qualityNotes || undefined,
+        rawResponse,
+      };
+
+      return analysis;
+    } catch (error) {
+      // If parsing fails, return a default analysis indicating failure
+      console.error("Failed to parse vision analysis response:", error);
+      return {
+        adherenceScore: 0.5, // Assume middle ground if we can't parse
+        foundElements: [],
+        missingElements: [],
+        issues: [
+          {
+            type: "other",
+            description: "Failed to parse AI analysis response",
+            severity: "major",
+            suggestedFix: "Try regenerating with a clearer prompt",
+          },
+        ],
+        qualityNotes: "Analysis parsing failed - manual review recommended",
+        rawResponse,
+      };
+    }
+  }
+
+  /**
+   * Normalize and validate issues array
+   */
+  private normalizeIssues(issues: unknown): ReviewIssue[] {
+    if (!Array.isArray(issues)) return [];
+
+    const validTypes = [
+      "missing_element",
+      "wrong_composition",
+      "wrong_character",
+      "wrong_action",
+      "quality",
+      "other",
+    ] as const;
+    const validSeverities = ["critical", "major", "minor"] as const;
+
+    return issues
+      .filter((issue): issue is Record<string, unknown> => typeof issue === "object" && issue !== null)
+      .map((issue) => ({
+        type: validTypes.includes(issue.type as (typeof validTypes)[number])
+          ? (issue.type as ReviewIssue["type"])
+          : "other",
+        description: String(issue.description || "Unknown issue"),
+        severity: validSeverities.includes(issue.severity as (typeof validSeverities)[number])
+          ? (issue.severity as ReviewIssue["severity"])
+          : "major",
+        suggestedFix: issue.suggestedFix ? String(issue.suggestedFix) : undefined,
+      }));
   }
 
   // ==========================================================================
