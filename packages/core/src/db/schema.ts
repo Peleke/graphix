@@ -306,14 +306,21 @@ export const generatedImages = sqliteTable(
     isFavorite: integer("is_favorite", { mode: "boolean" }).default(false),
     // User rating (1-5)
     rating: integer("rating"),
+    // Review status (for AI review system)
+    reviewStatus: text("review_status").$type<ReviewStatus>().default("pending"),
     ...timestamps,
   },
   (table) => [
     index("generated_images_panel_idx").on(table.panelId),
     index("generated_images_selected_idx").on(table.panelId, table.isSelected),
     index("generated_images_seed_idx").on(table.seed),
+    index("generated_images_review_status_idx").on(table.reviewStatus),
   ]
 );
+
+// Review status enum for AI review system
+export type ReviewStatus = "pending" | "approved" | "needs_work" | "rejected" | "human_review";
+export type ReviewAction = "approve" | "regenerate" | "inpaint" | "adjust_prompt" | "human_review";
 
 export type GeneratedImage = typeof generatedImages.$inferSelect;
 export type NewGeneratedImage = typeof generatedImages.$inferInsert;
@@ -864,6 +871,89 @@ export const beatsRelations = relations(beats, ({ one }) => ({
   panel: one(panels, {
     fields: [beats.panelId],
     references: [panels.id],
+  }),
+}));
+
+// ============================================================================
+// IMAGE REVIEWS (AI review system)
+// ============================================================================
+
+export type ReviewIssueType =
+  | "missing_element"
+  | "wrong_composition"
+  | "wrong_character"
+  | "wrong_action"
+  | "quality"
+  | "other";
+
+export type ReviewIssueSeverity = "critical" | "major" | "minor";
+
+export type ReviewIssue = {
+  type: ReviewIssueType;
+  description: string;
+  severity: ReviewIssueSeverity;
+  suggestedFix?: string;
+};
+
+export const imageReviews = sqliteTable(
+  "image_reviews",
+  {
+    id: id(),
+    generatedImageId: text("generated_image_id")
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: "cascade" }),
+    panelId: text("panel_id")
+      .notNull()
+      .references(() => panels.id, { onDelete: "cascade" }),
+
+    // Review result
+    score: real("score").notNull(), // 0-1 adherence score
+    status: text("status").$type<ReviewStatus>().notNull(),
+    issues: text("issues", { mode: "json" }).$type<ReviewIssue[]>(),
+    recommendation: text("recommendation").$type<ReviewAction>(),
+
+    // Iteration tracking
+    iteration: integer("iteration").notNull().default(1),
+    previousReviewId: text("previous_review_id"),
+
+    // Review source
+    reviewedBy: text("reviewed_by").$type<"ai" | "human">().notNull(),
+    humanReviewerId: text("human_reviewer_id"), // For HitL tracking
+    humanFeedback: text("human_feedback"), // Human notes
+
+    // Action taken
+    actionTaken: text("action_taken").$type<ReviewAction>(),
+    regeneratedImageId: text("regenerated_image_id"),
+
+    ...timestamps,
+  },
+  (table) => [
+    index("image_reviews_image_idx").on(table.generatedImageId),
+    index("image_reviews_panel_idx").on(table.panelId),
+    index("image_reviews_status_idx").on(table.status),
+    index("image_reviews_iteration_idx").on(table.panelId, table.iteration),
+  ]
+);
+
+export type ImageReview = typeof imageReviews.$inferSelect;
+export type NewImageReview = typeof imageReviews.$inferInsert;
+
+export const imageReviewsRelations = relations(imageReviews, ({ one }) => ({
+  generatedImage: one(generatedImages, {
+    fields: [imageReviews.generatedImageId],
+    references: [generatedImages.id],
+  }),
+  panel: one(panels, {
+    fields: [imageReviews.panelId],
+    references: [panels.id],
+  }),
+  previousReview: one(imageReviews, {
+    fields: [imageReviews.previousReviewId],
+    references: [imageReviews.id],
+  }),
+  regeneratedImage: one(generatedImages, {
+    fields: [imageReviews.regeneratedImageId],
+    references: [generatedImages.id],
   }),
 }));
 
