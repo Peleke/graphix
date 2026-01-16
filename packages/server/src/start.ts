@@ -14,8 +14,15 @@ import {
   type DatabaseConfig,
 } from "@graphix/core";
 import { serve } from "@hono/node-server";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { app } from "./rest/app.js";
 import { startMCPServer } from "./mcp/index.js";
+
+// Compute absolute path to monorepo root for consistent db location
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MONOREPO_ROOT = resolve(__dirname, "../../..");
+const DEFAULT_DB_PATH = resolve(MONOREPO_ROOT, "graphix.db");
 
 /**
  * Load configuration from environment
@@ -27,7 +34,7 @@ function loadConfigFromEnv(): GraphixConfig {
     mode: (env.STORAGE_MODE || "sqlite") as "turso" | "sqlite" | "memory",
     tursoUrl: env.TURSO_URL,
     tursoToken: env.TURSO_AUTH_TOKEN,
-    sqlitePath: env.SQLITE_PATH || "./graphix.db",
+    sqlitePath: env.SQLITE_PATH || DEFAULT_DB_PATH,
     verbose: env.DB_VERBOSE === "true",
   };
 
@@ -75,7 +82,7 @@ export async function startServer(configOverrides?: Partial<GraphixConfig>): Pro
   setConfig(config);
 
   // Initialize database
-  console.log("[Server] Initializing database...");
+  console.error("[Server] Initializing database...");
   const connection = createDatabase(config.storage.database);
   setDefaultDatabase(connection);
 
@@ -84,27 +91,25 @@ export async function startServer(configOverrides?: Partial<GraphixConfig>): Pro
 
   // Start REST server
   if (config.server.restEnabled) {
-    console.log(`[Server] Starting REST API on port ${config.server.port}...`);
+    console.error(`[Server] Starting REST API on port ${config.server.port}...`);
     serve({
       fetch: app.fetch,
       port: config.server.port,
     });
-    console.log(`[REST] API available at http://localhost:${config.server.port}/api`);
+    console.error(`[REST] API available at http://localhost:${config.server.port}/api`);
   }
 
   // Start MCP server (stdio mode, typically run separately)
   if (config.server.mcpEnabled && process.env.MCP_MODE === "stdio") {
-    console.log("[Server] Starting MCP server on stdio...");
+    console.error("[Server] Starting MCP server on stdio...");
     await startMCPServer();
   }
 
-  console.log("[Server] Graphix server started successfully");
+  console.error("[Server] Graphix server started successfully");
 }
 
 // Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startServer().catch((error) => {
-    console.error("[Server] Failed to start:", error);
-    process.exit(1);
-  });
-}
+startServer().catch((error) => {
+  console.error("[Server] Failed to start:", error);
+  process.exit(1);
+});

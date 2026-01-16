@@ -80,5 +80,5 @@ export async function startMCPServer(): Promise<void> {
   const transport = new StdioServerTransport();
 
   await server.connect(transport);
-  console.log("[MCP] Server started on stdio");
+  console.error("[MCP] Server started on stdio");
 }

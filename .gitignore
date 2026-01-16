@@ -38,11 +38,26 @@ projects/
 *.jpg
 *.jpeg
 *.webp
+*.gif
 *.mp4
 *.webm
+*.mov
 *.wav
 *.mp3
+*.flac
+
+# Output directories (NEVER commit generated content)
+output/
+otters-yacht/
+generated/
+renders/
+exports/
+
+# ComfyUI input/output
+**/input/*.png
+**/input/*.jpg
 
 # But keep template assets
 !templates/**/*.png
 !templates/**/*.jpg
+!docs/**/*.png

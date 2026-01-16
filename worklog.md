@@ -308,3 +308,109 @@ Composed captioned panels into final pages using custom script.
 **With proposed improvements (batch ops, story scaffolding):**
 Estimated: ~45 minutes
 
+---
+
+# Debugging: MCP Server Not Connecting
+
+**Date:** January 16, 2026
+
+## Problem Statement
+
+Graphix MCP server was configured in `~/.claude/settings.json` alongside other working MCP servers (comfyui, playwright, serena), but its tools weren't appearing in Claude Code's available tools.
+
+## Initial Assumption
+
+Assumed the server might have a dependency issue, path problem, or the configuration was malformed. Checked:
+- Settings.json syntax (valid)
+- start.ts existence (exists)
+- Manual server startup (works!)
+
+## Root Cause Discovery
+
+Checked Claude Code debug logs and noticed **graphix was completely absent** while other servers showed startup messages. Compared with working comfyui-mcp:
+
+```
+[ERROR] MCP server "comfyui" Server stderr: Starting ComfyUI MCP server...
+```
+
+Key observation: The logs show "Server stderr" - comfyui-mcp uses `console.error` for startup messages!
+
+**The Problem:** MCP uses stdout for JSON-RPC protocol messages. Any `console.log` output (which writes to stdout) corrupts the protocol handshake, causing Claude Code to fail silently when initializing the server.
+
+Graphix had multiple `console.log` statements that fired during startup:
+- `[Server] Initializing database...`
+- `[DB] Schema migration complete`
+- `[Server] Starting MCP server on stdio...`
+- `[MCP] Server started on stdio`
+
+## The Fix
+
+Changed all startup-path `console.log` calls to `console.error` in:
+- `packages/server/src/start.ts`
+- `packages/server/src/mcp/server.ts`
+- `packages/core/src/db/client.ts` (migration message)
+
+## Prevention: Architecture & Workflow Guidelines
+
+### 1. **MCP Logging Standard** (add to CONTRIBUTING.md)
+When building MCP servers with stdio transport:
+- **NEVER use `console.log`** in any code path that executes during server initialization or tool handling
+- **ALWAYS use `console.error`** for diagnostic messages
+- Consider creating a logger utility that defaults to stderr
+
+```typescript
+// Good: MCP-safe logging
+const log = {
+  info: (msg: string) => console.error(`[INFO] ${msg}`),
+  error: (msg: string) => console.error(`[ERROR] ${msg}`),
+  debug: (msg: string) => process.env.DEBUG && console.error(`[DEBUG] ${msg}`),
+};
+```
+
+### 2. **MCP Server Testing Checklist**
+Before considering an MCP server "working":
+- [ ] Test with actual Claude Code, not just manual execution
+- [ ] Check debug logs for server appearing in startup sequence
+- [ ] Verify tools appear in `/mcp` command output
+- [ ] If server starts manually but tools don't appear, check stdout pollution
+
+### 3. **Architectural Improvement: Structured Logging**
+Add a proper logging module to `@graphix/core`:
+```typescript
+// packages/core/src/logging.ts
+export const logger = {
+  info: (msg: string) => console.error(`[Graphix] ${msg}`),
+  // etc.
+};
+```
+
+Then `@graphix/server` imports and uses this throughout, ensuring MCP safety.
+
+### 4. **CI Check** (future)
+Could add a lint rule or grep-based check:
+```bash
+# Fail if console.log found in server package (excluding tests)
+grep -r "console\.log" packages/server/src/ --include="*.ts" && exit 1
+```
+
+## Key Lesson
+
+**stdout is not a debug channel** in MCP servers. This is a classic "it works locally but not integrated" bug. The MCP protocol is invisible - when it fails, there's no error, just... silence. Always check debug logs first when an MCP server seems configured but doesn't connect.
+
+---
+
+## Tips: GitHub CLI Label Handling
+
+When using `gh` CLI to create PRs or issues, labels with spaces need special handling:
+
+```bash
+# Won't work - treats "high" as separate arg
+gh issue create --label "priority: high"
+
+# Works - use multiple --label flags
+gh issue create --label "priority" --label "high"
+
+# Or use comma-separated (no spaces around comma)
+gh issue create --label "priority,high"
+```
+
