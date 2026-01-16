@@ -51,13 +51,13 @@ describe("E2E: Narrative Engine Workflows", () => {
       const char1 = await characterService.create({
         projectId: project.id,
         name: "Sandy",
-        profile: { species: "otter", personality: "adventurous" },
+        profile: { species: "otter", bodyType: "slim", features: ["adventurous expression"] },
       });
 
       const char2 = await characterService.create({
         projectId: project.id,
         name: "Coral",
-        profile: { species: "seal", personality: "cautious" },
+        profile: { species: "seal", bodyType: "average", features: ["cautious demeanor"] },
       });
 
       // Step 3: Create a premise

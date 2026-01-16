@@ -18,6 +18,15 @@ import type {
 import { getCharacterService } from "./character.service.js";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+const MAX_LOGLINE_LENGTH = 2000;
+const MAX_FEEDBACK_LENGTH = 5000;
+const MAX_SETTING_LENGTH = 2000;
+const DEFAULT_TIMEOUT_MS = 60000; // 60 seconds
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -102,6 +111,92 @@ export type FullStoryGeneration = {
 };
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Sanitize user input for use in LLM prompts to prevent prompt injection.
+ * This is a defense-in-depth measure - it escapes special characters that
+ * could be used to manipulate prompt structure.
+ */
+function sanitizeForPrompt(input: string): string {
+  if (!input) return "";
+  // Remove or escape characters that could be used for prompt manipulation
+  return input
+    .replace(/\\/g, "\\\\") // Escape backslashes first
+    .replace(/"/g, '\\"')   // Escape quotes
+    .replace(/\n{3,}/g, "\n\n") // Collapse multiple newlines
+    .trim();
+}
+
+/**
+ * Safely parse JSON from LLM response with error handling.
+ * LLMs sometimes include extra text before/after JSON, so we try to extract it.
+ */
+function safeJsonParse<T>(text: string, context: string): T {
+  try {
+    // First, try direct parsing
+    return JSON.parse(text) as T;
+  } catch {
+    // Try to extract JSON from response (LLM might have added extra text)
+    const jsonMatch = text.match(/[\[{][\s\S]*[\]}]/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]) as T;
+      } catch {
+        throw new Error(
+          `Failed to parse LLM response as JSON (${context}). ` +
+          `Response started with: ${text.slice(0, 100)}...`
+        );
+      }
+    }
+    throw new Error(
+      `LLM response is not valid JSON (${context}). ` +
+      `Response started with: ${text.slice(0, 100)}...`
+    );
+  }
+}
+
+/**
+ * Validate input length with descriptive error messages.
+ */
+function validateLength(value: string | undefined, maxLength: number, fieldName: string): void {
+  if (value && value.length > maxLength) {
+    throw new Error(`${fieldName} exceeds maximum length of ${maxLength} characters (got ${value.length})`);
+  }
+}
+
+/**
+ * Fetch multiple characters in parallel instead of sequentially.
+ */
+async function fetchCharacters(characterIds: string[]): Promise<Character[]> {
+  if (!characterIds || characterIds.length === 0) return [];
+
+  const characterService = getCharacterService();
+  const results = await Promise.all(
+    characterIds.map((id) => characterService.getById(id))
+  );
+
+  // Filter out nulls and warn about missing characters
+  const characters: Character[] = [];
+  const missingIds: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i]) {
+      characters.push(results[i]!);
+    } else {
+      missingIds.push(characterIds[i]);
+    }
+  }
+
+  if (missingIds.length > 0) {
+    console.warn(`LLMService: Characters not found: ${missingIds.join(", ")}`);
+  }
+
+  return characters;
+}
+
+// ============================================================================
 // LLM Service
 // ============================================================================
 
@@ -159,10 +254,11 @@ export class LLMService {
   }
 
   /**
-   * Get current configuration
+   * Get current configuration (API key is redacted for security)
    */
-  getConfig(): LLMConfig {
-    return { ...this.config };
+  getConfig(): Omit<LLMConfig, "apiKey"> & { hasApiKey: boolean } {
+    const { apiKey, ...rest } = this.config;
+    return { ...rest, hasApiKey: !!apiKey };
   }
 
   /**
@@ -182,27 +278,30 @@ export class LLMService {
   async generatePremise(input: PremisePrompt): Promise<GeneratedPremise> {
     this.ensureReady();
 
-    // Get character details if provided
-    let characterContext = "";
-    if (input.characterIds && input.characterIds.length > 0) {
-      const characterService = getCharacterService();
-      const characters: Character[] = [];
-      for (const id of input.characterIds) {
-        const char = await characterService.getById(id);
-        if (char) characters.push(char);
-      }
-      if (characters.length > 0) {
-        characterContext = `\n\nAvailable characters:\n${characters.map((c) => `- ${c.name}: ${c.profile.species}, ${c.profile.bodyType}`).join("\n")}`;
-      }
-    }
+    // Validate input lengths
+    validateLength(input.logline, MAX_LOGLINE_LENGTH, "Logline");
+    validateLength(input.setting, MAX_SETTING_LENGTH, "Setting");
+
+    // Sanitize inputs for prompt injection prevention
+    const safeLogline = sanitizeForPrompt(input.logline);
+    const safeGenre = sanitizeForPrompt(input.genre ?? "");
+    const safeTone = sanitizeForPrompt(input.tone ?? "");
+    const safeSetting = sanitizeForPrompt(input.setting ?? "");
+    const safeThemes = input.themes?.map(sanitizeForPrompt) ?? [];
+
+    // Get character details in parallel
+    const characters = await fetchCharacters(input.characterIds ?? []);
+    const characterContext = characters.length > 0
+      ? `\n\nAvailable characters:\n${characters.map((c) => `- ${c.name}: ${c.profile.species}, ${c.profile.bodyType}`).join("\n")}`
+      : "";
 
     const prompt = `You are a creative writing assistant specializing in comic and visual storytelling. Generate a fully fleshed-out story premise based on the following logline.
 
-Logline: "${input.logline}"
-${input.genre ? `Genre hint: ${input.genre}` : ""}
-${input.tone ? `Tone hint: ${input.tone}` : ""}
-${input.themes?.length ? `Theme hints: ${input.themes.join(", ")}` : ""}
-${input.setting ? `Setting hint: ${input.setting}` : ""}
+Logline: "${safeLogline}"
+${safeGenre ? `Genre hint: ${safeGenre}` : ""}
+${safeTone ? `Tone hint: ${safeTone}` : ""}
+${safeThemes.length ? `Theme hints: ${safeThemes.join(", ")}` : ""}
+${safeSetting ? `Setting hint: ${safeSetting}` : ""}
 ${characterContext}
 
 Respond with a JSON object containing:
@@ -219,7 +318,7 @@ Only output the JSON, no other text.`;
 
     const response = await this.client!.messages.create({
       model: this.config.model,
-      max_tokens: this.config.maxTokens!,
+      max_tokens: this.config.maxTokens ?? 4096,
       temperature: this.config.temperature,
       messages: [{ role: "user", content: prompt }],
     });
@@ -229,7 +328,7 @@ Only output the JSON, no other text.`;
       throw new Error("Unexpected response type from LLM");
     }
 
-    return JSON.parse(content.text) as GeneratedPremise;
+    return safeJsonParse<GeneratedPremise>(content.text, "generatePremise");
   }
 
   /**
@@ -241,33 +340,33 @@ Only output the JSON, no other text.`;
     const structure = options?.structure ?? "three-act";
     const targetLength = options?.targetLength ?? 12;
 
-    // Get character details
-    let characterContext = "";
-    if (premise.characterIds && premise.characterIds.length > 0) {
-      const characterService = getCharacterService();
-      const characters: Character[] = [];
-      for (const id of premise.characterIds) {
-        const char = await characterService.getById(id);
-        if (char) characters.push(char);
-      }
-      if (characters.length > 0) {
-        characterContext = `\n\nCharacters involved:\n${characters
+    // Sanitize premise data
+    const safeLogline = sanitizeForPrompt(premise.logline);
+    const safeGenre = sanitizeForPrompt(premise.genre ?? "");
+    const safeTone = sanitizeForPrompt(premise.tone ?? "");
+    const safeSetting = sanitizeForPrompt(premise.setting ?? "");
+    const safeThemes = premise.themes?.map(sanitizeForPrompt) ?? [];
+    const safeWorldRules = premise.worldRules?.map(sanitizeForPrompt) ?? [];
+
+    // Get character details in parallel
+    const characters = await fetchCharacters(premise.characterIds ?? []);
+    const characterContext = characters.length > 0
+      ? `\n\nCharacters involved:\n${characters
           .map((c) => `- ${c.name} (${c.id}): ${c.profile.species}, ${c.profile.bodyType}. Features: ${c.profile.features.join(", ")}`)
-          .join("\n")}`;
-      }
-    }
+          .join("\n")}`
+      : "";
 
     const structureGuide = this.getStructureGuide(structure, targetLength);
 
     const prompt = `You are a story architect for visual comics. Expand this premise into a complete story structure.
 
 PREMISE:
-- Logline: ${premise.logline}
-- Genre: ${premise.genre || "not specified"}
-- Tone: ${premise.tone || "not specified"}
-- Themes: ${premise.themes?.join(", ") || "not specified"}
-- Setting: ${premise.setting || "not specified"}
-- World Rules: ${premise.worldRules?.join("; ") || "none specified"}
+- Logline: ${safeLogline}
+- Genre: ${safeGenre || "not specified"}
+- Tone: ${safeTone || "not specified"}
+- Themes: ${safeThemes.join(", ") || "not specified"}
+- Setting: ${safeSetting || "not specified"}
+- World Rules: ${safeWorldRules.join("; ") || "none specified"}
 ${characterContext}
 
 TARGET STRUCTURE: ${structure}
@@ -300,7 +399,7 @@ Only output the JSON, no other text.`;
 
     const response = await this.client!.messages.create({
       model: this.config.model,
-      max_tokens: this.config.maxTokens!,
+      max_tokens: this.config.maxTokens ?? 4096,
       temperature: this.config.temperature,
       messages: [{ role: "user", content: prompt }],
     });
@@ -310,7 +409,7 @@ Only output the JSON, no other text.`;
       throw new Error("Unexpected response type from LLM");
     }
 
-    return JSON.parse(content.text) as GeneratedStory;
+    return safeJsonParse<GeneratedStory>(content.text, "expandPremiseToStory");
   }
 
   /**
@@ -324,43 +423,47 @@ Only output the JSON, no other text.`;
     const includeNarration = options?.includeNarration ?? true;
     const includeSfx = options?.includeSfx ?? true;
 
-    // Get character details
-    let characterContext = "";
-    if (premise.characterIds && premise.characterIds.length > 0) {
-      const characterService = getCharacterService();
-      const characters: Character[] = [];
-      for (const id of premise.characterIds) {
-        const char = await characterService.getById(id);
-        if (char) characters.push(char);
-      }
-      if (characters.length > 0) {
-        characterContext = `\n\nCharacters (use these IDs in characterIds arrays):\n${characters
+    // Sanitize story and premise data
+    const safeTitle = sanitizeForPrompt(story.title);
+    const safeSynopsis = sanitizeForPrompt(story.synopsis ?? "");
+    const safeLogline = sanitizeForPrompt(premise.logline);
+    const safeGenre = sanitizeForPrompt(premise.genre ?? "");
+    const safeTone = sanitizeForPrompt(premise.tone ?? "");
+    const safeSetting = sanitizeForPrompt(premise.setting ?? "");
+
+    // Get character details in parallel
+    const characters = await fetchCharacters(premise.characterIds ?? []);
+    const characterContext = characters.length > 0
+      ? `\n\nCharacters (use these IDs in characterIds arrays):\n${characters
           .map(
             (c) =>
               `- ID: "${c.id}" - ${c.name}: ${c.profile.species}, ${c.profile.bodyType}. Features: ${c.profile.features.join(", ")}`
           )
-          .join("\n")}`;
-      }
-    }
+          .join("\n")}`
+      : "";
+
+    // Calculate dynamic max tokens based on target length
+    const targetBeats = story.targetLength ?? 12;
+    const maxTokens = Math.min(16384, Math.max(4096, targetBeats * 500));
 
     const prompt = `You are a comic storyboard artist. Generate individual beats (panels) for this story.
 
 STORY:
-- Title: ${story.title}
-- Synopsis: ${story.synopsis || "Not provided"}
+- Title: ${safeTitle}
+- Synopsis: ${safeSynopsis || "Not provided"}
 - Structure: ${story.structure}
 - Structure Notes: ${JSON.stringify(story.structureNotes || {})}
-- Target Length: ${story.targetLength || 12} beats
+- Target Length: ${targetBeats} beats
 - Character Arcs: ${JSON.stringify(story.characterArcs || [])}
 
 PREMISE CONTEXT:
-- Logline: ${premise.logline}
-- Genre: ${premise.genre}
-- Tone: ${premise.tone}
-- Setting: ${premise.setting}
+- Logline: ${safeLogline}
+- Genre: ${safeGenre}
+- Tone: ${safeTone}
+- Setting: ${safeSetting}
 ${characterContext}
 
-Generate ${story.targetLength || 12} beats. Each beat should be a single panel.
+Generate ${targetBeats} beats. Each beat should be a single panel.
 
 BEAT TYPES TO USE: setup, inciting, rising, midpoint, complication, crisis, climax, resolution, denouement
 
@@ -396,7 +499,7 @@ Only output the JSON array, no other text.`;
 
     const response = await this.client!.messages.create({
       model: this.config.model,
-      max_tokens: 8192, // Beats can be long
+      max_tokens: maxTokens,
       temperature: this.config.temperature,
       messages: [{ role: "user", content: prompt }],
     });
@@ -406,7 +509,7 @@ Only output the JSON array, no other text.`;
       throw new Error("Unexpected response type from LLM");
     }
 
-    return JSON.parse(content.text) as GeneratedBeat[];
+    return safeJsonParse<GeneratedBeat[]>(content.text, "generateBeats");
   }
 
   /**
@@ -415,13 +518,19 @@ Only output the JSON array, no other text.`;
   async refineBeat(beat: GeneratedBeat, feedback: string): Promise<GeneratedBeat> {
     this.ensureReady();
 
+    // Validate feedback length
+    validateLength(feedback, MAX_FEEDBACK_LENGTH, "Feedback");
+
+    // Sanitize feedback for prompt injection prevention
+    const safeFeedback = sanitizeForPrompt(feedback);
+
     const prompt = `You are a comic storyboard artist refining a panel beat based on feedback.
 
 CURRENT BEAT:
 ${JSON.stringify(beat, null, 2)}
 
 FEEDBACK:
-${feedback}
+${safeFeedback}
 
 Revise the beat to address the feedback. Keep the same position and act number unless the feedback specifically asks to change them.
 
@@ -431,7 +540,7 @@ Only output the JSON, no other text.`;
 
     const response = await this.client!.messages.create({
       model: this.config.model,
-      max_tokens: this.config.maxTokens!,
+      max_tokens: this.config.maxTokens ?? 4096,
       temperature: this.config.temperature,
       messages: [{ role: "user", content: prompt }],
     });
@@ -441,7 +550,7 @@ Only output the JSON, no other text.`;
       throw new Error("Unexpected response type from LLM");
     }
 
-    return JSON.parse(content.text) as GeneratedBeat;
+    return safeJsonParse<GeneratedBeat>(content.text, "refineBeat");
   }
 
   /**

@@ -19,6 +19,54 @@ import {
   type BeatType,
 } from "@graphix/core";
 
+// ============================================================================
+// Validation Helpers
+// ============================================================================
+
+const VALID_PREMISE_STATUSES: readonly string[] = ["draft", "active", "archived"];
+const VALID_STORY_STATUSES: readonly string[] = ["draft", "beats_generated", "panels_created", "complete"];
+const VALID_STORY_STRUCTURES: readonly string[] = ["three-act", "five-act", "hero-journey", "custom"];
+const VALID_BEAT_TYPES: readonly string[] = [
+  "setup", "inciting", "rising", "midpoint", "complication",
+  "crisis", "climax", "resolution", "denouement"
+];
+
+/**
+ * Safely parse an integer from a string with validation.
+ * Returns defaultValue if parsing fails or value is out of range.
+ */
+function safeParseInt(value: string | undefined, defaultValue: number, min = 0, max = 10000): number {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) return defaultValue;
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return parsed;
+}
+
+/**
+ * Validate that a value is a valid enum member.
+ * Returns undefined if invalid (instead of blindly casting).
+ */
+function validateEnum<T extends string>(
+  value: string | undefined,
+  validValues: readonly string[],
+  _fieldName: string
+): T | undefined {
+  if (!value) return undefined;
+  if (validValues.includes(value)) {
+    return value as T;
+  }
+  return undefined;
+}
+
+/**
+ * Create a consistent error response.
+ */
+function errorResponse(message: string, code: string = "BAD_REQUEST") {
+  return { error: message, code };
+}
+
 const narrativeRoutes = new Hono();
 
 // ============================================================================
@@ -29,9 +77,9 @@ const narrativeRoutes = new Hono();
 narrativeRoutes.get("/projects/:projectId/premises", async (c) => {
   const service = getNarrativeService();
   const projectId = c.req.param("projectId");
-  const status = c.req.query("status") as PremiseStatus | undefined;
-  const limit = parseInt(c.req.query("limit") ?? "100");
-  const offset = parseInt(c.req.query("offset") ?? "0");
+  const status = validateEnum<PremiseStatus>(c.req.query("status"), VALID_PREMISE_STATUSES, "status");
+  const limit = safeParseInt(c.req.query("limit"), 100, 1, 1000);
+  const offset = safeParseInt(c.req.query("offset"), 0, 0);
 
   const premises = await service.listPremises(projectId, { status, limit, offset });
 
@@ -47,8 +95,10 @@ narrativeRoutes.post("/premises", async (c) => {
   const body = await c.req.json();
 
   if (!body.projectId || !body.logline) {
-    return c.json({ error: "projectId and logline are required" }, 400);
+    return c.json(errorResponse("projectId and logline are required", "MISSING_REQUIRED_FIELDS"), 400);
   }
+
+  const status = validateEnum<PremiseStatus>(body.status, VALID_PREMISE_STATUSES, "status");
 
   const premise = await service.createPremise({
     projectId: body.projectId,
@@ -61,7 +111,7 @@ narrativeRoutes.post("/premises", async (c) => {
     worldRules: body.worldRules,
     generatedBy: body.generatedBy,
     generationPrompt: body.generationPrompt,
-    status: body.status,
+    status,
   });
 
   return c.json(premise, 201);
@@ -131,20 +181,23 @@ narrativeRoutes.post("/premises/:premiseId/stories", async (c) => {
   const body = await c.req.json();
 
   if (!body.title) {
-    return c.json({ error: "title is required" }, 400);
+    return c.json(errorResponse("title is required", "MISSING_REQUIRED_FIELDS"), 400);
   }
+
+  const structure = validateEnum<StoryStructure>(body.structure, VALID_STORY_STRUCTURES, "structure");
+  const status = validateEnum<StoryStatus>(body.status, VALID_STORY_STATUSES, "status");
 
   const story = await service.createStory({
     premiseId,
     title: body.title,
     synopsis: body.synopsis,
     targetLength: body.targetLength,
-    structure: body.structure as StoryStructure,
+    structure,
     structureNotes: body.structureNotes,
     characterArcs: body.characterArcs,
     generatedBy: body.generatedBy,
     generationPrompt: body.generationPrompt,
-    status: body.status,
+    status,
   });
 
   return c.json(story, 201);
@@ -154,9 +207,9 @@ narrativeRoutes.post("/premises/:premiseId/stories", async (c) => {
 narrativeRoutes.get("/premises/:premiseId/stories", async (c) => {
   const service = getNarrativeService();
   const premiseId = c.req.param("premiseId");
-  const status = c.req.query("status") as StoryStatus | undefined;
-  const limit = parseInt(c.req.query("limit") ?? "100");
-  const offset = parseInt(c.req.query("offset") ?? "0");
+  const status = validateEnum<StoryStatus>(c.req.query("status"), VALID_STORY_STATUSES, "status");
+  const limit = safeParseInt(c.req.query("limit"), 100, 1, 1000);
+  const offset = safeParseInt(c.req.query("offset"), 0, 0);
 
   const stories = await service.listStoriesByPremise(premiseId, { status, limit, offset });
 
@@ -195,16 +248,19 @@ narrativeRoutes.patch("/stories/:id", async (c) => {
   const service = getNarrativeService();
   const body = await c.req.json();
 
+  const structure = validateEnum<StoryStructure>(body.structure, VALID_STORY_STRUCTURES, "structure");
+  const status = validateEnum<StoryStatus>(body.status, VALID_STORY_STATUSES, "status");
+
   const story = await service.updateStory(c.req.param("id"), {
     title: body.title,
     synopsis: body.synopsis,
     targetLength: body.targetLength,
-    structure: body.structure as StoryStructure,
+    structure,
     structureNotes: body.structureNotes,
     characterArcs: body.characterArcs,
     generatedBy: body.generatedBy,
     generationPrompt: body.generationPrompt,
-    status: body.status,
+    status,
   });
 
   return c.json(story);
@@ -229,7 +285,7 @@ narrativeRoutes.post("/stories/:storyId/beats", async (c) => {
   const body = await c.req.json();
 
   if (!body.visualDescription) {
-    return c.json({ error: "visualDescription is required" }, 400);
+    return c.json(errorResponse("visualDescription is required", "MISSING_REQUIRED_FIELDS"), 400);
   }
 
   // Get next position if not provided
@@ -239,11 +295,13 @@ narrativeRoutes.post("/stories/:storyId/beats", async (c) => {
     position = existingBeats.length;
   }
 
+  const beatType = validateEnum<BeatType>(body.beatType, VALID_BEAT_TYPES, "beatType");
+
   const beat = await service.createBeat({
     storyId,
     position,
     actNumber: body.actNumber,
-    beatType: body.beatType as BeatType,
+    beatType,
     visualDescription: body.visualDescription,
     narrativeContext: body.narrativeContext,
     emotionalTone: body.emotionalTone,
@@ -302,10 +360,12 @@ narrativeRoutes.patch("/beats/:id", async (c) => {
   const service = getNarrativeService();
   const body = await c.req.json();
 
+  const beatType = validateEnum<BeatType>(body.beatType, VALID_BEAT_TYPES, "beatType");
+
   const beat = await service.updateBeat(c.req.param("id"), {
     position: body.position,
     actNumber: body.actNumber,
-    beatType: body.beatType as BeatType,
+    beatType,
     visualDescription: body.visualDescription,
     narrativeContext: body.narrativeContext,
     emotionalTone: body.emotionalTone,
@@ -685,7 +745,7 @@ narrativeRoutes.get("/llm/status", async (c) => {
     ready: llmService.isReady(),
     provider: config.provider,
     model: config.model,
-    hasApiKey: !!config.apiKey,
+    hasApiKey: config.hasApiKey,
   });
 });
 

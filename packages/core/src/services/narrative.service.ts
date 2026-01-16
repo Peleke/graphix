@@ -5,7 +5,7 @@
  * Supports the Premise → Story → Beat pipeline for generating comic stories.
  */
 
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { getDefaultDatabase, type Database } from "../db/index.js";
 import {
   premises,
@@ -500,11 +500,14 @@ export class NarrativeService {
   }
 
   /**
-   * Get beat count for a story
+   * Get beat count for a story using COUNT(*) for efficiency
    */
   async getBeatCount(storyId: string): Promise<number> {
-    const result = await this.db.select().from(beats).where(eq(beats.storyId, storyId));
-    return result.length;
+    const [result] = await this.db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(beats)
+      .where(eq(beats.storyId, storyId));
+    return result?.count ?? 0;
   }
 
   /**
