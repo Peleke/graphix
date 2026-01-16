@@ -12,6 +12,7 @@ import {
   stories,
   beats,
   panels,
+  panelCaptions,
   type Premise,
   type NewPremise,
   type PremiseStatus,
@@ -25,6 +26,9 @@ import {
   type BeatType,
   type BeatDialogue,
   type NewPanel,
+  type PanelCaption,
+  type CaptionType,
+  type CaptionPosition,
 } from "../db/index.js";
 import { getPanelService } from "./panel.service.js";
 
@@ -82,6 +86,42 @@ export type CreateBeatInput = {
 };
 
 export type UpdateBeatInput = Partial<Omit<CreateBeatInput, "storyId">>;
+
+// ============================================================================
+// Caption Generation Types
+// ============================================================================
+
+/** Caption extracted from a beat for panel overlay */
+export interface GeneratedCaption {
+  type: CaptionType;
+  text: string;
+  characterId?: string;
+  position: CaptionPosition;
+  style?: "speech" | "thought" | "caption" | "shout" | "whisper";
+}
+
+/** Options for caption generation */
+export interface GenerateCaptionsOptions {
+  /** Include dialogue from beat (default: true) */
+  includeDialogue?: boolean;
+  /** Include narration from beat (default: true) */
+  includeNarration?: boolean;
+  /** Include sound effects from beat (default: true) */
+  includeSfx?: boolean;
+  /** Default positions for different caption types */
+  defaultPositions?: {
+    dialogue?: CaptionPosition;
+    narration?: CaptionPosition;
+    sfx?: CaptionPosition;
+  };
+}
+
+/** Result of caption generation */
+export interface GenerateCaptionsResult {
+  captions: PanelCaption[];
+  beatId: string;
+  panelId: string;
+}
 
 // ============================================================================
 // Narrative Service
@@ -654,6 +694,17 @@ export class NarrativeService {
       "playful": "comedic",
       "hopeful": "joyful",
       "determined": "action",
+      // Additional emotional tones
+      "content": "peaceful",
+      "warm": "romantic",
+      "charged": "dramatic",
+      "blissful": "romantic",
+      "chaotic": "action",
+      "triumphant": "dramatic",
+      "sensual": "romantic",
+      "satisfied": "peaceful",
+      "intimate": "romantic",
+      "passionate": "romantic",
       // Direct mappings for already-valid moods
       "dramatic": "dramatic",
       "romantic": "romantic",
@@ -729,6 +780,224 @@ export class NarrativeService {
     await this.updateStory(storyId, { status: "panels_created" });
 
     return { beats: updatedBeats, panelIds };
+  }
+
+  // ==========================================================================
+  // CAPTION GENERATION: Beat → Captions
+  // ==========================================================================
+
+  /**
+   * Generate captions from a beat's dialogue, narration, and sfx fields.
+   * Captions are saved to the database and linked to the beat's panel.
+   *
+   * @param beatId - The beat to extract captions from
+   * @param options - Options controlling which caption types to generate
+   * @returns Created captions with panel and beat references
+   */
+  async generateCaptionsFromBeat(
+    beatId: string,
+    options: GenerateCaptionsOptions = {}
+  ): Promise<GenerateCaptionsResult> {
+    const beat = await this.getBeat(beatId);
+    if (!beat) {
+      throw new Error(`Beat not found: ${beatId}`);
+    }
+
+    if (!beat.panelId) {
+      throw new Error(`Beat ${beatId} has no associated panel. Convert beat to panel first.`);
+    }
+
+    const {
+      includeDialogue = true,
+      includeNarration = true,
+      includeSfx = true,
+      defaultPositions = {},
+    } = options;
+
+    // Default positions for different caption types
+    const positions = {
+      dialogue: defaultPositions.dialogue ?? { x: 50, y: 20 },
+      narration: defaultPositions.narration ?? { x: 50, y: 10 },
+      sfx: defaultPositions.sfx ?? { x: 75, y: 50 },
+    };
+
+    const createdCaptions: PanelCaption[] = [];
+    let orderIndex = 0;
+
+    // Delete existing captions that were generated from this beat
+    await this.db
+      .delete(panelCaptions)
+      .where(
+        and(
+          eq(panelCaptions.panelId, beat.panelId),
+          eq(panelCaptions.beatId, beatId),
+          eq(panelCaptions.generatedFromBeat, true)
+        )
+      );
+
+    // Generate captions from dialogue
+    if (includeDialogue && beat.dialogue && beat.dialogue.length > 0) {
+      for (const dialogueLine of beat.dialogue) {
+        const captionType: CaptionType = dialogueLine.type === "whisper"
+          ? "whisper"
+          : dialogueLine.type === "thought"
+            ? "thought"
+            : "speech";
+
+        // Stagger vertical position for multiple dialogue lines
+        const verticalOffset = orderIndex * 15;
+        const yPos = Math.min(positions.dialogue.y + verticalOffset, 80);
+
+        const [caption] = await this.db
+          .insert(panelCaptions)
+          .values({
+            panelId: beat.panelId,
+            type: captionType,
+            text: dialogueLine.text,
+            characterId: dialogueLine.characterId,
+            position: { x: positions.dialogue.x, y: yPos },
+            tailDirection: { x: 50, y: 80 }, // Point tail down toward characters
+            enabled: true,
+            orderIndex,
+            beatId: beatId,
+            generatedFromBeat: true,
+            manuallyEdited: false,
+          })
+          .returning();
+
+        createdCaptions.push(caption);
+        orderIndex++;
+      }
+    }
+
+    // Generate caption from narration
+    if (includeNarration && beat.narration && beat.narration.trim().length > 0) {
+      const [caption] = await this.db
+        .insert(panelCaptions)
+        .values({
+          panelId: beat.panelId,
+          type: "narration",
+          text: beat.narration.trim(),
+          characterId: null,
+          position: positions.narration,
+          tailDirection: null,
+          enabled: true,
+          orderIndex,
+          beatId: beatId,
+          generatedFromBeat: true,
+          manuallyEdited: false,
+        })
+        .returning();
+
+      createdCaptions.push(caption);
+      orderIndex++;
+    }
+
+    // Generate caption from SFX
+    if (includeSfx && beat.sfx && beat.sfx.trim().length > 0) {
+      const [caption] = await this.db
+        .insert(panelCaptions)
+        .values({
+          panelId: beat.panelId,
+          type: "sfx",
+          text: beat.sfx.trim().toUpperCase(), // SFX are typically uppercase
+          characterId: null,
+          position: positions.sfx,
+          tailDirection: null,
+          enabled: true,
+          orderIndex,
+          beatId: beatId,
+          generatedFromBeat: true,
+          manuallyEdited: false,
+        })
+        .returning();
+
+      createdCaptions.push(caption);
+    }
+
+    return {
+      captions: createdCaptions,
+      beatId,
+      panelId: beat.panelId,
+    };
+  }
+
+  /**
+   * Generate captions for all beats in a story.
+   * Only generates captions for beats that have been converted to panels.
+   *
+   * @param storyId - The story to generate captions for
+   * @param options - Options controlling which caption types to generate
+   * @returns Array of results for each beat that was processed
+   */
+  async generateCaptionsForStory(
+    storyId: string,
+    options: GenerateCaptionsOptions = {}
+  ): Promise<GenerateCaptionsResult[]> {
+    const story = await this.getStory(storyId);
+    if (!story) {
+      throw new Error(`Story not found: ${storyId}`);
+    }
+
+    const storyBeats = await this.getBeats(storyId);
+    const results: GenerateCaptionsResult[] = [];
+
+    for (const beat of storyBeats) {
+      if (!beat.panelId) {
+        // Skip beats without panels
+        continue;
+      }
+
+      const result = await this.generateCaptionsFromBeat(beat.id, options);
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  /**
+   * Get captions for a panel, optionally filtered by enabled status
+   */
+  async getCaptionsForPanel(
+    panelId: string,
+    options: { enabledOnly?: boolean } = {}
+  ): Promise<PanelCaption[]> {
+    const { enabledOnly = false } = options;
+
+    const conditions = enabledOnly
+      ? and(eq(panelCaptions.panelId, panelId), eq(panelCaptions.enabled, true))
+      : eq(panelCaptions.panelId, panelId);
+
+    return await this.db
+      .select()
+      .from(panelCaptions)
+      .where(conditions)
+      .orderBy(asc(panelCaptions.orderIndex));
+  }
+
+  /**
+   * Toggle caption enabled/disabled status
+   */
+  async toggleCaptionEnabled(captionId: string): Promise<PanelCaption> {
+    const [existing] = await this.db
+      .select()
+      .from(panelCaptions)
+      .where(eq(panelCaptions.id, captionId));
+
+    if (!existing) {
+      throw new Error(`Caption not found: ${captionId}`);
+    }
+
+    const [updated] = await this.db
+      .update(panelCaptions)
+      .set({
+        enabled: !existing.enabled,
+        updatedAt: new Date(),
+      })
+      .where(eq(panelCaptions.id, captionId))
+      .returning();
+
+    return updated;
   }
 }
 
