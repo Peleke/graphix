@@ -10,7 +10,7 @@ import {
   POSE_CATEGORIES,
   EXPRESSION_NAMES,
   type PoseCategory,
-} from "../../../services/pose-library.service.js";
+} from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

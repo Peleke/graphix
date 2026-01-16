@@ -8,10 +8,10 @@ import { Hono } from "hono";
 import {
   getConsistencyService,
   type ChainOptions,
-} from "../../../services/consistency.service.js";
-import { getIPAdapter, type IPAdapterModel } from "../../../generation/ip-adapter.js";
-import { getControlNetStack } from "../../../generation/controlnet-stack.js";
-import type { QualityPresetId } from "../../../generation/config/types.js";
+} from "@graphix/core";
+import { getIPAdapter, type IPAdapterModel } from "@graphix/core";
+import { getControlNetStack } from "@graphix/core";
+import type { QualityPresetId } from "@graphix/core";
 
 // ============================================================================
 // Routes

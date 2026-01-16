@@ -5,7 +5,7 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getStoryboardService } from "../../../services/index.js";
+import { getStoryboardService } from "@graphix/core";
 
 export const storyboardTools: Record<string, Tool> = {
   storyboard_create: {

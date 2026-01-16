@@ -9,8 +9,8 @@ import {
   getInteractionPoseService,
   type InteractionCategory,
   type ContentRating,
-} from "../../../services/interaction-pose.service.js";
-import type { InteractionPoseDefinition, GligenBox } from "../../../db/schema.js";
+} from "@graphix/core";
+import type { InteractionPoseDefinition, GligenBox } from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions
@@ -520,9 +520,7 @@ export async function handleInteractionTool(
 
     case "interaction_pose_seed": {
       // Dynamic import to avoid loading seed data unless needed
-      const { DEFAULT_INTERACTION_POSES } = await import(
-        "../../../services/interaction-pose.seed.js"
-      );
+      const { DEFAULT_INTERACTION_POSES } = await import("@graphix/core");
 
       const seeded = await service.seedDefaults(DEFAULT_INTERACTION_POSES);
 

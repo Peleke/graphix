@@ -8,7 +8,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   getCustomAssetService,
   type AssetType,
-} from "../../../services/custom-asset.service.js";
+} from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

@@ -326,6 +326,10 @@ export class CompositionService {
     panelBorderColor?: string;
   }): Promise<ComposePageResult> {
     try {
+      if (!options.panelPaths || options.panelPaths.length === 0) {
+        return { success: false, error: "At least one panel path is required" };
+      }
+
       const template = getTemplate(options.templateId);
       if (!template) {
         return { success: false, error: `Template not found: ${options.templateId}` };

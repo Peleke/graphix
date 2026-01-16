@@ -5,9 +5,9 @@
  */
 
 import { Hono } from "hono";
-import { getCaptionService, DEFAULT_CAPTION_STYLES } from "../../../services/index.js";
-import { compositeCaptions, type RenderableCaption } from "../../../composition/index.js";
-import type { CaptionType, CaptionPosition, CaptionStyle } from "../../../db/schema.js";
+import { getCaptionService, DEFAULT_CAPTION_STYLES } from "@graphix/core";
+import { compositeCaptions, type RenderableCaption } from "@graphix/core";
+import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
 import { mkdir } from "fs/promises";
 import { dirname } from "path";
 

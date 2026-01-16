@@ -8,7 +8,7 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   getInterpolationService,
   type EasingFunction,
-} from "../../../services/interpolation.service.js";
+} from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

@@ -28,6 +28,7 @@ export {
   closeDb,
   createTestDb,
   migrateDb,
+  checkDbHealth,
   // Schema re-export
   schema,
 } from "./client.js";

@@ -6,7 +6,7 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getPromptAnalyticsService } from "../../../services/prompt-analytics.service.js";
+import { getPromptAnalyticsService } from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

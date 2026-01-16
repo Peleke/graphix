@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getCompositionService } from "../../../composition/index.js";
+import { getCompositionService } from "@graphix/core";
 
 const compositionRoutes = new Hono();
 const service = getCompositionService();

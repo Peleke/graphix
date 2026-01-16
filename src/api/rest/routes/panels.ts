@@ -5,15 +5,15 @@
  */
 
 import { Hono } from "hono";
-import { getPanelService, getGeneratedImageService } from "../../../services/index.js";
-import { getPanelGenerator } from "../../../generation/index.js";
+import { getPanelService, getGeneratedImageService } from "@graphix/core";
+import { getPanelGenerator } from "@graphix/core";
 import {
   getConfigEngine,
   listSizePresets,
   listQualityPresets,
   type QualityPresetId,
   type SlotContext,
-} from "../../../generation/config/index.js";
+} from "@graphix/core";
 
 const panelRoutes = new Hono();
 const service = getPanelService();

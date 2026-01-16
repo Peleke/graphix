@@ -17,7 +17,7 @@ import { generationRoutes } from "./routes/generations.js";
 import { compositionRoutes } from "./routes/composition.js";
 import { consistencyRoutes } from "./routes/consistency.js";
 import { captionRoutes } from "./routes/captions.js";
-import { checkDbHealth } from "../../db/client.js";
+import { checkDbHealth } from "@graphix/core";
 
 type Variables = {
   requestId: string;

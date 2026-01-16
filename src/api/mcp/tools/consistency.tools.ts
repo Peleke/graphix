@@ -11,10 +11,10 @@ import {
   type ApplyIdentityOptions,
   type ChainOptions,
   type ReferenceSheetOptions,
-} from "../../../services/consistency.service.js";
-import { getIPAdapter, type IPAdapterModel } from "../../../generation/ip-adapter.js";
-import { getControlNetStack, CONTROL_STACK_PRESETS } from "../../../generation/controlnet-stack.js";
-import type { QualityPresetId } from "../../../generation/config/types.js";
+} from "@graphix/core";
+import { getIPAdapter, type IPAdapterModel } from "@graphix/core";
+import { getControlNetStack, CONTROL_STACK_PRESETS } from "@graphix/core";
+import type { QualityPresetId } from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

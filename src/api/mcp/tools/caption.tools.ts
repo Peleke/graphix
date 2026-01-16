@@ -6,15 +6,15 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getCaptionService, DEFAULT_CAPTION_STYLES } from "../../../services/index.js";
+import { getCaptionService, DEFAULT_CAPTION_STYLES } from "@graphix/core";
 import {
   compositeCaptions,
   suggestPlacement,
   suggestMultiplePlacements,
   getQuickPlacement,
   type RenderableCaption,
-} from "../../../composition/index.js";
-import type { CaptionType, CaptionPosition, CaptionStyle } from "../../../db/schema.js";
+} from "@graphix/core";
+import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
 
 export const captionTools: Record<string, Tool> = {
   caption_add: {

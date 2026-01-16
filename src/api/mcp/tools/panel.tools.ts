@@ -5,9 +5,9 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getPanelService } from "../../../services/index.js";
-import { getPanelGenerator, type GenerateOptions, type VariantOptions } from "../../../generation/index.js";
-import type { PanelDirection } from "../../../db/schema.js";
+import { getPanelService } from "@graphix/core";
+import { getPanelGenerator, type GenerateOptions, type VariantOptions } from "@graphix/core";
+import type { PanelDirection } from "@graphix/core";
 import {
   getConfigEngine,
   listSizePresets,
@@ -15,7 +15,7 @@ import {
   getPresetsByCategory,
   type QualityPresetId,
   type SlotContext,
-} from "../../../generation/config/index.js";
+} from "@graphix/core";
 
 export const panelTools: Record<string, Tool> = {
   panel_create: {

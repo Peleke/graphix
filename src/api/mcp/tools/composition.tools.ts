@@ -9,7 +9,7 @@ import {
   getCompositionService,
   listTemplates,
   PAGE_SIZES,
-} from "../../../composition/index.js";
+} from "@graphix/core";
 
 export const compositionTools: Record<string, Tool> = {
   composition_list_templates: {

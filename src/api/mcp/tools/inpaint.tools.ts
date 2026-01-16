@@ -9,7 +9,7 @@ import {
   getInpaintingService,
   MASK_PRESETS,
   type MaskPreset,
-} from "../../../services/inpainting.service.js";
+} from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions
@@ -271,8 +271,7 @@ export async function handleInpaintTool(
 
       // Get the source image path from the generation
       const { eq } = await import("drizzle-orm");
-      const { getDb } = await import("../../../db/client.js");
-      const { generatedImages } = await import("../../../db/schema.js");
+      const { getDb, generatedImages } = await import("@graphix/core");
 
       const db = getDb();
       const [generation] = await db

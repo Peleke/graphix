@@ -5,7 +5,7 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getGeneratedImageService } from "../../../services/index.js";
+import { getGeneratedImageService } from "@graphix/core";
 
 export const generationTools: Record<string, Tool> = {
   generation_create: {

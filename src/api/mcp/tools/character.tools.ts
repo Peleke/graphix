@@ -5,8 +5,8 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getCharacterService } from "../../../services/index.js";
-import type { CharacterProfile, PromptFragments } from "../../../db/schema.js";
+import { getCharacterService } from "@graphix/core";
+import type { CharacterProfile, PromptFragments } from "@graphix/core";
 
 export const characterTools: Record<string, Tool> = {
   character_create: {

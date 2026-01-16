@@ -41,6 +41,8 @@ export interface DatabaseConnection {
   db: Database;
   /** Underlying libsql client (for raw queries) */
   client: Client;
+  /** Configuration used to create this connection */
+  config: DatabaseConfig;
   /** Close the connection */
   close: () => void;
 }
@@ -108,6 +110,7 @@ export function createDatabase(config: DatabaseConfig): DatabaseConnection {
   return {
     db,
     client,
+    config,
     close: () => {
       client.close();
       if (config.verbose) {
@@ -483,6 +486,19 @@ export async function checkDatabaseHealth(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+/**
+ * Legacy wrapper for checkDatabaseHealth using default connection
+ */
+export async function checkDbHealth(): Promise<{
+  connected: boolean;
+  mode: string;
+  latencyMs: number;
+  error?: string;
+}> {
+  const connection = getDefaultConnection();
+  return checkDatabaseHealth(connection.client, connection.config.mode);
 }
 
 // Re-export schema for convenience

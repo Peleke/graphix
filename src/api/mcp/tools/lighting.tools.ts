@@ -11,8 +11,8 @@ import {
   LIGHT_DIRECTIONS,
   TIMES_OF_DAY,
   WEATHER_CONDITIONS,
-} from "../../../services/lighting.service.js";
-import type { SceneLightingConfig, LightSource } from "../../../db/schema.js";
+} from "@graphix/core";
+import type { SceneLightingConfig, LightSource } from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

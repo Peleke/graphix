@@ -10,14 +10,14 @@ import {
   type ApplyStyleOptions,
   type BatchStyleOptions,
   type LoraStackOptions,
-} from "../../../services/style.service.js";
+} from "@graphix/core";
 import {
   LORA_CATALOG,
   getLora,
   listLorasByCategory,
   getRecommendedStack,
-} from "../../../generation/models/lora-catalog.js";
-import { getModelResolver } from "../../../generation/models/resolver.js";
+} from "@graphix/core";
+import { getModelResolver } from "@graphix/core";
 
 // ============================================================================
 // Tool Definitions

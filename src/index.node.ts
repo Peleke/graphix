@@ -7,8 +7,7 @@
  */
 
 import { serve } from "@hono/node-server";
-import { config } from "./config.js";
-import { migrateDb, checkDbHealth } from "./db/client.js";
+import { config, migrateDb, checkDbHealth } from "@graphix/core";
 import { app } from "./api/rest/app.js";
 import { startMCPServer } from "./api/mcp/index.js";
 
