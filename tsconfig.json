@@ -13,14 +13,18 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@graphix/core": ["./packages/core/src/index.ts"],
+      "@graphix/core/*": ["./packages/core/src/*"],
+      "@graphix/server": ["./packages/server/src/index.ts"],
+      "@graphix/server/*": ["./packages/server/src/*"],
+      "@graphix/skills": ["./packages/skills/src/index.ts"],
+      "@graphix/skills/*": ["./packages/skills/src/*"]
     },
     "types": ["bun-types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "packages/*/src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

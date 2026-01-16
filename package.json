@@ -1,17 +1,28 @@
 {
-  "name": "graphix",
+  "name": "graphix-monorepo",
   "version": "0.1.0",
+  "private": true,
   "description": "GenAI art + video workflow system - static panels, interactive I2V, animated shorts",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "bun run --cwd packages/server dev",
+    "start": "bun run --cwd packages/server start",
+    "build": "tsc --build",
+    "clean": "rm -rf packages/*/dist && rm -rf dist",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/db/migrate.ts",
+    "db:migrate": "bun run packages/core/src/db/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "test": "bun test packages/core",
+    "test:core": "bun test packages/core",
+    "test:server": "bun test packages/server",
+    "test:all": "bun test packages/core && bun test packages/server",
+    "test:coverage": "bun test packages/core --coverage",
+    "typecheck": "tsc --build",
+    "lint": "echo 'ESLint not configured yet'"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
@@ -19,6 +30,7 @@
     "@paralleldrive/cuid2": "^2.2.2",
     "drizzle-orm": "^0.38.0",
     "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
     "nanoid": "^5.0.9",
     "sharp": "^0.33.5",
     "zod": "^3.24.0"

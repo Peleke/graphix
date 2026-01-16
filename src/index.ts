@@ -3,49 +3,29 @@
 /**
  * Graphix - GenAI Art + Video Workflow System
  *
- * Entry point that starts both MCP and REST servers.
+ * Legacy entry point that re-exports from @graphix/server.
+ * For new code, import directly from @graphix/core or @graphix/server.
+ *
+ * This file exists for backwards compatibility with existing workflows.
  */
 
-import { serve } from "bun";
-import { config } from "./config.js";
-import { migrateDb, checkDbHealth } from "./db/client.js";
-import { app } from "./api/rest/app.js";
-import { startMCPServer } from "./api/mcp/index.js";
+// Re-export everything from core for programmatic use
+export * from "@graphix/core";
+
+// Re-export server components
+export { startServer } from "@graphix/server";
+
+// Default export: start the server
+import { startServer } from "@graphix/server";
 
 async function main() {
-  console.log("Starting Graphix server...");
-  console.log(`  Storage mode: ${config.storage.mode}`);
-  console.log(`  REST enabled: ${config.server.restEnabled}`);
-  console.log(`  MCP enabled: ${config.server.mcpEnabled}`);
-
-  // Initialize database
-  console.log("Initializing database...");
-  await migrateDb();
-
-  const health = await checkDbHealth();
-  if (!health.connected) {
-    throw new Error(`Database connection failed: ${health.error}`);
-  }
-  console.log(`  Database connected (${health.latencyMs}ms)`);
-
-  // Start REST server
-  if (config.server.restEnabled) {
-    serve({
-      fetch: app.fetch,
-      port: config.server.port,
-    });
-    console.log(`  REST API listening on http://localhost:${config.server.port}`);
-  }
-
-  // Start MCP server (if enabled)
-  if (config.server.mcpEnabled) {
-    await startMCPServer();
-  }
-
-  console.log("Graphix server ready");
+  await startServer();
 }
 
-main().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+// Only run if this is the entry point (not imported)
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error("Fatal error:", error);
+    process.exit(1);
+  });
+}
