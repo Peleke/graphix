@@ -30,6 +30,8 @@ import { resetInteractionPoseService } from "../services/interaction-pose.servic
 import { resetCustomAssetService } from "../services/custom-asset.service.js";
 import { resetStoryScaffoldService } from "../services/story-scaffold.service.js";
 import { resetBatchService } from "../services/batch.service.js";
+import { resetNarrativeService } from "../services/narrative.service.js";
+import { resetLLMService } from "../services/llm.service.js";
 
 // Generation reset imports
 import { resetComfyUIClient } from "../generation/comfyui-client.js";
@@ -236,6 +238,59 @@ export async function setupTestDatabase(): Promise<DatabaseConnection> {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS premises (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      logline TEXT NOT NULL,
+      genre TEXT,
+      tone TEXT,
+      themes TEXT NOT NULL DEFAULT '[]',
+      character_ids TEXT NOT NULL DEFAULT '[]',
+      setting TEXT,
+      world_rules TEXT,
+      generated_by TEXT,
+      generation_prompt TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS stories (
+      id TEXT PRIMARY KEY,
+      premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      synopsis TEXT,
+      target_length INTEGER,
+      actual_length INTEGER,
+      structure TEXT NOT NULL DEFAULT 'three-act',
+      structure_notes TEXT,
+      character_arcs TEXT,
+      generated_by TEXT,
+      generation_prompt TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS beats (
+      id TEXT PRIMARY KEY,
+      story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      act_number INTEGER,
+      beat_type TEXT,
+      visual_description TEXT NOT NULL,
+      narrative_context TEXT,
+      emotional_tone TEXT,
+      character_ids TEXT NOT NULL DEFAULT '[]',
+      character_actions TEXT,
+      camera_angle TEXT,
+      composition TEXT,
+      dialogue TEXT,
+      narration TEXT,
+      sfx TEXT,
+      panel_id TEXT REFERENCES panels(id) ON DELETE SET NULL,
+      generated_by TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   return connection;
@@ -275,6 +330,8 @@ export function resetAllServices(): void {
   resetCustomAssetService();
   resetStoryScaffoldService();
   resetBatchService();
+  resetNarrativeService();
+  resetLLMService();
 
   // Generation
   resetComfyUIClient();
@@ -347,6 +404,69 @@ export async function setupTestScenario() {
   const panel = await createTestPanel(storyboard.id);
 
   return { project, character, storyboard, panel };
+}
+
+/**
+ * Helper to create a test premise
+ */
+export async function createTestPremise(projectId: string, logline = "Two friends go on an adventure") {
+  const { getNarrativeService } = await import("../services/narrative.service.js");
+  return getNarrativeService().createPremise({
+    projectId,
+    logline,
+    genre: "comedy",
+    tone: "lighthearted",
+    themes: ["friendship", "adventure"],
+    setting: "A sunny beach",
+  });
+}
+
+/**
+ * Helper to create a test story
+ */
+export async function createTestStory(premiseId: string, title = "The Great Adventure") {
+  const { getNarrativeService } = await import("../services/narrative.service.js");
+  return getNarrativeService().createStory({
+    premiseId,
+    title,
+    synopsis: "Two friends discover something amazing",
+    targetLength: 6,
+    structure: "three-act",
+  });
+}
+
+/**
+ * Helper to create a test beat
+ */
+export async function createTestBeat(
+  storyId: string,
+  position: number,
+  visualDescription = "A dramatic scene unfolds"
+) {
+  const { getNarrativeService } = await import("../services/narrative.service.js");
+  return getNarrativeService().createBeat({
+    storyId,
+    position,
+    visualDescription,
+    actNumber: 1,
+    beatType: "setup",
+    emotionalTone: "cheerful",
+    cameraAngle: "wide",
+  });
+}
+
+/**
+ * Helper to set up a full narrative test scenario
+ */
+export async function setupNarrativeTestScenario() {
+  const project = await createTestProject();
+  const character = await createTestCharacter(project.id);
+  const premise = await createTestPremise(project.id);
+  const story = await createTestStory(premise.id);
+  const beat = await createTestBeat(story.id, 0);
+  const storyboard = await createTestStoryboard(project.id);
+
+  return { project, character, premise, story, beat, storyboard };
 }
 
 /**

@@ -614,13 +614,27 @@ export class NarrativeService {
     const existingPanels = await panelService.getByStoryboard(storyboardId);
     const nextPosition = existingPanels.length;
 
+    // Map beat camera angles to valid panel camera angles
+    const cameraAngleMap: Record<string, string> = {
+      "wide": "wide shot",
+      "medium": "medium shot",
+      "close-up": "close-up",
+      "extreme-close-up": "extreme close-up",
+      "bird-eye": "bird's eye",
+      "worm-eye": "worm's eye",
+      "over-shoulder": "medium shot",
+      "two-shot": "medium shot",
+    };
+
+    const mappedCameraAngle = cameraAngleMap[beat.cameraAngle ?? "medium"] ?? "medium shot";
+
     // Create the panel from beat data
     const panel = await panelService.create({
       storyboardId,
       position: nextPosition,
       description: beat.visualDescription,
       direction: {
-        cameraAngle: beat.cameraAngle ?? "medium",
+        cameraAngle: mappedCameraAngle,
         mood: beat.emotionalTone ?? "neutral",
         lighting: "natural",
       },
