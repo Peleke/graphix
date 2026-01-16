@@ -2,10 +2,13 @@
  * Caption Routes
  *
  * REST API endpoints for panel caption management.
+ * Includes caption CRUD, generation from beats, and rendering.
  */
 
 import { Hono } from "hono";
 import { getCaptionService, DEFAULT_CAPTION_STYLES } from "@graphix/core";
+import { getNarrativeService, type GenerateCaptionsOptions } from "@graphix/core";
+import { getPanelGenerator } from "@graphix/core";
 import { compositeCaptions, type RenderableCaption } from "@graphix/core";
 import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
 import { mkdir } from "fs/promises";
@@ -131,6 +134,148 @@ captionRoutes.post("/panels/:panelId/captions/preview", async (c) => {
     outputPath: body.outputPath,
     captionCount: captions.length,
   });
+});
+
+// ============================================================================
+// Caption Generation Routes
+// ============================================================================
+
+// Generate captions from linked beat
+captionRoutes.post("/panels/:panelId/captions/generate", async (c) => {
+  const panelId = c.req.param("panelId");
+  const body = await c.req.json().catch(() => ({}));
+
+  const options: GenerateCaptionsOptions = {};
+  if (body.includeDialogue !== undefined) options.includeDialogue = body.includeDialogue;
+  if (body.includeNarration !== undefined) options.includeNarration = body.includeNarration;
+  if (body.includeSfx !== undefined) options.includeSfx = body.includeSfx;
+  if (body.defaultPositions) options.defaultPositions = body.defaultPositions;
+
+  try {
+    const generator = getPanelGenerator();
+    const result = await generator.generateCaptionsFromBeat(panelId, options);
+
+    return c.json({
+      success: true,
+      captions: result.captions,
+      beatId: result.beatId,
+      count: result.captions.length,
+    }, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate captions";
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Toggle caption enabled/disabled
+captionRoutes.patch("/panels/:panelId/captions/:captionId/toggle", async (c) => {
+  const captionId = c.req.param("captionId");
+
+  try {
+    const narrativeService = getNarrativeService();
+    const caption = await narrativeService.toggleCaptionEnabled(captionId);
+
+    return c.json({
+      success: true,
+      caption,
+      enabled: caption.enabled,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to toggle caption";
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Render panel image with captions
+captionRoutes.post("/panels/:panelId/render-with-captions", async (c) => {
+  const panelId = c.req.param("panelId");
+  const body = await c.req.json();
+
+  if (!body.imagePath) {
+    return c.json({ error: "imagePath is required" }, 400);
+  }
+
+  const enabledOnly = body.enabledOnly !== false; // Default to true
+
+  try {
+    const generator = getPanelGenerator();
+    const outputPath = await generator.renderCaptionsOnImage(
+      body.imagePath,
+      panelId,
+      { enabledOnly }
+    );
+
+    return c.json({
+      success: true,
+      outputPath,
+      originalPath: body.imagePath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to render captions";
+    return c.json({ error: message }, 500);
+  }
+});
+
+// Re-render captions for a generated image
+captionRoutes.post("/images/:imageId/render-with-captions", async (c) => {
+  const imageId = c.req.param("imageId");
+  const body = await c.req.json().catch(() => ({}));
+
+  const enabledOnly = body.enabledOnly !== false;
+
+  try {
+    const generator = getPanelGenerator();
+    const result = await generator.rerenderWithCaptions(imageId, { enabledOnly });
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 400);
+    }
+
+    return c.json({
+      success: true,
+      captionedImagePath: result.captionedImagePath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to render captions";
+    return c.json({ error: message }, 500);
+  }
+});
+
+// ============================================================================
+// Batch Caption Operations
+// ============================================================================
+
+// Generate captions for all beats in a story
+captionRoutes.post("/stories/:storyId/generate-captions", async (c) => {
+  const storyId = c.req.param("storyId");
+  const body = await c.req.json().catch(() => ({}));
+
+  const options: GenerateCaptionsOptions = {};
+  if (body.includeDialogue !== undefined) options.includeDialogue = body.includeDialogue;
+  if (body.includeNarration !== undefined) options.includeNarration = body.includeNarration;
+  if (body.includeSfx !== undefined) options.includeSfx = body.includeSfx;
+  if (body.defaultPositions) options.defaultPositions = body.defaultPositions;
+
+  try {
+    const narrativeService = getNarrativeService();
+    const results = await narrativeService.generateCaptionsForStory(storyId, options);
+
+    const totalCaptions = results.reduce((sum, r) => sum + r.captions.length, 0);
+
+    return c.json({
+      success: true,
+      panelsProcessed: results.length,
+      totalCaptions,
+      results: results.map(r => ({
+        beatId: r.beatId,
+        panelId: r.panelId,
+        captionCount: r.captions.length,
+      })),
+    }, 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate captions";
+    return c.json({ error: message }, 400);
+  }
 });
 
 // Delete all captions for a panel

@@ -228,6 +228,9 @@ export type {
   UpdateStoryInput,
   CreateBeatInput,
   UpdateBeatInput,
+  GeneratedCaption,
+  GenerateCaptionsOptions,
+  GenerateCaptionsResult,
 } from "./narrative.service.js";
 
 // LLM Service
