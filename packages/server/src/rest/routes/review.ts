@@ -22,7 +22,15 @@ import {
 // ============================================================================
 
 const VALID_MODES: readonly string[] = ["unattended", "hitl"];
-const VALID_DECISIONS: readonly string[] = ["approve", "reject", "regenerate"];
+
+/** Maximum length for feedback text (10KB should be more than enough) */
+const MAX_FEEDBACK_LENGTH = 10000;
+
+/** Maximum length for regeneration hints (5KB) */
+const MAX_HINTS_LENGTH = 5000;
+
+/** Maximum length for prompt overrides (20KB) */
+const MAX_PROMPT_LENGTH = 20000;
 
 /**
  * Safely parse a number from a string with validation.
@@ -66,6 +74,56 @@ function errorResponse(message: string, code: string = "BAD_REQUEST") {
 }
 
 /**
+ * Result of parsing a JSON body - either success with data or error with response.
+ */
+type BodyParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: { message: string; code: string } };
+
+/**
+ * Safely parse JSON body from request.
+ * Returns a structured result instead of silently swallowing errors.
+ * If allowEmpty is true, returns empty object on parse failure (for optional bodies).
+ */
+async function safeParseBody<T extends Record<string, unknown>>(
+  c: { req: { json: () => Promise<T> } },
+  allowEmpty = false
+): Promise<BodyParseResult<T>> {
+  try {
+    const body = await c.req.json();
+    return { success: true, data: body };
+  } catch {
+    if (allowEmpty) {
+      return { success: true, data: {} as T };
+    }
+    return {
+      success: false,
+      error: { message: "Invalid JSON in request body", code: "INVALID_JSON" },
+    };
+  }
+}
+
+/**
+ * Validate string length and return sanitized value or null if invalid.
+ */
+function validateStringLength(
+  value: unknown,
+  maxLength: number,
+  fieldName: string
+): { valid: true; value: string | undefined } | { valid: false; error: string } {
+  if (value === undefined || value === null) {
+    return { valid: true, value: undefined };
+  }
+  if (typeof value !== "string") {
+    return { valid: false, error: `${fieldName} must be a string` };
+  }
+  if (value.length > maxLength) {
+    return { valid: false, error: `${fieldName} exceeds maximum length of ${maxLength} characters` };
+  }
+  return { valid: true, value };
+}
+
+/**
  * Parse review config from request body.
  */
 function parseReviewConfig(body: Record<string, unknown>): Partial<ReviewConfig> {
@@ -103,12 +161,24 @@ const reviewRoutes = new Hono();
 reviewRoutes.post("/images/:imageId", async (c) => {
   const service = getReviewService();
   const imageId = c.req.param("imageId");
-  const body = await c.req.json().catch(() => ({}));
+
+  // Parse body - allow empty since all fields are optional
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
+
+  // Validate prompt length if provided
+  const promptValidation = validateStringLength(body.prompt, MAX_PROMPT_LENGTH, "prompt");
+  if (!promptValidation.valid) {
+    return c.json(errorResponse(promptValidation.error, "VALIDATION_ERROR"), 400);
+  }
 
   try {
     const result = await service.reviewImage(
       imageId,
-      body.prompt, // Optional prompt override
+      promptValidation.value, // Optional prompt override
       body.context // Optional panel context
     );
 
@@ -188,7 +258,13 @@ reviewRoutes.post("/panels/:panelId", async (c) => {
 reviewRoutes.post("/panels/:panelId/auto", async (c) => {
   const service = getReviewService();
   const panelId = c.req.param("panelId");
-  const body = await c.req.json().catch(() => ({}));
+
+  // Parse body - allow empty since all fields are optional config
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
 
   // Parse config from body
   const config = parseReviewConfig(body);
@@ -246,7 +322,13 @@ reviewRoutes.get("/panels/:panelId/history", async (c) => {
 reviewRoutes.post("/storyboards/:id", async (c) => {
   const service = getReviewService();
   const storyboardId = c.req.param("id");
-  const body = await c.req.json().catch(() => ({}));
+
+  // Parse body - allow empty since all fields are optional config
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
 
   const options: BatchReviewOptions = {
     config: {
@@ -298,7 +380,13 @@ reviewRoutes.post("/storyboards/:id", async (c) => {
 reviewRoutes.post("/storyboards/:id/auto", async (c) => {
   const service = getReviewService();
   const storyboardId = c.req.param("id");
-  const body = await c.req.json().catch(() => ({}));
+
+  // Parse body - allow empty since all fields are optional config
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
 
   const options: BatchReviewOptions = {
     config: {
@@ -367,27 +455,36 @@ reviewRoutes.get("/queue", async (c) => {
 });
 
 /**
- * POST /api/review/queue/:reviewId/approve
+ * POST /api/review/queue/:imageId/approve
  * Human approves an image in the review queue.
+ *
+ * @param imageId - The generated image ID (not the review ID)
+ * @body feedback - Optional approval feedback
  */
-reviewRoutes.post("/queue/:reviewId/approve", async (c) => {
+reviewRoutes.post("/queue/:imageId/approve", async (c) => {
   const service = getReviewService();
-  const reviewId = c.req.param("reviewId");
-  const body = await c.req.json().catch(() => ({}));
+  const imageId = c.req.param("imageId");
 
-  // Get the image ID from the review
-  const review = await service.getLatestReview(reviewId);
-  // reviewId might be the image ID directly or a review ID
-  // Let's handle both cases
+  // Parse body - allow empty since feedback is optional
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
+
+  // Validate feedback length if provided
+  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
+  if (!feedbackValidation.valid) {
+    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
+  }
 
   try {
     const decision: HumanDecision = {
       action: "approve",
-      feedback: body.feedback,
+      feedback: feedbackValidation.value,
     };
 
-    // Try with reviewId as imageId first
-    const result = await service.recordHumanDecision(reviewId, decision);
+    const result = await service.recordHumanDecision(imageId, decision);
 
     return c.json({
       ...result,
@@ -402,15 +499,29 @@ reviewRoutes.post("/queue/:reviewId/approve", async (c) => {
 });
 
 /**
- * POST /api/review/queue/:reviewId/reject
+ * POST /api/review/queue/:imageId/reject
  * Human rejects an image in the review queue.
+ *
+ * @param imageId - The generated image ID (not the review ID)
+ * @body feedback - Required rejection feedback explaining why
  */
-reviewRoutes.post("/queue/:reviewId/reject", async (c) => {
+reviewRoutes.post("/queue/:imageId/reject", async (c) => {
   const service = getReviewService();
-  const reviewId = c.req.param("reviewId");
-  const body = await c.req.json().catch(() => ({}));
+  const imageId = c.req.param("imageId");
 
-  if (!body.feedback) {
+  // Parse body - required for reject (need feedback)
+  const bodyResult = await safeParseBody(c, false);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
+
+  // Validate feedback - required for rejection
+  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
+  if (!feedbackValidation.valid) {
+    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
+  }
+  if (!feedbackValidation.value) {
     return c.json(
       errorResponse("Feedback is required when rejecting an image", "MISSING_FEEDBACK"),
       400
@@ -420,10 +531,10 @@ reviewRoutes.post("/queue/:reviewId/reject", async (c) => {
   try {
     const decision: HumanDecision = {
       action: "reject",
-      feedback: body.feedback,
+      feedback: feedbackValidation.value,
     };
 
-    const result = await service.recordHumanDecision(reviewId, decision);
+    const result = await service.recordHumanDecision(imageId, decision);
 
     return c.json({
       ...result,
@@ -438,22 +549,44 @@ reviewRoutes.post("/queue/:reviewId/reject", async (c) => {
 });
 
 /**
- * POST /api/review/queue/:reviewId/regenerate
+ * POST /api/review/queue/:imageId/regenerate
  * Human requests regeneration for an image in the queue.
+ *
+ * @param imageId - The generated image ID (not the review ID)
+ * @body feedback - Optional feedback about why regeneration is needed
+ * @body hints - Optional hints for the regeneration (e.g., "more dramatic lighting")
  */
-reviewRoutes.post("/queue/:reviewId/regenerate", async (c) => {
+reviewRoutes.post("/queue/:imageId/regenerate", async (c) => {
   const service = getReviewService();
-  const reviewId = c.req.param("reviewId");
-  const body = await c.req.json().catch(() => ({}));
+  const imageId = c.req.param("imageId");
+
+  // Parse body - allow empty since all fields are optional
+  const bodyResult = await safeParseBody(c, true);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
+
+  // Validate feedback length if provided
+  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
+  if (!feedbackValidation.valid) {
+    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
+  }
+
+  // Validate hints length if provided
+  const hintsValidation = validateStringLength(body.hints, MAX_HINTS_LENGTH, "hints");
+  if (!hintsValidation.valid) {
+    return c.json(errorResponse(hintsValidation.error, "VALIDATION_ERROR"), 400);
+  }
 
   try {
     const decision: HumanDecision = {
       action: "regenerate",
-      feedback: body.feedback,
-      regenerationHints: body.hints,
+      feedback: feedbackValidation.value,
+      regenerationHints: hintsValidation.value,
     };
 
-    const result = await service.recordHumanDecision(reviewId, decision);
+    const result = await service.recordHumanDecision(imageId, decision);
 
     return c.json({
       ...result,
@@ -488,7 +621,13 @@ reviewRoutes.get("/config", async (c) => {
  */
 reviewRoutes.put("/config", async (c) => {
   const service = getReviewService();
-  const body = await c.req.json();
+
+  // Parse body - required for config update
+  const bodyResult = await safeParseBody(c, false);
+  if (!bodyResult.success) {
+    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+  }
+  const body = bodyResult.data;
 
   const config = parseReviewConfig(body);
   service.setConfig(config);

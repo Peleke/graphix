@@ -235,7 +235,7 @@ describe("Review API Integration", () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it("handles partial failures gracefully", async () => {
+    it("skips panels without images", async () => {
       // Create one panel with image, one without
       const panel2 = await createTestPanel(storyboardId, "Empty panel");
       await createTestImage();
@@ -245,9 +245,11 @@ describe("Review API Integration", () => {
         config: { mode: "hitl" },
       });
 
-      // Should have processed one panel, with one error
-      expect(result.total).toBe(2);
-      expect(result.errors.length).toBeGreaterThanOrEqual(1);
+      // Panels without images are filtered out before processing
+      // So only the one panel with an image is counted
+      expect(result.total).toBe(1);
+      expect(result.approved).toBe(1); // The one panel with image was approved
+      expect(result.errors).toHaveLength(0); // No errors since empty panels are excluded
     });
   });
 

@@ -38,6 +38,13 @@ import {
 } from "./review.types.js";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/** Maximum seed value for image generation (2^31 - 1) */
+const MAX_SEED_VALUE = 2147483647;
+
+// ============================================================================
 // ReviewService Class
 // ============================================================================
 
@@ -249,18 +256,28 @@ export class ReviewService {
 
       // Regenerate if under max iterations
       if (currentIteration < effectiveConfig.maxIterations) {
-        // Build regeneration hints from issues
+        // Build regeneration hints from issues (stored in review for debugging)
         const hints = this.buildRegenerationHints(review.issues);
+        // Note: hints are available in the review record for debugging
 
         // Regenerate with a new seed
-        const regenResult = await this.panelGenerator.regenerate(panelId, currentImage.id, {
-          seed: Math.floor(Math.random() * 2147483647),
-          // TODO: Could also adjust prompt based on issues
+        // Note: Future enhancement could modify prompt based on hints
+        const regenResult = await this.panelGenerator.regenerate(currentImage.id, {
+          seed: Math.floor(Math.random() * MAX_SEED_VALUE),
         });
 
         if (regenResult.success && regenResult.generatedImage) {
-          // Select the new image
+          // Select the new image and verify selection completed
           await this.imageService.select(regenResult.generatedImage.id);
+
+          // Verify the selection was successful before continuing
+          // This prevents race conditions where the next iteration reads stale data
+          const selected = await this.imageService.getSelected(panelId);
+          if (!selected || selected.id !== regenResult.generatedImage.id) {
+            finalImage = currentImage;
+            reason = "Failed to select regenerated image";
+            break;
+          }
         } else {
           // Regeneration failed
           finalImage = currentImage;
@@ -397,13 +414,15 @@ export class ReviewService {
 
   /**
    * Get images pending human review.
+   * Only returns the latest review for each image to avoid duplicates.
    *
    * @param limit - Maximum number of items to return
    * @param offset - Offset for pagination
    * @returns List of items in the human review queue
    */
   async getHumanReviewQueue(limit = 50, offset = 0): Promise<ReviewQueueItem[]> {
-    // Get images with human_review status
+    // Get images with human_review status and their latest review
+    // Using a subquery to find the max review id per image
     const pendingImages = await this.db
       .select({
         image: generatedImages,
@@ -415,10 +434,22 @@ export class ReviewService {
       .innerJoin(panels, eq(generatedImages.panelId, panels.id))
       .where(eq(generatedImages.reviewStatus, "human_review"))
       .orderBy(desc(imageReviews.createdAt))
-      .limit(limit)
+      .limit(limit * 3) // Fetch extra to account for duplicates
       .offset(offset);
 
-    return pendingImages.map(({ image, review, panel }) => ({
+    // Deduplicate: keep only the latest review per image (highest iteration)
+    const imageMap = new Map<string, (typeof pendingImages)[0]>();
+    for (const item of pendingImages) {
+      const existing = imageMap.get(item.image.id);
+      if (!existing || item.review.iteration > existing.review.iteration) {
+        imageMap.set(item.image.id, item);
+      }
+    }
+
+    // Convert to array and apply limit
+    const deduped = Array.from(imageMap.values()).slice(0, limit);
+
+    return deduped.map(({ image, review, panel }) => ({
       reviewId: review.id,
       imageId: image.id,
       panelId: image.panelId,
@@ -457,7 +488,15 @@ export class ReviewService {
     const storyboardPanels = await this.panelService.getByStoryboard(storyboardId);
 
     // Filter to only panels with images
-    let panelsToReview = storyboardPanels.filter((p) => true); // TODO: Filter by having images
+    const panelsWithImages = await Promise.all(
+      storyboardPanels.map(async (panel) => {
+        const images = await this.imageService.getByPanel(panel.id);
+        return { panel, hasImages: images.length > 0 };
+      })
+    );
+    let panelsToReview = panelsWithImages
+      .filter((p) => p.hasImages)
+      .map((p) => p.panel);
 
     // Apply options
     if (options?.onlyPending) {
@@ -695,22 +734,57 @@ export class ReviewService {
 
   /**
    * Create a new review record in the database.
+   * @throws Error if the insert fails or returns no data
    */
   private async createReviewRecord(
     data: Omit<NewImageReview, "id" | "createdAt" | "updatedAt">
   ): Promise<ImageReview> {
-    const [review] = await this.db
-      .insert(imageReviews)
-      .values(data)
-      .returning();
+    // Validate required fields
+    if (!data.generatedImageId) {
+      throw new Error("Cannot create review record: missing generatedImageId");
+    }
+    if (!data.panelId) {
+      throw new Error("Cannot create review record: missing panelId");
+    }
+    if (typeof data.score !== "number" || data.score < 0 || data.score > 1) {
+      throw new Error(
+        `Cannot create review record: invalid score ${data.score} (must be 0-1)`
+      );
+    }
 
-    return review;
+    try {
+      const [review] = await this.db
+        .insert(imageReviews)
+        .values(data)
+        .returning();
+
+      if (!review) {
+        throw new Error("Database insert returned no data");
+      }
+
+      return review;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to create review record: ${message}`);
+    }
   }
 
   /**
    * Update an image's review status.
+   * Throws if the image doesn't exist.
    */
   private async updateImageReviewStatus(imageId: string, status: ReviewStatus): Promise<void> {
+    // First verify the image exists
+    const existing = await this.db
+      .select({ id: generatedImages.id })
+      .from(generatedImages)
+      .where(eq(generatedImages.id, imageId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      throw new Error(`Cannot update review status: image ${imageId} not found`);
+    }
+
     await this.db
       .update(generatedImages)
       .set({
@@ -754,8 +828,12 @@ export class ReviewService {
 
   /**
    * Split an array into chunks of a given size.
+   * @throws Error if size is not a positive integer
    */
   private chunkArray<T>(array: T[], size: number): T[][] {
+    if (size <= 0 || !Number.isInteger(size)) {
+      throw new Error(`Chunk size must be a positive integer, got: ${size}`);
+    }
     const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += size) {
       chunks.push(array.slice(i, i + size));

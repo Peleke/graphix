@@ -35,6 +35,67 @@ const MAX_FEEDBACK_LENGTH = 5000;
 const MAX_SETTING_LENGTH = 2000;
 const DEFAULT_TIMEOUT_MS = 60000; // 60 seconds
 
+// Security limits for image analysis
+const MAX_IMAGE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max
+const ALLOWED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+/**
+ * Validate that an image path is safe and the file exists.
+ * Prevents path traversal attacks (including encoded characters) and ensures file is within bounds.
+ */
+async function validateImagePath(imagePath: string): Promise<void> {
+  // Decode URL-encoded characters first to catch bypass attempts like %2F, %2E%2E
+  const decodedPath = decodeURIComponent(imagePath);
+
+  // Check for path traversal attempts in the decoded path
+  // This catches: "..", "/..", "../", encoded variants, etc.
+  if (decodedPath.includes("..")) {
+    throw new Error("Invalid image path: path traversal not allowed");
+  }
+
+  // Resolve to absolute path
+  const resolvedPath = path.resolve(decodedPath);
+
+  // Double-check: after resolution, ensure no ".." segments remain
+  // (handles edge cases like symlinks)
+  if (resolvedPath.includes("..")) {
+    throw new Error("Invalid image path: path traversal not allowed");
+  }
+
+  // On Windows, also check for backslash-based traversal
+  if (process.platform === "win32" && decodedPath.includes("..\\")) {
+    throw new Error("Invalid image path: path traversal not allowed");
+  }
+
+  // Verify extension
+  const ext = path.extname(resolvedPath).toLowerCase();
+  if (!ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+    throw new Error(
+      `Invalid image type: ${ext}. Allowed types: ${ALLOWED_IMAGE_EXTENSIONS.join(", ")}`
+    );
+  }
+
+  // Check file exists and get stats
+  try {
+    const stats = await fs.stat(resolvedPath);
+
+    if (!stats.isFile()) {
+      throw new Error("Invalid image path: not a file");
+    }
+
+    if (stats.size > MAX_IMAGE_SIZE_BYTES) {
+      throw new Error(
+        `Image file too large: ${(stats.size / 1024 / 1024).toFixed(1)}MB exceeds limit of ${MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB`
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("ENOENT")) {
+      throw new Error(`Image file not found: ${resolvedPath}`);
+    }
+    throw error;
+  }
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -651,6 +712,9 @@ Only output the JSON, no other text.`;
     context?: PanelContext,
     visionConfig?: Partial<VisionProviderConfig>
   ): Promise<ImageAnalysis> {
+    // Security: Validate image path before any file operations
+    await validateImagePath(imagePath);
+
     const config: VisionProviderConfig = {
       ...DEFAULT_VISION_CONFIG,
       ...visionConfig,
@@ -749,34 +813,49 @@ Only output the JSON, no other text.`;
   ): Promise<ImageAnalysis> {
     const baseUrl = config.ollamaBaseUrl || "http://localhost:11434";
     const model = config.ollamaModel || "llava";
+    const timeoutMs = DEFAULT_TIMEOUT_MS; // 60 seconds
 
     // Read image and convert to base64
     const imageBuffer = await fs.readFile(imagePath);
     const imageBase64 = imageBuffer.toString("base64");
 
-    const response = await fetch(`${baseUrl}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt: analysisPrompt,
-        images: [imageBase64],
-        stream: false,
-        options: {
-          temperature: 0.3, // Lower temperature for more consistent analysis
-        },
-      }),
-    });
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Ollama API error: ${response.status} - ${errorText}`);
+    try {
+      const response = await fetch(`${baseUrl}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: analysisPrompt,
+          images: [imageBase64],
+          stream: false,
+          options: {
+            temperature: 0.3, // Lower temperature for more consistent analysis
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Ollama API error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      const rawResponse = result.response || "";
+
+      return this.parseAnalysisResponse(rawResponse);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`Ollama request timed out after ${timeoutMs / 1000}s`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const result = await response.json();
-    const rawResponse = result.response || "";
-
-    return this.parseAnalysisResponse(rawResponse);
   }
 
   /**
@@ -875,23 +954,14 @@ Only output the JSON, no other text.`;
 
       return analysis;
     } catch (error) {
-      // If parsing fails, return a default analysis indicating failure
-      console.error("Failed to parse vision analysis response:", error);
-      return {
-        adherenceScore: 0.5, // Assume middle ground if we can't parse
-        foundElements: [],
-        missingElements: [],
-        issues: [
-          {
-            type: "other",
-            description: "Failed to parse AI analysis response",
-            severity: "major",
-            suggestedFix: "Try regenerating with a clearer prompt",
-          },
-        ],
-        qualityNotes: "Analysis parsing failed - manual review recommended",
-        rawResponse,
-      };
+      // Don't swallow parsing errors - throw so caller knows analysis failed
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Failed to parse vision analysis response:", errorMessage);
+      console.error("Raw response was:", rawResponse.slice(0, 500));
+      throw new Error(
+        `Failed to parse vision analysis response: ${errorMessage}. ` +
+          "The AI may have returned an invalid format. Consider retrying."
+      );
     }
   }
 

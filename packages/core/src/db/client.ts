@@ -333,12 +333,36 @@ export async function migrateDatabase(client: Client): Promise<void> {
       is_selected INTEGER DEFAULT 0,
       is_favorite INTEGER DEFAULT 0,
       rating INTEGER,
+      review_status TEXT DEFAULT 'pending',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS generated_images_panel_idx ON generated_images(panel_id);
     CREATE INDEX IF NOT EXISTS generated_images_selected_idx ON generated_images(panel_id, is_selected);
     CREATE INDEX IF NOT EXISTS generated_images_seed_idx ON generated_images(seed);
+
+    -- Image Reviews table (Review System)
+    CREATE TABLE IF NOT EXISTS image_reviews (
+      id TEXT PRIMARY KEY,
+      generated_image_id TEXT NOT NULL REFERENCES generated_images(id) ON DELETE CASCADE,
+      panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+      score REAL NOT NULL,
+      status TEXT NOT NULL,
+      issues TEXT,
+      recommendation TEXT,
+      iteration INTEGER NOT NULL DEFAULT 1,
+      previous_review_id TEXT REFERENCES image_reviews(id),
+      reviewed_by TEXT NOT NULL,
+      human_reviewer_id TEXT,
+      human_feedback TEXT,
+      action_taken TEXT,
+      regenerated_image_id TEXT REFERENCES generated_images(id),
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS image_reviews_image_idx ON image_reviews(generated_image_id);
+    CREATE INDEX IF NOT EXISTS image_reviews_panel_idx ON image_reviews(panel_id);
+    CREATE INDEX IF NOT EXISTS image_reviews_status_idx ON image_reviews(status);
 
     -- Page Layouts table
     CREATE TABLE IF NOT EXISTS page_layouts (
@@ -444,7 +468,7 @@ export async function migrateDatabase(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS custom_assets_type_idx ON custom_assets(type);
   `);
 
-  console.log("[DB] Schema migration complete");
+  console.error("[DB] Schema migration complete");
 }
 
 /**

@@ -684,4 +684,84 @@ describe("ReviewService", () => {
       expect(result.recommendation).toBe("human_review");
     });
   });
+
+  // ============================================================================
+  // INPUT VALIDATION TESTS
+  // ============================================================================
+
+  describe("Input Validation", () => {
+    it("rejects review for non-existent image", async () => {
+      await expect(service.reviewImage("non-existent-id")).rejects.toThrow(
+        "not found"
+      );
+    });
+
+    it("rejects review for non-existent panel", async () => {
+      await expect(service.reviewPanel("non-existent-id")).rejects.toThrow();
+    });
+
+    it("sets config score thresholds correctly", async () => {
+      // Test that valid config values are accepted
+      service.setConfig({
+        minAcceptanceScore: 0.6,
+        autoApproveAbove: 0.95,
+      });
+
+      const config = service.getConfig();
+      expect(config.minAcceptanceScore).toBe(0.6);
+      expect(config.autoApproveAbove).toBe(0.95);
+    });
+
+    it("rejects human decision for non-existent image", async () => {
+      await expect(
+        service.recordHumanDecision("non-existent-id", {
+          action: "approve",
+        })
+      ).rejects.toThrow("not found");
+    });
+
+    it("rejects invalid decision action", async () => {
+      const image = await createTestImage();
+
+      const llmService = getLLMService();
+      llmService.analyzeImagePromptAdherence = mock(() =>
+        Promise.resolve(mockAnalysis)
+      );
+
+      // First do a review to have a record
+      await service.reviewImage(image.id);
+
+      await expect(
+        service.recordHumanDecision(image.id, {
+          action: "invalid" as any,
+        })
+      ).rejects.toThrow("Invalid decision action");
+    });
+  });
+
+  // ============================================================================
+  // ERROR HANDLING TESTS
+  // ============================================================================
+
+  describe("Error Handling", () => {
+    it("handles LLM analysis failure gracefully", async () => {
+      const image = await createTestImage();
+
+      const llmService = getLLMService();
+      llmService.analyzeImagePromptAdherence = mock(() =>
+        Promise.reject(new Error("API rate limited"))
+      );
+
+      await expect(service.reviewImage(image.id)).rejects.toThrow(
+        "API rate limited"
+      );
+    });
+
+    it("returns empty result for non-existent storyboard", async () => {
+      // Non-existent storyboard returns empty results (no panels found)
+      const result = await service.reviewStoryboard("non-existent-storyboard");
+      expect(result.total).toBe(0);
+      expect(result.results.size).toBe(0);
+    });
+  });
 });
