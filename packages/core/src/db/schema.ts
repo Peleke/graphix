@@ -228,11 +228,19 @@ export const panelCaptions = sqliteTable(
     // JSON: CaptionStyle object
     style: text("style", { mode: "json" }).$type<Partial<CaptionStyle>>(),
     zIndex: integer("z_index").default(0).notNull(),
+    // Render control
+    enabled: integer("enabled", { mode: "boolean" }).default(true).notNull(),
+    orderIndex: integer("order_index").default(0).notNull(),
+    // Generation tracking
+    beatId: text("beat_id").references(() => beats.id, { onDelete: "set null" }),
+    generatedFromBeat: integer("generated_from_beat", { mode: "boolean" }).default(false).notNull(),
+    manuallyEdited: integer("manually_edited", { mode: "boolean" }).default(false).notNull(),
     ...timestamps,
   },
   (table) => [
     index("panel_captions_panel_idx").on(table.panelId),
     index("panel_captions_type_idx").on(table.type),
+    index("panel_captions_beat_idx").on(table.beatId),
   ]
 );
 
@@ -630,6 +638,10 @@ export const panelCaptionsRelations = relations(panelCaptions, ({ one }) => ({
     fields: [panelCaptions.characterId],
     references: [characters.id],
   }),
+  beat: one(beats, {
+    fields: [panelCaptions.beatId],
+    references: [beats.id],
+  }),
 }));
 
 export const generatedImagesRelations = relations(generatedImages, ({ one }) => ({
@@ -863,7 +875,7 @@ export const storiesRelations = relations(stories, ({ one, many }) => ({
   beats: many(beats),
 }));
 
-export const beatsRelations = relations(beats, ({ one }) => ({
+export const beatsRelations = relations(beats, ({ one, many }) => ({
   story: one(stories, {
     fields: [beats.storyId],
     references: [stories.id],
@@ -872,6 +884,7 @@ export const beatsRelations = relations(beats, ({ one }) => ({
     fields: [beats.panelId],
     references: [panels.id],
   }),
+  captions: many(panelCaptions),
 }));
 
 // ============================================================================
