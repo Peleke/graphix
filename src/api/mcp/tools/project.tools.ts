@@ -5,7 +5,7 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getProjectService } from "../../../services/index.js";
+import { getProjectService } from "@graphix/core";
 
 export const projectTools: Record<string, Tool> = {
   project_create: {

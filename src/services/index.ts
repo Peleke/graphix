@@ -1,11 +1,7 @@
 /**
- * Services Index
+ * Services Index (Legacy Compatibility)
  *
- * Export all services from a single entry point.
+ * Re-exports all services from @graphix/core.
+ * New code should import directly from @graphix/core.
  */
-
-export { ProjectService, getProjectService } from "./project.service.js";
-export { CharacterService, getCharacterService } from "./character.service.js";
-export { StoryboardService, getStoryboardService } from "./storyboard.service.js";
-export { PanelService, getPanelService } from "./panel.service.js";
-export { GeneratedImageService, getGeneratedImageService } from "./generated-image.service.js";
+export * from "@graphix/core";

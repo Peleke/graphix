@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getCharacterService } from "../../../services/index.js";
+import { getCharacterService } from "@graphix/core";
 
 const characterRoutes = new Hono();
 const service = getCharacterService();

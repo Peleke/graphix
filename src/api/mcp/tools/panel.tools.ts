@@ -5,8 +5,17 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getPanelService } from "../../../services/index.js";
-import { getPanelGenerator, type GenerateOptions, type VariantOptions } from "../../../generation/index.js";
+import { getPanelService } from "@graphix/core";
+import { getPanelGenerator, type GenerateOptions, type VariantOptions } from "@graphix/core";
+import type { PanelDirection } from "@graphix/core";
+import {
+  getConfigEngine,
+  listSizePresets,
+  listQualityPresets,
+  getPresetsByCategory,
+  type QualityPresetId,
+  type SlotContext,
+} from "@graphix/core";
 
 export const panelTools: Record<string, Tool> = {
   panel_create: {
@@ -19,7 +28,7 @@ export const panelTools: Record<string, Tool> = {
           type: "string",
           description: "Storyboard ID to add panel to",
         },
-        sequenceNumber: {
+        position: {
           type: "number",
           description: "Position in sequence (auto-assigned if not provided)",
         },
@@ -57,29 +66,57 @@ export const panelTools: Record<string, Tool> = {
           type: "string",
           description: "Panel ID",
         },
-        sceneDescription: {
+        description: {
           type: "string",
           description: "Description of the scene (setting, action, mood)",
         },
         cameraAngle: {
           type: "string",
-          description: "Camera angle (e.g., 'close-up', 'wide shot', 'bird\\'s eye')",
+          enum: [
+            "eye level",
+            "low angle",
+            "high angle",
+            "dutch angle",
+            "bird's eye",
+            "worm's eye",
+            "close-up",
+            "medium shot",
+            "wide shot",
+            "extreme close-up",
+          ],
+          description: "Camera angle",
         },
         lighting: {
           type: "string",
-          description: "Lighting style (e.g., 'dramatic', 'soft', 'golden hour')",
+          enum: [
+            "natural",
+            "golden hour",
+            "dramatic",
+            "soft",
+            "harsh",
+            "neon",
+            "candlelight",
+            "moonlight",
+            "studio",
+            "rim light",
+          ],
+          description: "Lighting style",
         },
         mood: {
           type: "string",
-          description: "Emotional mood (e.g., 'tense', 'romantic', 'mysterious')",
-        },
-        additionalPrompt: {
-          type: "string",
-          description: "Additional prompt elements to include",
-        },
-        negativePrompt: {
-          type: "string",
-          description: "Elements to avoid in this panel",
+          enum: [
+            "dramatic",
+            "romantic",
+            "comedic",
+            "tense",
+            "peaceful",
+            "action",
+            "mysterious",
+            "melancholic",
+            "joyful",
+            "neutral",
+          ],
+          description: "Emotional mood",
         },
       },
       required: ["panelId"],
@@ -99,18 +136,6 @@ export const panelTools: Record<string, Tool> = {
         characterId: {
           type: "string",
           description: "Character ID to add",
-        },
-        position: {
-          type: "string",
-          description: "Position hint (e.g., 'left', 'center', 'right', 'background')",
-        },
-        action: {
-          type: "string",
-          description: "What the character is doing (e.g., 'standing', 'sitting', 'running')",
-        },
-        expression: {
-          type: "string",
-          description: "Character expression (e.g., 'smiling', 'angry', 'surprised')",
         },
       },
       required: ["panelId", "characterId"],
@@ -180,12 +205,12 @@ export const panelTools: Record<string, Tool> = {
           type: "string",
           description: "Panel ID to move",
         },
-        newSequenceNumber: {
+        newPosition: {
           type: "number",
           description: "New position in sequence",
         },
       },
-      required: ["panelId", "newSequenceNumber"],
+      required: ["panelId", "newPosition"],
     },
   },
 
@@ -220,19 +245,19 @@ export const panelTools: Record<string, Tool> = {
         },
         width: {
           type: "number",
-          description: "Image width (256-4096, default 768)",
+          description: "Image width (256-4096) - overrides sizePreset if provided",
         },
         height: {
           type: "number",
-          description: "Image height (256-4096, default 1024)",
+          description: "Image height (256-4096) - overrides sizePreset if provided",
         },
         steps: {
           type: "number",
-          description: "Number of sampling steps (default 28)",
+          description: "Number of sampling steps - overrides qualityPreset if provided",
         },
         cfg: {
           type: "number",
-          description: "CFG scale (default 7)",
+          description: "CFG scale - overrides qualityPreset if provided",
         },
         seed: {
           type: "number",
@@ -240,20 +265,35 @@ export const panelTools: Record<string, Tool> = {
         },
         sampler: {
           type: "string",
-          description: "Sampler name (default 'euler_ancestral')",
+          description: "Sampler name - overrides qualityPreset if provided",
         },
-        quality: {
+        sizePreset: {
+          type: "string",
+          description: "Size preset ID (e.g., 'portrait_3x4', 'landscape_16x9', 'comic_full_page'). Use panel_list_size_presets to see options.",
+        },
+        qualityPreset: {
           type: "string",
           enum: ["draft", "standard", "high", "ultra"],
-          description: "Quality preset: draft (fast), standard (balanced), high (hi-res fix), ultra (hi-res + upscale)",
+          description: "Quality preset: draft (fast preview), standard (balanced), high (hi-res fix), ultra (publication ready)",
         },
-        useIPAdapter: {
-          type: "boolean",
-          description: "Use IP-Adapter for character consistency (requires reference images)",
-        },
-        ipAdapterStrength: {
-          type: "number",
-          description: "IP-Adapter strength (0.0-1.0, default 0.8)",
+        forComposition: {
+          type: "object",
+          description: "Generate optimized for a specific composition slot (enables smart sizing)",
+          properties: {
+            templateId: {
+              type: "string",
+              description: "Template ID (e.g., 'six-grid', 'four-grid', 'full-page')",
+            },
+            slotId: {
+              type: "string",
+              description: "Slot ID within the template",
+            },
+            pageSizePreset: {
+              type: "string",
+              description: "Page size preset (default: 'comic_standard')",
+            },
+          },
+          required: ["templateId", "slotId"],
         },
       },
       required: ["panelId"],
@@ -294,13 +334,74 @@ export const panelTools: Record<string, Tool> = {
           type: "string",
           description: "Model checkpoint to use",
         },
-        quality: {
+        sizePreset: {
+          type: "string",
+          description: "Size preset ID (e.g., 'portrait_3x4', 'landscape_16x9')",
+        },
+        qualityPreset: {
           type: "string",
           enum: ["draft", "standard", "high", "ultra"],
-          description: "Quality preset",
+          description: "Quality preset for all variants",
+        },
+        forComposition: {
+          type: "object",
+          description: "Generate optimized for a specific composition slot",
+          properties: {
+            templateId: { type: "string" },
+            slotId: { type: "string" },
+            pageSizePreset: { type: "string" },
+          },
+          required: ["templateId", "slotId"],
         },
       },
       required: ["panelId"],
+    },
+  },
+
+  panel_list_size_presets: {
+    name: "panel_list_size_presets",
+    description: "List all available size presets for image generation",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          enum: ["square", "portrait", "landscape", "comic", "manga", "social"],
+          description: "Filter by category (optional)",
+        },
+      },
+    },
+  },
+
+  panel_list_quality_presets: {
+    name: "panel_list_quality_presets",
+    description: "List all available quality presets for image generation",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+
+  panel_recommend_size: {
+    name: "panel_recommend_size",
+    description: "Get recommended generation size for a composition slot",
+    inputSchema: {
+      type: "object",
+      properties: {
+        templateId: {
+          type: "string",
+          description: "Template ID (e.g., 'six-grid', 'four-grid')",
+        },
+        slotId: {
+          type: "string",
+          description: "Slot ID within the template",
+        },
+        pageSizePreset: {
+          type: "string",
+          description: "Page size preset (default: 'comic_standard')",
+        },
+      },
+      required: ["templateId", "slotId"],
     },
   },
 };
@@ -315,7 +416,7 @@ export async function handlePanelTool(
     case "panel_create": {
       const panel = await service.create({
         storyboardId: args.storyboardId as string,
-        sequenceNumber: args.sequenceNumber as number | undefined,
+        position: args.position as number | undefined,
         description: args.description as string | undefined,
       });
       return { success: true, panel };
@@ -330,24 +431,23 @@ export async function handlePanelTool(
     }
 
     case "panel_describe": {
-      const panel = await service.updateDirection(args.panelId as string, {
-        sceneDescription: args.sceneDescription as string | undefined,
-        cameraAngle: args.cameraAngle as string | undefined,
-        lighting: args.lighting as string | undefined,
-        mood: args.mood as string | undefined,
-        additionalPrompt: args.additionalPrompt as string | undefined,
-        negativePrompt: args.negativePrompt as string | undefined,
+      const direction: Partial<PanelDirection> = {};
+      if (args.cameraAngle) direction.cameraAngle = args.cameraAngle as PanelDirection["cameraAngle"];
+      if (args.lighting) direction.lighting = args.lighting as PanelDirection["lighting"];
+      if (args.mood) direction.mood = args.mood as PanelDirection["mood"];
+
+      const panel = await service.describe(args.panelId as string, {
+        description: args.description as string | undefined,
+        direction: Object.keys(direction).length > 0 ? direction : undefined,
       });
       return { success: true, panel };
     }
 
     case "panel_add_character": {
-      const panel = await service.addCharacter(args.panelId as string, {
-        characterId: args.characterId as string,
-        position: args.position as string | undefined,
-        action: args.action as string | undefined,
-        expression: args.expression as string | undefined,
-      });
+      const panel = await service.addCharacter(
+        args.panelId as string,
+        args.characterId as string
+      );
       return { success: true, panel };
     }
 
@@ -375,7 +475,7 @@ export async function handlePanelTool(
     case "panel_reorder": {
       const panel = await service.reorder(
         args.panelId as string,
-        args.newSequenceNumber as number
+        args.newPosition as number
       );
       return { success: true, panel };
     }
@@ -387,6 +487,18 @@ export async function handlePanelTool(
 
     case "panel_generate": {
       const generator = getPanelGenerator();
+
+      // Parse forComposition if provided
+      let forComposition: SlotContext | undefined;
+      if (args.forComposition && typeof args.forComposition === "object") {
+        const fc = args.forComposition as Record<string, unknown>;
+        forComposition = {
+          templateId: fc.templateId as string,
+          slotId: fc.slotId as string,
+          pageSizePreset: fc.pageSizePreset as string | undefined,
+        };
+      }
+
       const options: GenerateOptions = {
         model: args.model as string | undefined,
         width: args.width as number | undefined,
@@ -395,9 +507,9 @@ export async function handlePanelTool(
         cfg: args.cfg as number | undefined,
         seed: args.seed as number | undefined,
         sampler: args.sampler as string | undefined,
-        quality: args.quality as "draft" | "standard" | "high" | "ultra" | undefined,
-        useIPAdapter: args.useIPAdapter as boolean | undefined,
-        ipAdapterStrength: args.ipAdapterStrength as number | undefined,
+        sizePreset: args.sizePreset as string | undefined,
+        qualityPreset: args.qualityPreset as QualityPresetId | undefined,
+        forComposition,
       };
       const result = await generator.generate(args.panelId as string, options);
       if (!result.success) {
@@ -407,12 +519,28 @@ export async function handlePanelTool(
         success: true,
         generatedImage: result.generatedImage,
         seed: result.generationResult?.seed,
-        imagePath: result.generationResult?.imagePath,
+        localPath: result.generationResult?.localPath,
+        dimensions: {
+          width: result.generatedImage?.width,
+          height: result.generatedImage?.height,
+        },
       };
     }
 
     case "panel_generate_variants": {
       const generator = getPanelGenerator();
+
+      // Parse forComposition if provided
+      let forComposition: SlotContext | undefined;
+      if (args.forComposition && typeof args.forComposition === "object") {
+        const fc = args.forComposition as Record<string, unknown>;
+        forComposition = {
+          templateId: fc.templateId as string,
+          slotId: fc.slotId as string,
+          pageSizePreset: fc.pageSizePreset as string | undefined,
+        };
+      }
+
       const variantOptions: VariantOptions = {
         count: (args.count as number) || 4,
         baseSeed: args.baseSeed as number | undefined,
@@ -421,7 +549,9 @@ export async function handlePanelTool(
           ? [(args.cfgMin as number) || 5, (args.cfgMax as number) || 9]
           : undefined,
         model: args.model as string | undefined,
-        quality: args.quality as "draft" | "standard" | "high" | "ultra" | undefined,
+        sizePreset: args.sizePreset as string | undefined,
+        qualityPreset: args.qualityPreset as QualityPresetId | undefined,
+        forComposition,
       };
       const result = await generator.generateVariants(args.panelId as string, variantOptions);
       return {
@@ -432,6 +562,81 @@ export async function handlePanelTool(
         generatedImages: result.results
           .filter((r) => r.success)
           .map((r) => r.generatedImage),
+      };
+    }
+
+    case "panel_list_size_presets": {
+      const category = args.category as string | undefined;
+
+      if (category) {
+        const byCategory = getPresetsByCategory();
+        const presets = byCategory[category] ?? [];
+        return {
+          success: true,
+          category,
+          presets: presets.map((p) => ({
+            id: p.id,
+            name: p.name,
+            aspectRatio: p.aspectRatio,
+            suggestedFor: p.suggestedFor,
+            dimensions: p.dimensions.sdxl, // Show SDXL dims as default
+          })),
+          count: presets.length,
+        };
+      }
+
+      const presets = listSizePresets();
+      return {
+        success: true,
+        presets: presets.map((p) => ({
+          id: p.id,
+          name: p.name,
+          aspectRatio: p.aspectRatio,
+          suggestedFor: p.suggestedFor,
+          dimensions: p.dimensions.sdxl,
+        })),
+        count: presets.length,
+        categories: ["square", "portrait", "landscape", "comic", "manga", "social"],
+      };
+    }
+
+    case "panel_list_quality_presets": {
+      const presets = listQualityPresets();
+      return {
+        success: true,
+        presets: presets.map((p) => ({
+          id: p.id,
+          name: p.name,
+          steps: p.steps,
+          cfg: p.cfg,
+          sampler: p.sampler,
+          scheduler: p.scheduler,
+          hiResFix: p.hiResFix,
+          upscale: p.upscale,
+        })),
+        count: presets.length,
+      };
+    }
+
+    case "panel_recommend_size": {
+      const engine = getConfigEngine();
+      const size = engine.getDimensionsForSlot(
+        args.templateId as string,
+        args.slotId as string,
+        {
+          pageSizePreset: args.pageSizePreset as string | undefined,
+        }
+      );
+      return {
+        success: true,
+        templateId: args.templateId,
+        slotId: args.slotId,
+        recommended: {
+          width: size.width,
+          height: size.height,
+          aspectRatio: size.aspectRatio,
+          presetId: size.presetId,
+        },
       };
     }
 

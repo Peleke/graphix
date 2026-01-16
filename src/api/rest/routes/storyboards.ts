@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getStoryboardService, getPanelService } from "../../../services/index.js";
+import { getStoryboardService, getPanelService } from "@graphix/core";
 
 const storyboardRoutes = new Hono();
 const service = getStoryboardService();
