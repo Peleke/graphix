@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getGeneratedImageService } from "../../../services/index.js";
+import { getGeneratedImageService } from "@graphix/core";
 
 const generationRoutes = new Hono();
 const service = getGeneratedImageService();

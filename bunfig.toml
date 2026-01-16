@@ -2,7 +2,10 @@
 
 [test]
 # Test configuration
-preload = ["./src/test/setup.ts"]
+preload = ["./packages/core/src/__tests__/setup.ts"]
+
+# Only run tests from packages/
+root = "./packages"
 
 # Coverage settings
 coverage = true
@@ -10,9 +13,6 @@ coverageDir = "./coverage"
 
 # Timeout for tests (5 minutes for E2E)
 timeout = 300000
-
-# Test file patterns
-root = "./src/test"
 
 [install]
 # Lock file

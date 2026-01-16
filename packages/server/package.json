@@ -1,0 +1,27 @@
+{
+  "name": "@graphix/server",
+  "version": "0.1.0",
+  "description": "MCP + REST server for graphix",
+  "type": "module",
+  "main": "./src/index.ts",
+  "bin": {
+    "graphix-server": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "start:node": "node --experimental-specifier-resolution=node src/index.node.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@graphix/core": "*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

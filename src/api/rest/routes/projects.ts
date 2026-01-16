@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getProjectService } from "../../../services/index.js";
+import { getProjectService } from "@graphix/core";
 
 const projectRoutes = new Hono();
 const service = getProjectService();

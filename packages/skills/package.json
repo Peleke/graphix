@@ -1,0 +1,17 @@
+{
+  "name": "@graphix/skills",
+  "version": "0.1.0",
+  "description": "DX bundle - skills and workflows for Claude/MCP clients",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@graphix/core": "*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

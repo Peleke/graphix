@@ -5,7 +5,7 @@
  */
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { getStoryboardService } from "../../../services/index.js";
+import { getStoryboardService } from "@graphix/core";
 
 export const storyboardTools: Record<string, Tool> = {
   storyboard_create: {
@@ -144,7 +144,7 @@ export async function handleStoryboardTool(
     }
 
     case "storyboard_list": {
-      const storyboards = await service.listByProject(args.projectId as string);
+      const storyboards = await service.getByProject(args.projectId as string);
       return { success: true, storyboards, count: storyboards.length };
     }
 
