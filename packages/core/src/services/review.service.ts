@@ -391,6 +391,7 @@ export class ReviewService {
       recommendation: actionTaken,
       iteration: humanReview.iteration,
       reviewId: humanReview.id,
+      humanFeedback: decision.feedback,
     };
   }
 
@@ -560,7 +561,7 @@ export class ReviewService {
       .select()
       .from(imageReviews)
       .where(eq(imageReviews.panelId, panelId))
-      .orderBy(desc(imageReviews.createdAt));
+      .orderBy(desc(imageReviews.iteration));
   }
 
   /**
@@ -574,7 +575,7 @@ export class ReviewService {
       .select()
       .from(imageReviews)
       .where(eq(imageReviews.generatedImageId, imageId))
-      .orderBy(desc(imageReviews.createdAt));
+      .orderBy(desc(imageReviews.iteration));
   }
 
   /**
@@ -588,7 +589,7 @@ export class ReviewService {
       .select()
       .from(imageReviews)
       .where(eq(imageReviews.generatedImageId, imageId))
-      .orderBy(desc(imageReviews.createdAt))
+      .orderBy(desc(imageReviews.iteration))
       .limit(1);
 
     return review ?? null;

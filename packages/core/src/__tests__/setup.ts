@@ -32,6 +32,7 @@ import { resetStoryScaffoldService } from "../services/story-scaffold.service.js
 import { resetBatchService } from "../services/batch.service.js";
 import { resetNarrativeService } from "../services/narrative.service.js";
 import { resetLLMService } from "../services/llm.service.js";
+import { resetReviewService } from "../services/review.service.js";
 
 // Generation reset imports
 import { resetComfyUIClient } from "../generation/comfyui-client.js";
@@ -152,6 +153,25 @@ export async function setupTestDatabase(): Promise<DatabaseConnection> {
       is_selected INTEGER DEFAULT 0,
       is_favorite INTEGER DEFAULT 0,
       rating INTEGER,
+      review_status TEXT DEFAULT 'pending',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS image_reviews (
+      id TEXT PRIMARY KEY,
+      generated_image_id TEXT NOT NULL REFERENCES generated_images(id) ON DELETE CASCADE,
+      panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+      score REAL NOT NULL,
+      status TEXT NOT NULL,
+      issues TEXT,
+      recommendation TEXT,
+      iteration INTEGER NOT NULL DEFAULT 1,
+      previous_review_id TEXT,
+      reviewed_by TEXT NOT NULL,
+      human_reviewer_id TEXT,
+      human_feedback TEXT,
+      action_taken TEXT,
+      regenerated_image_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -332,6 +352,7 @@ export function resetAllServices(): void {
   resetBatchService();
   resetNarrativeService();
   resetLLMService();
+  resetReviewService();
 
   // Generation
   resetComfyUIClient();

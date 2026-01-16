@@ -112,6 +112,9 @@ export interface ReviewResult {
 
   /** ID of this review record (after saving) */
   reviewId?: string;
+
+  /** Human feedback (only for human reviews) */
+  humanFeedback?: string;
 }
 
 /**
