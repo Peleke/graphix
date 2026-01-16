@@ -221,4 +221,74 @@ captionRoutes.get("/captions/defaults", async (c) => {
   });
 });
 
+// Render captions directly onto an image (no database)
+captionRoutes.post("/captions/render", async (c) => {
+  const body = await c.req.json();
+
+  if (!body.imagePath || !body.outputPath || !Array.isArray(body.captions)) {
+    return c.json({
+      error: "Missing required fields: imagePath, outputPath, captions[]",
+    }, 400);
+  }
+
+  // Map inline captions to RenderableCaption format
+  const renderableCaptions: RenderableCaption[] = body.captions.map((cap: {
+    type: CaptionType;
+    text: string;
+    x: number;
+    y: number;
+    tailX?: number;
+    tailY?: number;
+    characterId?: string;
+    zIndex?: number;
+    fontSize?: number;
+    fontColor?: string;
+    fontFamily?: string;
+    fontWeight?: "normal" | "bold";
+    backgroundColor?: string;
+    borderColor?: string;
+    borderWidth?: number;
+    opacity?: number;
+    padding?: number;
+    maxWidth?: number;
+    effectPreset?: string;
+  }) => {
+    const style: Partial<CaptionStyle> = {};
+    if (cap.fontSize) style.fontSize = cap.fontSize;
+    if (cap.fontColor) style.fontColor = cap.fontColor;
+    if (cap.fontFamily) style.fontFamily = cap.fontFamily;
+    if (cap.fontWeight) style.fontWeight = cap.fontWeight;
+    if (cap.backgroundColor) style.backgroundColor = cap.backgroundColor;
+    if (cap.borderColor) style.borderColor = cap.borderColor;
+    if (cap.borderWidth !== undefined) style.borderWidth = cap.borderWidth;
+    if (cap.opacity !== undefined) style.opacity = cap.opacity;
+    if (cap.padding) style.padding = cap.padding;
+    if (cap.maxWidth) style.maxWidth = cap.maxWidth;
+
+    return {
+      type: cap.type,
+      text: cap.text,
+      characterId: cap.characterId,
+      position: { x: cap.x, y: cap.y },
+      tailDirection: cap.tailX !== undefined && cap.tailY !== undefined
+        ? { x: cap.tailX, y: cap.tailY }
+        : undefined,
+      style: Object.keys(style).length > 0 ? style : undefined,
+      zIndex: cap.zIndex,
+      effectPreset: cap.effectPreset,
+    } as RenderableCaption;
+  });
+
+  // Ensure output directory exists
+  await mkdir(dirname(body.outputPath), { recursive: true });
+
+  await compositeCaptions(body.imagePath, renderableCaptions, body.outputPath);
+
+  return c.json({
+    success: true,
+    outputPath: body.outputPath,
+    captionCount: renderableCaptions.length,
+  }, 201);
+});
+
 export { captionRoutes };

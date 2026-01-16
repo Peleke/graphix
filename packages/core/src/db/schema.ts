@@ -584,6 +584,7 @@ export const projectsRelations = relations(projects, ({ many }) => ({
   storyboards: many(storyboards),
   poseLibrary: many(poseLibrary),
   customAssets: many(customAssets),
+  premises: many(premises),
 }));
 
 export const charactersRelations = relations(characters, ({ one, many }) => ({
@@ -673,6 +674,198 @@ export const customAssetsRelations = relations(customAssets, ({ one }) => ({
 }));
 
 // interactionPoses has no foreign key relations (standalone preset table)
+
+// ============================================================================
+// NARRATIVE ENGINE: PREMISES
+// ============================================================================
+
+/**
+ * High-level story concepts that can spawn multiple stories.
+ * A premise captures the core idea, genre, tone, and themes.
+ */
+export const premises = sqliteTable(
+  "premises",
+  {
+    id: id(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    // Core concept
+    logline: text("logline").notNull(), // "Two otters discover a yacht and go on an adventure"
+    genre: text("genre"), // "comedy", "drama", "action", etc.
+    tone: text("tone"), // "lighthearted", "dark", "satirical"
+    themes: text("themes", { mode: "json" }).$type<string[]>().default([]).notNull(),
+    // Character references (which characters this premise involves)
+    characterIds: text("character_ids", { mode: "json" }).$type<string[]>().default([]).notNull(),
+    // World/setting context
+    setting: text("setting"), // "A marina at sunset"
+    worldRules: text("world_rules", { mode: "json" }).$type<string[]>(),
+    // LLM generation metadata
+    generatedBy: text("generated_by"), // "claude-3-opus", "gpt-4", etc.
+    generationPrompt: text("generation_prompt"), // The prompt used to generate this
+    // Status
+    status: text("status").$type<PremiseStatus>().default("draft").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("premises_project_idx").on(table.projectId),
+    index("premises_status_idx").on(table.status),
+  ]
+);
+
+export type PremiseStatus = "draft" | "active" | "archived";
+
+export type Premise = typeof premises.$inferSelect;
+export type NewPremise = typeof premises.$inferInsert;
+
+// ============================================================================
+// NARRATIVE ENGINE: STORIES
+// ============================================================================
+
+/**
+ * Complete narrative arcs derived from premises.
+ * Stories contain structure metadata and character arcs.
+ */
+export const stories = sqliteTable(
+  "stories",
+  {
+    id: id(),
+    premiseId: text("premise_id")
+      .notNull()
+      .references(() => premises.id, { onDelete: "cascade" }),
+    // Story metadata
+    title: text("title").notNull(),
+    synopsis: text("synopsis"), // Full story summary
+    targetLength: integer("target_length"), // Target panel count
+    actualLength: integer("actual_length"), // Actual beat count
+    // Narrative structure
+    structure: text("structure").$type<StoryStructure>().default("three-act").notNull(),
+    structureNotes: text("structure_notes", { mode: "json" }).$type<Record<string, string>>(),
+    // Story-specific character arcs
+    characterArcs: text("character_arcs", { mode: "json" }).$type<CharacterArc[]>(),
+    // LLM generation metadata
+    generatedBy: text("generated_by"),
+    generationPrompt: text("generation_prompt"),
+    // Execution state
+    status: text("status").$type<StoryStatus>().default("draft").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("stories_premise_idx").on(table.premiseId),
+    index("stories_status_idx").on(table.status),
+  ]
+);
+
+export type StoryStructure = "three-act" | "five-act" | "hero-journey" | "custom";
+export type StoryStatus = "draft" | "beats_generated" | "panels_created" | "complete";
+
+export type CharacterArc = {
+  characterId: string;
+  startState: string; // "Cautious and timid"
+  endState: string; // "Confident and adventurous"
+  keyMoments: string[]; // Turning points
+};
+
+export type Story = typeof stories.$inferSelect;
+export type NewStory = typeof stories.$inferInsert;
+
+// ============================================================================
+// NARRATIVE ENGINE: BEATS
+// ============================================================================
+
+/**
+ * Individual story moments that map 1:1 to panels.
+ * Beats contain visual descriptions, narrative context, and dialogue.
+ */
+export const beats = sqliteTable(
+  "beats",
+  {
+    id: id(),
+    storyId: text("story_id")
+      .notNull()
+      .references(() => stories.id, { onDelete: "cascade" }),
+    // Position in story
+    position: integer("position").notNull(),
+    actNumber: integer("act_number"), // Which act (1, 2, 3)
+    beatType: text("beat_type").$type<BeatType>(), // "setup", "inciting", "climax", etc.
+    // Visual description (for image generation)
+    visualDescription: text("visual_description").notNull(),
+    // Narrative context
+    narrativeContext: text("narrative_context"), // What's happening story-wise
+    emotionalTone: text("emotional_tone"), // "tense", "joyful", "melancholic"
+    // Characters in this beat
+    characterIds: text("character_ids", { mode: "json" }).$type<string[]>().default([]).notNull(),
+    characterActions: text("character_actions", { mode: "json" }).$type<Record<string, string>>(),
+    // Direction hints
+    cameraAngle: text("camera_angle"), // "wide", "close-up", "medium"
+    composition: text("composition"), // "rule-of-thirds", "centered", etc.
+    // Dialogue/captions
+    dialogue: text("dialogue", { mode: "json" }).$type<BeatDialogue[]>(),
+    narration: text("narration"),
+    sfx: text("sfx"),
+    // Link to created panel (after generation)
+    panelId: text("panel_id").references(() => panels.id, { onDelete: "set null" }),
+    // LLM metadata
+    generatedBy: text("generated_by"),
+    ...timestamps,
+  },
+  (table) => [
+    index("beats_story_idx").on(table.storyId),
+    index("beats_position_idx").on(table.storyId, table.position),
+    index("beats_panel_idx").on(table.panelId),
+  ]
+);
+
+export type BeatType =
+  | "setup" // Establishing shot, introduction
+  | "inciting" // Inciting incident
+  | "rising" // Rising action
+  | "midpoint" // Midpoint reversal
+  | "complication" // Complications/obstacles
+  | "crisis" // Crisis/dark moment
+  | "climax" // Climax
+  | "resolution" // Falling action
+  | "denouement"; // Final resolution/new normal
+
+export type BeatDialogue = {
+  characterId: string;
+  text: string;
+  type: "speech" | "thought" | "whisper";
+};
+
+export type Beat = typeof beats.$inferSelect;
+export type NewBeat = typeof beats.$inferInsert;
+
+// ============================================================================
+// NARRATIVE ENGINE RELATIONS
+// ============================================================================
+
+export const premisesRelations = relations(premises, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [premises.projectId],
+    references: [projects.id],
+  }),
+  stories: many(stories),
+}));
+
+export const storiesRelations = relations(stories, ({ one, many }) => ({
+  premise: one(premises, {
+    fields: [stories.premiseId],
+    references: [premises.id],
+  }),
+  beats: many(beats),
+}));
+
+export const beatsRelations = relations(beats, ({ one }) => ({
+  story: one(stories, {
+    fields: [beats.storyId],
+    references: [stories.id],
+  }),
+  panel: one(panels, {
+    fields: [beats.panelId],
+    references: [panels.id],
+  }),
+}));
 
 // ============================================================================
 // FUTURE: M2/M3 VIDEO SCHEMAS (placeholders)
