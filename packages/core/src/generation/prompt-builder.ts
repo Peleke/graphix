@@ -349,31 +349,35 @@ export class PromptBuilder {
         positive.push(fragment);
       }
 
-      // Collect character LoRAs
-      const profile = placement.character.profile as {
-        lora?: { path: string; weight: number };
-        referenceImages?: Array<{ path: string; isPrimary?: boolean }>;
-        [key: string]: unknown;
+      // Collect character LoRAs (at top level of Character, not in profile)
+      const characterLora = placement.character.lora as {
+        path: string;
+        strength: number;
       } | null;
 
-      if (profile?.lora?.path) {
+      if (characterLora?.path) {
         loras.push({
-          name: profile.lora.path,
-          weight: profile.lora.weight ?? 0.8,
+          name: characterLora.path,
+          weight: characterLora.strength ?? 0.8,
         });
       }
 
-      // Collect reference images
-      if (profile?.referenceImages) {
-        for (const ref of profile.referenceImages) {
-          references.push(ref.path);
+      // Collect reference images (at top level of Character)
+      const charRefImages = placement.character.referenceImages;
+      if (charRefImages && Array.isArray(charRefImages)) {
+        for (const ref of charRefImages) {
+          if (typeof ref === "string") {
+            references.push(ref);
+          }
         }
       }
 
-      // Character-specific negative
-      const charNegative = (profile as { negativePrompt?: string } | null)?.negativePrompt;
-      if (charNegative) {
-        negative.push(charNegative);
+      // Character-specific negative (in promptFragments.negative)
+      const promptFragments = placement.character.promptFragments as {
+        negative?: string;
+      } | null;
+      if (promptFragments?.negative) {
+        negative.push(promptFragments.negative);
       }
     }
 
@@ -432,6 +436,11 @@ export function buildPanelPrompt(
   modelFamily: ModelFamily = "illustrious"
 ): BuiltPrompt {
   const builder = new PromptBuilder(modelFamily);
+
+  // Include panel description in prompt
+  if (panel.description) {
+    builder.addPositive(panel.description);
+  }
 
   // Extract direction from panel
   const direction = panel.direction as PromptDirection | null;
