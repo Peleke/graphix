@@ -249,3 +249,33 @@ export type {
   GeneratedBeat,
   FullStoryGeneration,
 } from "./llm.service.js";
+
+// Review Service
+export {
+  ReviewService,
+  createReviewService,
+  getReviewService,
+  resetReviewService,
+} from "./review.service.js";
+export {
+  DEFAULT_REVIEW_CONFIG,
+  DEFAULT_VISION_CONFIG,
+} from "./review.types.js";
+export type {
+  ReviewConfig,
+  ReviewResult,
+  HumanDecision,
+  AutoReviewResult,
+  PanelContext,
+  ReviewQueueItem,
+  BatchReviewOptions,
+  BatchReviewResult,
+  VisionProviderConfig,
+  ImageAnalysis,
+  QueueProcessResult,
+  ReviewStatus,
+  ReviewAction,
+  ReviewIssue,
+  ReviewIssueType,
+  ReviewIssueSeverity,
+} from "./review.types.js";
