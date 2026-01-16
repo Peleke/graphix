@@ -214,7 +214,7 @@ describe("CompositionService", () => {
     it("returns error for unknown template", async () => {
       const result = await service.composeFromPaths({
         templateId: "nonexistent-template",
-        imagePaths: ["/test/image.png"],
+        panelPaths: ["/test/image.png"],
         outputPath: "/tmp/output/page.png",
       });
 
@@ -225,7 +225,7 @@ describe("CompositionService", () => {
     it("returns error for empty image paths", async () => {
       const result = await service.composeFromPaths({
         templateId: "full-page",
-        imagePaths: [],
+        panelPaths: [],
         outputPath: "/tmp/output/page.png",
       });
 
@@ -235,7 +235,7 @@ describe("CompositionService", () => {
     it("accepts page size option", async () => {
       const result = await service.composeFromPaths({
         templateId: "full-page",
-        imagePaths: ["/test/nonexistent.png"],
+        panelPaths: ["/test/nonexistent.png"],
         outputPath: "/tmp/output/page.png",
         pageSize: "comic_standard",
       });
@@ -247,7 +247,7 @@ describe("CompositionService", () => {
     it("accepts background color option", async () => {
       const result = await service.composeFromPaths({
         templateId: "full-page",
-        imagePaths: ["/test/image.png"],
+        panelPaths: ["/test/image.png"],
         outputPath: "/tmp/output/page.png",
         backgroundColor: "#000000",
       });
@@ -325,6 +325,7 @@ describe("CompositionService", () => {
       const result = await service.exportPage({
         inputPath: "/test/input.png",
         outputPath: "/tmp/output/page.png",
+        format: "png",
         dpi: 300,
       });
 
@@ -335,6 +336,7 @@ describe("CompositionService", () => {
       const result = await service.exportPage({
         inputPath: "/test/input.png",
         outputPath: "/tmp/output/page.png",
+        format: "png",
         bleed: 3,
       });
 
@@ -345,6 +347,7 @@ describe("CompositionService", () => {
       const result = await service.exportPage({
         inputPath: "/test/input.png",
         outputPath: "/tmp/output/page.png",
+        format: "png",
         trimMarks: true,
       });
 
@@ -358,10 +361,8 @@ describe("CompositionService", () => {
 
   describe("composeStoryboard", () => {
     it("returns error when no panels exist", async () => {
-      const result = await service.composeStoryboard({
-        storyboardId,
+      const result = await service.composeStoryboard(storyboardId, {
         templateId: "full-page",
-        outputDir: "/tmp/output",
       });
 
       // Should handle empty storyboard gracefully
@@ -371,10 +372,8 @@ describe("CompositionService", () => {
     it("accepts page size option", async () => {
       await createTestPanel(storyboardId, "Panel 1");
 
-      const result = await service.composeStoryboard({
-        storyboardId,
+      const result = await service.composeStoryboard(storyboardId, {
         templateId: "full-page",
-        outputDir: "/tmp/output",
         pageSize: "manga_tankoubon",
       });
 
