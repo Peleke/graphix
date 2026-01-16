@@ -92,6 +92,8 @@ export type CharacterProfile = {
   ageDescriptors: string[];
   clothing: string[];
   distinguishing: string[];
+  /** Optional base prompt for this character (used by PromptBuilder) */
+  basePrompt?: string;
 };
 
 export type PromptFragments = {
