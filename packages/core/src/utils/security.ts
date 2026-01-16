@@ -139,6 +139,137 @@ export function getDefaultInputDir(): string {
   return process.env.GRAPHIX_INPUT_DIR || resolve(process.cwd(), "input");
 }
 
+
+/**
+ * Get the default ComfyUI output directory.
+ * Uses COMFYUI_OUTPUT_DIR env var, or falls back to /tmp/comfyui-output
+ */
+export function getComfyUIOutputDir(): string {
+  return process.env.COMFYUI_OUTPUT_DIR || "/tmp/comfyui-output";
+}
+
+/**
+ * Get the default temporary directory.
+ * Uses GRAPHIX_TEMP_DIR env var, or falls back to ./temp
+ */
+export function getDefaultTempDir(): string {
+  return process.env.GRAPHIX_TEMP_DIR || resolve(process.cwd(), "temp");
+}
+
+/**
+ * Get all allowed base directories for file operations.
+ * Includes output, input, temp, and ComfyUI output directories.
+ *
+ * NOTE: process.cwd() is explicitly NOT included for security reasons.
+ * If you need to allow additional directories, configure them via environment variables.
+ */
+export function getAllowedBaseDirs(): string[] {
+  const dirs = [
+    getDefaultOutputDir(),
+    getDefaultInputDir(),
+    getDefaultTempDir(),
+    getComfyUIOutputDir(),
+  ];
+
+  // Allow additional directories via environment variable (comma-separated)
+  const additionalDirs = process.env.GRAPHIX_ADDITIONAL_DIRS;
+  if (additionalDirs) {
+    const extraDirs = additionalDirs.split(",").map(d => resolve(d.trim())).filter(d => d.length > 0);
+    dirs.push(...extraDirs);
+  }
+
+  return dirs;
+}
+
+/**
+ * Validate that a file path is within one of the allowed base directories.
+ * This is a higher-level validation that checks against all configured directories.
+ *
+ * @param filePath - The path to validate (can be absolute or relative)
+ * @param operation - The type of operation (read or write)
+ * @returns The normalized, resolved absolute path if valid
+ * @throws Error if path is unsafe, outside allowed directories, or targets sensitive locations
+ */
+export function validateFilePathWithinAllowedDirs(
+  filePath: string,
+  operation: "read" | "write"
+): string {
+  if (!filePath || typeof filePath !== "string") {
+    throw new Error("File path must be a non-empty string");
+  }
+
+  // Reject null bytes
+  if (filePath.includes("\0")) {
+    throw new Error("File path contains invalid characters");
+  }
+
+  // Reject obvious traversal attempts
+  if (filePath.includes("..")) {
+    throw new Error("Path traversal is not allowed");
+  }
+
+  // Resolve the path
+  const resolvedPath = resolve(filePath);
+
+  // Check if path is within allowed directories
+  const allowedDirs = getAllowedBaseDirs();
+  const isAllowed = allowedDirs.some((dir) => {
+    const resolvedDir = resolve(dir);
+    return (
+      resolvedPath.startsWith(resolvedDir + "/") || resolvedPath === resolvedDir
+    );
+  });
+
+  if (!isAllowed) {
+    throw new Error(
+      `File path must be within allowed directories: ${allowedDirs.join(", ")}`
+    );
+  }
+
+  // Sensitive patterns to block - different rules for read vs write
+  const sensitiveWritePatterns = [
+    /^\/etc\//,
+    /^\/usr\//,
+    /^\/bin\//,
+    /^\/sbin\//,
+    /^\/var\/log\//,
+    /\.env(\.[a-z]+)?$/i, // .env, .env.local, .env.production, etc.
+    /\.git\//,
+    /node_modules\//,
+  ];
+
+  const sensitiveReadPatterns = [
+    /\.env(\.[a-z]+)?$/i, // .env, .env.local, .env.production, etc.
+    /\.ssh\//,
+    /id_rsa/,
+    /id_ed25519/,
+    /\.pem$/,
+    /credentials\.json$/i,
+    /secrets?\.(json|ya?ml|toml)$/i,
+    /\.git\/config$/,
+  ];
+
+  // For write operations, block system locations and sensitive files
+  if (operation === "write") {
+    for (const pattern of sensitiveWritePatterns) {
+      if (pattern.test(resolvedPath)) {
+        throw new Error("Access denied: cannot write to this location");
+      }
+    }
+  }
+
+  // For read operations, block credential files
+  if (operation === "read") {
+    for (const pattern of sensitiveReadPatterns) {
+      if (pattern.test(resolvedPath)) {
+        throw new Error("Access denied: cannot read this file");
+      }
+    }
+  }
+
+  return resolvedPath;
+}
+
 /**
  * Validate position coordinates are within the allowed range (0-100 percentage).
  *
@@ -300,9 +431,18 @@ export function validateCaptionStyle(
     }
   }
 
-  // Pass through fontFamily (but sanitize)
+  // Validate fontFamily against a safe pattern (only allow alphanumeric, spaces, commas, hyphens, quotes)
   if (style.fontFamily !== undefined) {
-    sanitizedStyle.fontFamily = sanitizeText(String(style.fontFamily));
+    const fontFamily = String(style.fontFamily);
+    // Only allow safe characters: letters, numbers, spaces, commas, hyphens, single/double quotes
+    const safeFontFamilyPattern = /^[a-zA-Z0-9 ,\-'"]+$/;
+    if (!safeFontFamilyPattern.test(fontFamily)) {
+      errors.push("fontFamily contains invalid characters");
+    } else if (fontFamily.length > 200) {
+      errors.push("fontFamily exceeds maximum length of 200 characters");
+    } else {
+      sanitizedStyle.fontFamily = fontFamily;
+    }
   }
 
   return {

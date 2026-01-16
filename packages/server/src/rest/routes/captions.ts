@@ -10,90 +10,29 @@ import { getCaptionService, DEFAULT_CAPTION_STYLES } from "@graphix/core";
 import { getNarrativeService, type GenerateCaptionsOptions } from "@graphix/core";
 import { getPanelGenerator } from "@graphix/core";
 import { compositeCaptions, type RenderableCaption } from "@graphix/core";
+import {
+  validateFilePathWithinAllowedDirs,
+  VALID_CAPTION_TYPES as CORE_CAPTION_TYPES,
+  validateCaptionType as coreValidateCaptionType,
+  validateCaptionStyle,
+} from "@graphix/core";
 import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
-import { mkdir, access } from "fs/promises";
-import { dirname, resolve } from "path";
+
+// Max caption text length (DoS prevention)
+const MAX_CAPTION_TEXT_LENGTH = 2000;
+import { mkdir } from "fs/promises";
+import { dirname } from "path";
 
 // ============================================================================
-// Security Utilities
+// Request Validation Utilities
 // ============================================================================
-
-/**
- * Get allowed base directories for file operations.
- * Restricts file operations to safe locations.
- */
-function getAllowedBaseDirs(): string[] {
-  const outputDir = process.env.GRAPHIX_OUTPUT_DIR || resolve(process.cwd(), "output");
-  const inputDir = process.env.GRAPHIX_INPUT_DIR || resolve(process.cwd(), "input");
-  const tempDir = process.env.GRAPHIX_TEMP_DIR || resolve(process.cwd(), "temp");
-  return [outputDir, inputDir, tempDir, process.cwd()];
-}
 
 /**
  * Validate that a file path is safe and within allowed directories.
- * Prevents path traversal attacks.
+ * Uses core validation with ComfyUI output support.
  */
 function validateFilePath(filePath: string, operation: "read" | "write"): string {
-  if (!filePath || typeof filePath !== "string") {
-    throw new Error("File path must be a non-empty string");
-  }
-
-  // Reject null bytes
-  if (filePath.includes("\0")) {
-    throw new Error("File path contains invalid characters");
-  }
-
-  // Reject obvious traversal attempts
-  if (filePath.includes("..")) {
-    throw new Error("Path traversal is not allowed");
-  }
-
-  // Resolve the path
-  const resolvedPath = resolve(filePath);
-
-  // Check if path is within allowed directories
-  const allowedDirs = getAllowedBaseDirs();
-  const isAllowed = allowedDirs.some(dir => {
-    const resolvedDir = resolve(dir);
-    return resolvedPath.startsWith(resolvedDir + "/") || resolvedPath === resolvedDir;
-  });
-
-  if (!isAllowed) {
-    throw new Error(`File path must be within allowed directories: ${allowedDirs.join(", ")}`);
-  }
-
-  // For write operations, ensure we're not writing to sensitive locations
-  if (operation === "write") {
-    const sensitivePatterns = [
-      /^\/etc\//,
-      /^\/usr\//,
-      /^\/bin\//,
-      /^\/sbin\//,
-      /^\/var\/log\//,
-      /\.env$/,
-      /\.git\//,
-      /node_modules\//,
-    ];
-
-    for (const pattern of sensitivePatterns) {
-      if (pattern.test(resolvedPath)) {
-        throw new Error("Cannot write to sensitive system locations");
-      }
-    }
-  }
-
-  return resolvedPath;
-}
-
-/**
- * Validate input types for common request body fields.
- */
-function validateRequestBody(body: Record<string, unknown>, requiredFields: string[]): void {
-  for (const field of requiredFields) {
-    if (body[field] === undefined || body[field] === null) {
-      throw new Error(`Missing required field: ${field}`);
-    }
-  }
+  return validateFilePathWithinAllowedDirs(filePath, operation);
 }
 
 /**
@@ -115,15 +54,26 @@ function validatePosition(x: unknown, y: unknown): { x: number; y: number } {
 }
 
 /**
- * Validate caption type.
+ * Validate caption type (delegates to core).
  */
-const VALID_CAPTION_TYPES = ["speech", "thought", "narration", "sfx", "whisper"];
-
 function validateCaptionType(type: unknown): CaptionType {
-  if (typeof type !== "string" || !VALID_CAPTION_TYPES.includes(type)) {
-    throw new Error(`Invalid caption type. Must be one of: ${VALID_CAPTION_TYPES.join(", ")}`);
+  if (typeof type !== "string") {
+    throw new Error(`Invalid caption type. Must be one of: ${CORE_CAPTION_TYPES.join(", ")}`);
   }
-  return type as CaptionType;
+  return coreValidateCaptionType(type);
+}
+
+/**
+ * Validate caption text length to prevent DoS.
+ */
+function validateCaptionText(text: string, index: number): string {
+  if (!text || typeof text !== "string") {
+    throw new Error(`Caption ${index}: text is required`);
+  }
+  if (text.length > MAX_CAPTION_TEXT_LENGTH) {
+    throw new Error(`Caption ${index}: text exceeds maximum length of ${MAX_CAPTION_TEXT_LENGTH} characters`);
+  }
+  return text;
 }
 
 const captionRoutes = new Hono();
@@ -152,6 +102,14 @@ captionRoutes.post("/panels/:panelId/captions", async (c) => {
   if (!body.type || !body.text || body.x === undefined || body.y === undefined) {
     return c.json(
       { error: "type, text, x, and y are required" },
+      400
+    );
+  }
+
+  // Validate text length to prevent DoS
+  if (typeof body.text === "string" && body.text.length > MAX_CAPTION_TEXT_LENGTH) {
+    return c.json(
+      { error: `Text exceeds maximum length of ${MAX_CAPTION_TEXT_LENGTH} characters` },
       400
     );
   }
@@ -321,11 +279,21 @@ captionRoutes.post("/panels/:panelId/render-with-captions", async (c) => {
     const validatedInputPath = validateFilePath(body.imagePath, "read");
     const enabledOnly = body.enabledOnly !== false; // Default to true
 
+    // Validate and use custom outputPath if provided
+    const validatedOutputPath = body.outputPath
+      ? validateFilePath(body.outputPath, "write")
+      : undefined;
+
+    // Ensure output directory exists if custom path provided
+    if (validatedOutputPath) {
+      await mkdir(dirname(validatedOutputPath), { recursive: true });
+    }
+
     const generator = getPanelGenerator();
     const outputPath = await generator.renderCaptionsOnImage(
       validatedInputPath,
       panelId,
-      { enabledOnly }
+      { enabledOnly, outputPath: validatedOutputPath }
     );
 
     return c.json({
@@ -436,7 +404,16 @@ captionRoutes.patch("/captions/:id", async (c) => {
   const updateData: Record<string, unknown> = {};
 
   if (body.type !== undefined) updateData.type = body.type;
-  if (body.text !== undefined) updateData.text = body.text;
+  if (body.text !== undefined) {
+    // Validate text length to prevent DoS
+    if (typeof body.text === "string" && body.text.length > MAX_CAPTION_TEXT_LENGTH) {
+      return c.json(
+        { error: `Text exceeds maximum length of ${MAX_CAPTION_TEXT_LENGTH} characters` },
+        400
+      );
+    }
+    updateData.text = body.text;
+  }
   if (body.characterId !== undefined) updateData.characterId = body.characterId;
   if (body.x !== undefined && body.y !== undefined) {
     updateData.position = { x: body.x, y: body.y };
@@ -528,10 +505,8 @@ captionRoutes.post("/captions/render", async (c) => {
       maxWidth?: number;
       effectPreset?: string;
     }, index: number) => {
-      // Validate required fields
-      if (!cap.text || typeof cap.text !== "string") {
-        throw new Error(`Caption ${index}: text is required`);
-      }
+      // Validate required fields and text length
+      const validatedText = validateCaptionText(cap.text, index);
 
       // Validate caption type
       const validType = validateCaptionType(cap.type);
@@ -559,7 +534,7 @@ captionRoutes.post("/captions/render", async (c) => {
 
       return {
         type: validType,
-        text: cap.text,
+        text: validatedText,
         characterId: cap.characterId,
         position,
         tailDirection,
