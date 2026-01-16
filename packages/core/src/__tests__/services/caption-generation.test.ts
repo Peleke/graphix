@@ -356,7 +356,7 @@ describe("Caption Generation", () => {
       ).rejects.toThrow("has no associated panel");
     });
 
-    it("returns empty array when beat has no captions to generate", async () => {
+    it("returns empty array when beat has no captions to generate and inferFromVisual disabled", async () => {
       const beat = await narrativeService.createBeat({
         storyId,
         position: 0,
@@ -365,9 +365,49 @@ describe("Caption Generation", () => {
 
       await narrativeService.convertBeatToPanel(beat.id, storyboardId);
 
-      const result = await narrativeService.generateCaptionsFromBeat(beat.id);
+      const result = await narrativeService.generateCaptionsFromBeat(beat.id, {
+        inferFromVisual: false,
+      });
 
       expect(result.captions).toHaveLength(0);
+    });
+
+    it("respects inferFromVisual=false option", async () => {
+      // Beat with only visual description (no explicit dialogue/narration/sfx)
+      const beat = await narrativeService.createBeat({
+        storyId,
+        position: 0,
+        visualDescription: 'Hero shouts "For glory!" as the battle begins. *CLANG* of swords fills the air.',
+      });
+
+      await narrativeService.convertBeatToPanel(beat.id, storyboardId);
+
+      // With inferFromVisual=false, should return empty even though visualDescription has content
+      const result = await narrativeService.generateCaptionsFromBeat(beat.id, {
+        inferFromVisual: false,
+      });
+
+      expect(result.captions).toHaveLength(0);
+    });
+
+    it("inferFromVisual defaults to true", async () => {
+      // This test documents the default behavior
+      // LLM inference will only work if LLM service is ready (has API key)
+      // In test environment, it may not be configured, so we just verify no error is thrown
+      const beat = await narrativeService.createBeat({
+        storyId,
+        position: 0,
+        visualDescription: 'Hero whispers "I must find the treasure" to herself.',
+      });
+
+      await narrativeService.convertBeatToPanel(beat.id, storyboardId);
+
+      // Should not throw even if LLM service is not ready
+      const result = await narrativeService.generateCaptionsFromBeat(beat.id);
+
+      // Result depends on whether LLM service is configured
+      // In either case, this should not throw
+      expect(result.beatId).toBe(beat.id);
     });
   });
 

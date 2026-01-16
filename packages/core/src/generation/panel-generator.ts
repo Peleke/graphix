@@ -18,7 +18,8 @@ import {
   type SlotContext,
   type ResolvedGenerationConfig,
 } from "./config/index.js";
-import { compositeCaptions, type RenderableCaption } from "../composition/caption-renderer.js";
+import { compositeCaptions } from "../composition/caption-renderer.js";
+import type { RenderableCaption } from "../composition/caption-types.js";
 
 // ============================================================================
 // ControlNet Types
@@ -659,10 +660,10 @@ export class PanelGenerator {
   async renderCaptionsOnImage(
     imagePath: string,
     panelId: string,
-    options: { enabledOnly?: boolean } = {}
+    options: { enabledOnly?: boolean; outputPath?: string } = {}
   ): Promise<string> {
     const narrativeService = getNarrativeService();
-    const { enabledOnly = true } = options;
+    const { enabledOnly = true, outputPath: customOutputPath } = options;
 
     // Get captions for this panel
     const captions = await narrativeService.getCaptionsForPanel(panelId, { enabledOnly });
@@ -684,10 +685,15 @@ export class PanelGenerator {
       zIndex: c.zIndex,
     }));
 
-    // Generate output path (add _captioned suffix)
-    const ext = path.extname(imagePath);
-    const base = imagePath.slice(0, -ext.length);
-    const outputPath = `${base}_captioned${ext}`;
+    // Use custom output path if provided, otherwise generate default with _captioned suffix
+    let outputPath: string;
+    if (customOutputPath) {
+      outputPath = customOutputPath;
+    } else {
+      const ext = path.extname(imagePath);
+      const base = imagePath.slice(0, -ext.length);
+      outputPath = `${base}_captioned${ext}`;
+    }
 
     // Composite captions onto image
     await compositeCaptions(imagePath, renderableCaptions, outputPath);

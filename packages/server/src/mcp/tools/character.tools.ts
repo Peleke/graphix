@@ -29,7 +29,7 @@ export const characterTools: Record<string, Tool> = {
         },
         bodyType: {
           type: "string",
-          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average"],
+          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average", "curvy", "chubby", "petite", "stocky", "lanky"],
           description: "Body type",
         },
         features: {
@@ -105,7 +105,7 @@ export const characterTools: Record<string, Tool> = {
         },
         bodyType: {
           type: "string",
-          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average"],
+          enum: ["athletic", "slim", "muscular", "shortstack", "tall", "average", "curvy", "chubby", "petite", "stocky", "lanky"],
           description: "New body type",
         },
         features: {

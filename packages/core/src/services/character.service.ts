@@ -36,7 +36,19 @@ const DEFAULT_FRAGMENTS: PromptFragments = {
 };
 
 // Valid body types
-const VALID_BODY_TYPES = ["athletic", "slim", "muscular", "shortstack", "tall", "average"];
+const VALID_BODY_TYPES = [
+  "athletic",
+  "slim",
+  "muscular",
+  "shortstack",
+  "tall",
+  "average",
+  "curvy",
+  "chubby",
+  "petite",
+  "stocky",
+  "lanky",
+];;
 
 export class CharacterService {
   private db: Database;

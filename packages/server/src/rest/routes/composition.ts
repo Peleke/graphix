@@ -148,4 +148,64 @@ compositionRoutes.post("/export", async (c) => {
   return c.json(result, 201);
 });
 
+// Compose a page directly from file paths (no database)
+compositionRoutes.post("/compose-from-paths", async (c) => {
+  const service = getCompositionService();
+  const body = await c.req.json();
+
+  // Validate required fields
+  if (!body.templateId || !body.panelPaths || !body.outputPath) {
+    return c.json({
+      error: "Missing required fields: templateId, panelPaths, outputPath",
+    }, 400);
+  }
+
+  const result = await service.composeFromPaths({
+    templateId: body.templateId,
+    panelPaths: body.panelPaths,
+    outputPath: body.outputPath,
+    pageSize: body.pageSize,
+    backgroundColor: body.backgroundColor,
+    gutterSize: body.gutterSize,
+    margin: body.margin,
+    panelBorderRadius: body.panelBorderRadius,
+    panelBorderWidth: body.panelBorderWidth,
+    panelBorderColor: body.panelBorderColor,
+  });
+
+  if (!result.success) {
+    return c.json({ error: result.error }, 400);
+  }
+
+  return c.json(result, 201);
+});
+
+// Create contact sheet from file paths (no database)
+compositionRoutes.post("/contact-sheet-from-paths", async (c) => {
+  const service = getCompositionService();
+  const body = await c.req.json();
+
+  // Validate required fields
+  if (!body.imagePaths || !body.outputPath) {
+    return c.json({
+      error: "Missing required fields: imagePaths, outputPath",
+    }, 400);
+  }
+
+  const result = await service.contactSheetFromPaths({
+    imagePaths: body.imagePaths,
+    outputPath: body.outputPath,
+    columns: body.columns,
+    thumbnailSize: body.thumbnailSize,
+    gap: body.gap,
+    backgroundColor: body.backgroundColor,
+  });
+
+  if (!result.success) {
+    return c.json({ error: result.error }, 400);
+  }
+
+  return c.json(result, 201);
+});
+
 export { compositionRoutes };

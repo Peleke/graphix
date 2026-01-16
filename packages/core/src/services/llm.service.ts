@@ -180,6 +180,17 @@ export type FullStoryGeneration = {
   beats: GeneratedBeat[];
 };
 
+
+/**
+ * Caption inferred from visual description by LLM
+ */
+export type InferredCaption = {
+  type: "speech" | "thought" | "whisper" | "narration" | "sfx";
+  text: string;
+  characterName?: string;
+  confidence: number;
+};
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -621,6 +632,86 @@ Only output the JSON, no other text.`;
     }
 
     return safeJsonParse<GeneratedBeat>(content.text, "refineBeat");
+  }
+
+
+  /**
+   * Infer captions from a visual description using LLM.
+   * Extracts potential dialogue, narration, and sound effects from prose descriptions.
+   *
+   * @param visualDescription - The visual description text to analyze
+   * @returns Array of inferred captions with type, text, and optional characterId
+   */
+  async inferCaptionsFromVisualDescription(
+    visualDescription: string
+  ): Promise<InferredCaption[]> {
+    this.ensureReady();
+
+    if (!visualDescription || visualDescription.trim().length === 0) {
+      return [];
+    }
+
+    // Sanitize input
+    const safeDescription = sanitizeForPrompt(visualDescription);
+
+    const prompt = `You are a comic panel caption extractor. Analyze this visual description and extract any implied dialogue, narration, or sound effects that should be displayed as captions on the comic panel.
+
+VISUAL DESCRIPTION:
+"${safeDescription}"
+
+TASK:
+1. Look for quoted speech or dialogue (things characters are saying)
+2. Look for described sounds that should be shown as SFX
+3. Identify any narrative text that should appear as caption boxes
+4. Extract character identifiers when mentioned with dialogue
+
+Respond with a JSON array of captions. If no captions can be inferred, return an empty array [].
+
+{
+  "captions": [
+    {
+      "type": "speech" | "thought" | "whisper" | "narration" | "sfx",
+      "text": "The actual caption text",
+      "characterName": "Optional: name of character if dialogue",
+      "confidence": 0.0-1.0
+    }
+  ]
+}
+
+RULES:
+- Only extract text that is explicitly or clearly implied in the description
+- For speech, look for quoted text, "she says", "he whispers", etc.
+- For thoughts, look for "she thinks", "he wonders", internal monologue hints
+- For SFX, look for onomatopoeia or described sounds (crash, bang, whoosh, etc.)
+- For narration, look for scene-setting prose that should be in caption boxes
+- Set confidence based on how clearly the caption is implied (0.9+ for quoted text, lower for inferred)
+- Do NOT make up dialogue or SFX that isn't implied by the description
+
+Only output the JSON, no other text.`;
+
+    const response = await this.client!.messages.create({
+      model: this.config.model,
+      max_tokens: 1024,
+      temperature: 0.3, // Lower temperature for more consistent extraction
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const content = response.content[0];
+    if (content.type !== "text") {
+      throw new Error("Unexpected response type from LLM");
+    }
+
+    try {
+      const result = safeJsonParse<{ captions: InferredCaption[] }>(
+        content.text,
+        "inferCaptionsFromVisualDescription"
+      );
+      return result.captions || [];
+    } catch {
+      // If parsing fails, return empty array rather than throwing
+      console.warn("Failed to parse inferred captions, returning empty array");
+      return [];
+    }
   }
 
   /**
