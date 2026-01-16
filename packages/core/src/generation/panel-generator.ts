@@ -5,17 +5,20 @@
  * Combines PromptBuilder with ComfyUI MCP client.
  */
 
+import path from "path";
 import { config } from "../config/index.js";
 import { getPanelService, getCharacterService, getGeneratedImageService, getStoryboardService } from "../services/index.js";
+import { getNarrativeService, type GenerateCaptionsOptions } from "../services/narrative.service.js";
 import { PromptBuilder, buildPanelPrompt, generateVariantSeeds, type ModelFamily } from "./prompt-builder.js";
 import { ComfyUIClient, getComfyUIClient, type GenerationResult, type ControlNetRequest } from "./comfyui-client.js";
-import type { Panel, Character, GeneratedImage } from "../db/schema.js";
+import type { Panel, Character, GeneratedImage, PanelCaption } from "../db/schema.js";
 import {
   getConfigEngine,
   type QualityPresetId,
   type SlotContext,
   type ResolvedGenerationConfig,
 } from "./config/index.js";
+import { compositeCaptions, type RenderableCaption } from "../composition/caption-renderer.js";
 
 // ============================================================================
 // ControlNet Types
@@ -83,6 +86,17 @@ export interface GenerateOptions {
   qualityPreset?: QualityPresetId;
   /** Generate for a specific composition slot (enables smart sizing) */
   forComposition?: SlotContext;
+
+  // === Caption Integration ===
+
+  /** Auto-generate captions from linked beat (default: false) */
+  generateCaptions?: boolean;
+  /** Options for caption generation (positions, types to include) */
+  captionOptions?: GenerateCaptionsOptions;
+  /** Render captions onto the generated image (default: false) */
+  renderCaptions?: boolean;
+  /** Only render enabled captions (default: true) */
+  enabledCaptionsOnly?: boolean;
 }
 
 /**
@@ -107,6 +121,10 @@ export interface PanelGenerationResult {
   generatedImage?: GeneratedImage;
   generationResult?: GenerationResult;
   error?: string;
+  /** Generated captions (if generateCaptions was true) */
+  captions?: PanelCaption[];
+  /** Path to captioned image (if renderCaptions was true) */
+  captionedImagePath?: string;
 }
 
 /**
@@ -248,10 +266,31 @@ export class PanelGenerator {
         usedControlNet: !!reference,
       });
 
+      // === Caption Integration ===
+      let generatedCaptions: PanelCaption[] | undefined;
+      let captionedImagePath: string | undefined;
+
+      // Generate captions from beat if requested
+      if (options.generateCaptions) {
+        const captionResult = await this.generateCaptionsFromBeat(panelId, options.captionOptions);
+        generatedCaptions = captionResult.captions;
+      }
+
+      // Render captions onto image if requested
+      if (options.renderCaptions && generatedImage.localPath) {
+        captionedImagePath = await this.renderCaptionsOnImage(
+          generatedImage.localPath,
+          panelId,
+          { enabledOnly: options.enabledCaptionsOnly ?? true }
+        );
+      }
+
       return {
         success: true,
         generatedImage,
         generationResult: result,
+        captions: generatedCaptions,
+        captionedImagePath,
       };
     } catch (error) {
       return {
@@ -565,6 +604,124 @@ export class PanelGenerator {
     if (lower.includes("realistic") || lower.includes("photon")) return "realistic";
     if (lower.includes("sdxl") || lower.includes("xl")) return "sdxl";
     return "sd15";
+  }
+
+  // ==========================================================================
+  // CAPTION INTEGRATION
+  // ==========================================================================
+
+  /**
+   * Generate captions from a panel's linked beat.
+   * Looks up the beat that was converted to this panel and extracts its dialogue/narration/sfx.
+   */
+  async generateCaptionsFromBeat(
+    panelId: string,
+    options?: GenerateCaptionsOptions
+  ): Promise<{ captions: PanelCaption[]; beatId?: string }> {
+    const narrativeService = getNarrativeService();
+
+    // Find the beat linked to this panel
+    const panel = await this.panelService.getById(panelId);
+    if (!panel) {
+      throw new Error(`Panel not found: ${panelId}`);
+    }
+
+    // Get the storyboard to find related story/beats
+    const storyboard = await this.storyboardService.getById(panel.storyboardId);
+    if (!storyboard) {
+      throw new Error(`Storyboard not found: ${panel.storyboardId}`);
+    }
+
+    // Search for beats with this panelId
+    const { beats } = await import("../db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    const { getDefaultDatabase } = await import("../db/client.js");
+    const db = getDefaultDatabase();
+
+    const [beat] = await db.select().from(beats).where(eq(beats.panelId, panelId));
+    if (!beat) {
+      // No beat linked to this panel - return empty
+      return { captions: [] };
+    }
+
+    // Generate captions using NarrativeService
+    const result = await narrativeService.generateCaptionsFromBeat(beat.id, options);
+    return {
+      captions: result.captions,
+      beatId: beat.id,
+    };
+  }
+
+  /**
+   * Render captions onto an image and save to a new file.
+   * Returns the path to the captioned image.
+   */
+  async renderCaptionsOnImage(
+    imagePath: string,
+    panelId: string,
+    options: { enabledOnly?: boolean } = {}
+  ): Promise<string> {
+    const narrativeService = getNarrativeService();
+    const { enabledOnly = true } = options;
+
+    // Get captions for this panel
+    const captions = await narrativeService.getCaptionsForPanel(panelId, { enabledOnly });
+
+    if (captions.length === 0) {
+      // No captions to render - return original path
+      return imagePath;
+    }
+
+    // Convert PanelCaption to RenderableCaption
+    const renderableCaptions: RenderableCaption[] = captions.map((c) => ({
+      id: c.id,
+      type: c.type,
+      text: c.text,
+      characterId: c.characterId ?? undefined,
+      position: c.position,
+      tailDirection: c.tailDirection ?? undefined,
+      style: c.style ?? undefined,
+      zIndex: c.zIndex,
+    }));
+
+    // Generate output path (add _captioned suffix)
+    const ext = path.extname(imagePath);
+    const base = imagePath.slice(0, -ext.length);
+    const outputPath = `${base}_captioned${ext}`;
+
+    // Composite captions onto image
+    await compositeCaptions(imagePath, renderableCaptions, outputPath);
+
+    return outputPath;
+  }
+
+  /**
+   * Re-render captions for an existing generated image.
+   * Useful when captions are modified after initial generation.
+   */
+  async rerenderWithCaptions(
+    generatedImageId: string,
+    options: { enabledOnly?: boolean } = {}
+  ): Promise<{ success: boolean; captionedImagePath?: string; error?: string }> {
+    try {
+      const image = await this.imageService.getById(generatedImageId);
+      if (!image) {
+        return { success: false, error: "Generated image not found" };
+      }
+
+      const captionedPath = await this.renderCaptionsOnImage(
+        image.localPath,
+        image.panelId,
+        options
+      );
+
+      return { success: true, captionedImagePath: captionedPath };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to render captions",
+      };
+    }
   }
 }
 
