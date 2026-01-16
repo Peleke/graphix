@@ -309,6 +309,7 @@ describe("Service Interaction", () => {
             name: "Act 1",
             scenes: [
               {
+                name: "Scene 1",
                 description: "Scene 1",
                 panels: [{ description: "Panel 1" }, { description: "Panel 2" }],
               },

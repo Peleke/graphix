@@ -510,23 +510,36 @@ describe("Workflow Integration", () => {
       const maya = await characterService.create({
         projectId: project.id,
         name: "Maya",
-        profile: { species: "fox" },
-        visualDescription: "warm eyes, gentle smile, casual summer dress",
-        expressions: {
-          happy: "bright smile, warm eyes",
-          surprised: "wide eyes, parted lips",
-          pensive: "looking away, thoughtful expression",
+        profile: {
+          species: "fox",
+          bodyType: "average",
+          features: ["warm eyes", "gentle smile"],
+          ageDescriptors: ["young adult"],
+          clothing: ["casual summer dress"],
+          distinguishing: [],
+        },
+        promptFragments: {
+          positive: "warm eyes, gentle smile, casual summer dress",
+          negative: "",
+          triggers: [],
         },
       });
 
       const james = await characterService.create({
         projectId: project.id,
         name: "James",
-        profile: { species: "fox" },
-        visualDescription: "kind eyes, relaxed posture, simple shirt and jeans",
-        expressions: {
-          confident: "slight smile, direct gaze",
-          nervous: "shy smile, looking down",
+        profile: {
+          species: "fox",
+          bodyType: "average",
+          features: ["kind eyes", "relaxed posture"],
+          ageDescriptors: ["young adult"],
+          clothing: ["simple shirt", "jeans"],
+          distinguishing: [],
+        },
+        promptFragments: {
+          positive: "kind eyes, relaxed posture, simple shirt and jeans",
+          negative: "",
+          triggers: [],
         },
       });
 

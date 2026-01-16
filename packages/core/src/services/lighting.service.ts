@@ -162,7 +162,7 @@ export class LightingService {
    *
    * This is called by PromptBuilder to inject lighting into prompts
    */
-  generatePromptFragment(config: SceneLightingConfig): string {
+  generatePromptFragment(config: Partial<SceneLightingConfig>): string {
     const fragments: string[] = [];
 
     // Time of day
