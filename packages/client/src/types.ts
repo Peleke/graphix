@@ -82,11 +82,27 @@ export type SuccessResponse<Op> = Op extends { responses: { 200: { content: { "a
     : never;
 
 /** Extract error response type from an operation */
-export type ErrorResponse<Op> = Op extends { responses: { 400: { content: { "application/json": infer R } } } }
-  ? R
-  : Op extends { responses: { 404: { content: { "application/json": infer R } } } }
-    ? R
-    : never;
+export type ErrorResponse<Op> = Op extends { responses: infer R }
+  ? R extends { 400: { content: { "application/json": infer E } } }
+    ? E
+    : R extends { 401: { content: { "application/json": infer E } } }
+      ? E
+      : R extends { 403: { content: { "application/json": infer E } } }
+        ? E
+        : R extends { 404: { content: { "application/json": infer E } } }
+          ? E
+          : R extends { 409: { content: { "application/json": infer E } } }
+            ? E
+            : R extends { 413: { content: { "application/json": infer E } } }
+              ? E
+              : R extends { 429: { content: { "application/json": infer E } } }
+                ? E
+                : R extends { 500: { content: { "application/json": infer E } } }
+                  ? E
+                  : R extends { 503: { content: { "application/json": infer E } } }
+                    ? E
+                    : never
+  : never;
 
 /** Extract request body type from an operation */
 export type RequestBody<Op> = Op extends { requestBody: { content: { "application/json": infer R } } }

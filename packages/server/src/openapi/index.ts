@@ -8,31 +8,12 @@
 import { Hono } from "hono";
 import { swaggerUI } from "@hono/swagger-ui";
 import zodToJsonSchema from "zod-to-json-schema";
-import {
-  IdSchema,
-  PaginationQuerySchema,
-  PaginationMetaSchema,
-  ErrorSchema,
-} from "./schemas/common.js";
-import {
-  ProjectSchema,
-  CreateProjectSchema,
-  UpdateProjectSchema,
-} from "./schemas/projects.js";
+import * as schemas from "./schemas/index.js";
+import { allPaths } from "./paths/index.js";
 
 // ============================================================================
 // Convert Zod Schemas to JSON Schema
 // ============================================================================
-
-const schemas = {
-  Id: zodToJsonSchema(IdSchema, "Id"),
-  PaginationQuery: zodToJsonSchema(PaginationQuerySchema, "PaginationQuery"),
-  PaginationMeta: zodToJsonSchema(PaginationMetaSchema, "PaginationMeta"),
-  Error: zodToJsonSchema(ErrorSchema, "Error"),
-  Project: zodToJsonSchema(ProjectSchema, "Project"),
-  CreateProject: zodToJsonSchema(CreateProjectSchema, "CreateProject"),
-  UpdateProject: zodToJsonSchema(UpdateProjectSchema, "UpdateProject"),
-};
 
 // Extract the schema definitions
 function extractSchema(schemaWithDefs: any): any {
@@ -42,6 +23,27 @@ function extractSchema(schemaWithDefs: any): any {
     return schemaWithDefs.definitions[defKey];
   }
   return schemaWithDefs;
+}
+
+// Convert all schemas to JSON Schema
+// Filter to only Zod schemas (those ending with Schema)
+const schemaEntries = Object.entries(schemas).filter(([key]) => key.endsWith("Schema"));
+const convertedSchemas: Record<string, any> = {};
+
+for (const [key, schema] of schemaEntries) {
+  try {
+    // Remove "Schema" suffix for component name
+    const componentName = key.replace(/Schema$/, "");
+    convertedSchemas[componentName] = zodToJsonSchema(schema as any, componentName);
+  } catch (error) {
+    console.warn(`Failed to convert schema ${key}:`, error);
+  }
+}
+
+// Build components.schemas object
+const componentsSchemas: Record<string, any> = {};
+for (const [name, converted] of Object.entries(convertedSchemas)) {
+  componentsSchemas[name] = extractSchema(converted);
 }
 
 // ============================================================================
@@ -64,6 +66,13 @@ REST API for comic generation and storyboard management.
 - **Panels**: Individual comic panels with descriptions and generation settings
 - **Generation**: AI-powered image generation via ComfyUI
 - **Captions**: Dialogue, narration, and sound effects
+- **Batch Operations**: Bulk operations on panels, captions, and generations
+- **Composition**: Page composition and export
+- **Consistency**: Visual consistency tools (IP-Adapter, ControlNet)
+- **Story**: Story scaffolding from structured input or outlines
+- **Narrative**: Narrative engine (premises, stories, beats)
+- **Review**: AI-powered image review and regeneration
+- **Text**: Text generation and storage
 
 ## Error Handling
 All errors follow a consistent format:
@@ -110,261 +119,17 @@ Response format:
     { name: "Panels", description: "Panel management and generation" },
     { name: "Generations", description: "Generated image management" },
     { name: "Captions", description: "Caption management for panels" },
+    { name: "Batch", description: "Batch operations on multiple resources" },
+    { name: "Composition", description: "Page composition and export" },
+    { name: "Consistency", description: "Visual consistency tools" },
+    { name: "Story", description: "Story scaffolding endpoints" },
+    { name: "Narrative", description: "Narrative engine (premises, stories, beats)" },
+    { name: "Review", description: "Image review and regeneration" },
+    { name: "Text", description: "Text generation and storage" },
   ],
-  paths: {
-    "/projects": {
-      get: {
-        tags: ["Projects"],
-        summary: "List all projects",
-        description: "Returns a paginated list of all projects.",
-        parameters: [
-          {
-            name: "page",
-            in: "query",
-            schema: { type: "integer", minimum: 1, default: 1 },
-            description: "Page number (1-indexed)",
-          },
-          {
-            name: "limit",
-            in: "query",
-            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-            description: "Items per page (max 100)",
-          },
-        ],
-        responses: {
-          "200": {
-            description: "Paginated list of projects",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    data: {
-                      type: "array",
-                      items: { $ref: "#/components/schemas/Project" },
-                    },
-                    pagination: { $ref: "#/components/schemas/PaginationMeta" },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      post: {
-        tags: ["Projects"],
-        summary: "Create a new project",
-        description: "Creates a new project with the provided details.",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/CreateProject" },
-            },
-          },
-        },
-        responses: {
-          "201": {
-            description: "Project created successfully",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Project" },
-              },
-            },
-          },
-          "400": {
-            description: "Validation error",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-        },
-      },
-    },
-    "/projects/{id}": {
-      get: {
-        tags: ["Projects"],
-        summary: "Get project by ID",
-        description: "Returns a single project by its unique identifier.",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-            description: "Project ID (UUID or cuid2)",
-          },
-        ],
-        responses: {
-          "200": {
-            description: "Project found",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Project" },
-              },
-            },
-          },
-          "400": {
-            description: "Invalid ID format",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "404": {
-            description: "Project not found",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-        },
-      },
-      put: {
-        tags: ["Projects"],
-        summary: "Update a project",
-        description: "Updates an existing project with the provided details.",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-            description: "Project ID (UUID or cuid2)",
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateProject" },
-            },
-          },
-        },
-        responses: {
-          "200": {
-            description: "Project updated successfully",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Project" },
-              },
-            },
-          },
-          "400": {
-            description: "Invalid ID format or validation error",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "404": {
-            description: "Project not found",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-        },
-      },
-      patch: {
-        tags: ["Projects"],
-        summary: "Partially update a project",
-        description: "Updates specific fields of an existing project. Only provided fields are updated.",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-            description: "Project ID (UUID or cuid2)",
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/UpdateProject" },
-            },
-          },
-        },
-        responses: {
-          "200": {
-            description: "Project updated successfully",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Project" },
-              },
-            },
-          },
-          "400": {
-            description: "Invalid ID format or validation error",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "404": {
-            description: "Project not found",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-        },
-      },
-      delete: {
-        tags: ["Projects"],
-        summary: "Delete a project",
-        description: "Permanently deletes a project and all associated data.",
-        parameters: [
-          {
-            name: "id",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-            description: "Project ID (UUID or cuid2)",
-          },
-        ],
-        responses: {
-          "204": {
-            description: "Project deleted successfully",
-          },
-          "400": {
-            description: "Invalid ID format",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "404": {
-            description: "Project not found",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
+  paths: allPaths,
   components: {
-    schemas: {
-      Project: extractSchema(schemas.Project),
-      CreateProject: extractSchema(schemas.CreateProject),
-      UpdateProject: extractSchema(schemas.UpdateProject),
-      PaginationMeta: extractSchema(schemas.PaginationMeta),
-      Error: extractSchema(schemas.Error),
-    },
+    schemas: componentsSchemas,
   },
 };
 

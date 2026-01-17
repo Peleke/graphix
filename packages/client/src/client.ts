@@ -90,21 +90,22 @@ export function createGraphixClient(options: ClientOptions = {}) {
 
   // Add timeout middleware if specified
   if (timeout) {
+    // Use WeakMap to track timeouts without mutating request
+    const timeoutMap = new WeakMap<Request, NodeJS.Timeout>();
+
     const timeoutMiddleware: Middleware = {
       async onRequest({ request }) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        // Store the timeout ID for cleanup
-        (request as any).__timeoutId = timeoutId;
-
-        return new Request(request, { signal: controller.signal });
+        const newRequest = new Request(request, { signal: controller.signal });
+        timeoutMap.set(newRequest, timeoutId);
+        return newRequest;
       },
-      async onResponse({ response, request }) {
-        // Clean up the timeout
-        const timeoutId = (request as any).__timeoutId;
+      async onResponse({ request, response }) {
+        const timeoutId = timeoutMap.get(request);
         if (timeoutId) {
           clearTimeout(timeoutId);
+          timeoutMap.delete(request);
         }
         return response;
       },
