@@ -10,9 +10,11 @@ import { useStoryboards, useStoryboard, useCreateStoryboard } from "../../api/ho
 
 interface StoryboardViewProps {
   projectId: string;
+  onPanelSelect?: (panelId: string) => void;
+  onStoryboardSelect?: (storyboardId: string) => void;
 }
 
-export function StoryboardView({ projectId }: StoryboardViewProps) {
+export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }: StoryboardViewProps) {
   const [selectedStoryboardId, setSelectedStoryboardId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newStoryboardName, setNewStoryboardName] = useState("");
