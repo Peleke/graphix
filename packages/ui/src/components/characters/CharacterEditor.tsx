@@ -1,0 +1,729 @@
+/**
+ * CharacterEditor Component
+ * 
+ * Modal/drawer for editing character details.
+ * Handles name, species, description, color palette, prompt fragments, and LoRA.
+ * 
+ * ARRR! Time to wine and dine this component! 🍷🏴‍☠️
+ */
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { css } from '../../../styled-system/css';
+import { useCharacterStore } from './store';
+import { Character, LoraConfig, ReferenceImageType } from './types';
+import { useColorPalette, usePromptFragments, useCharacterLoRA } from './hooks';
+import { ReferenceGallery } from './ReferenceGallery';
+import { ColorPaletteDisplay } from './ColorPalette';
+import { LoRABrowser } from './LoRABrowser';
+import { MAX_COLOR_PALETTE_SIZE, MAX_PROMPT_FRAGMENTS, MAX_DESCRIPTION_LENGTH } from '../../constants';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface CharacterEditorProps {
+  /** Character ID to edit (null for create mode) */
+  characterId: string | null;
+  /** Called when editor should close */
+  onClose: () => void;
+  /** Called after successful save */
+  onSave?: (character: Character) => void;
+  /** Whether the editor is open */
+  isOpen: boolean;
+}
+
+interface FormData {
+  name: string;
+  species: string;
+  description: string;
+}
+
+interface FormErrors {
+  name?: string;
+  species?: string;
+  description?: string;
+}
+
+// ============================================================================
+// Component
+// ============================================================================
+
+export function CharacterEditor({
+  characterId,
+  onClose,
+  onSave,
+  isOpen,
+}: CharacterEditorProps) {
+  const character = useCharacterStore((state) =>
+    characterId ? state.characters.get(characterId) : null
+  );
+  const updateCharacter = useCharacterStore((state) => state.updateCharacter);
+  const createCharacter = useCharacterStore((state) => state.createCharacter);
+  const activeProjectId = useCharacterStore((state) => state.activeProjectId);
+
+  // Form state
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    species: '',
+    description: '',
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'references' | 'lora'>('details');
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+
+  // Hooks for sub-features
+  const { addColor, removeColor } = useColorPalette(characterId || '');
+  const { addFragment, removeFragment, generateFragments } = usePromptFragments(characterId || '');
+  const { associateLora, removeLora, updateStrength } = useCharacterLoRA(characterId || '');
+
+  // ============================================================================
+  // Effects
+  // ============================================================================
+
+  // Sync form data with character
+  useEffect(() => {
+    if (character) {
+      setFormData({
+        name: character.name,
+        species: character.species,
+        description: character.description,
+      });
+      setIsDirty(false);
+    } else {
+      setFormData({ name: '', species: '', description: '' });
+      setIsDirty(false);
+    }
+  }, [character, isOpen]);
+
+  // Reset errors when form changes
+  useEffect(() => {
+    setErrors({});
+  }, [formData]);
+
+  // ============================================================================
+  // Validation
+  // ============================================================================
+
+  const validate = useCallback((): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (formData.name.length > 100) {
+      newErrors.name = 'Name must be 100 characters or less';
+    }
+
+    if (!formData.species.trim()) {
+      newErrors.species = 'Species is required';
+    } else if (formData.species.length > 50) {
+      newErrors.species = 'Species must be 50 characters or less';
+    }
+
+    if (formData.description.length > MAX_DESCRIPTION_LENGTH) {
+      newErrors.description = `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less`;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData]);
+
+  // ============================================================================
+  // Handlers
+  // ============================================================================
+
+  const handleChange = useCallback((field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    // Guard against double-submission (idempotency)
+    if (isSaving) return;
+    if (!validate()) return;
+
+    setIsSaving(true);
+    try {
+      if (characterId && character) {
+        // Update existing character
+        updateCharacter(characterId, {
+          name: formData.name.trim(),
+          species: formData.species.trim(),
+          description: formData.description.trim(),
+        });
+        onSave?.(character);
+      } else if (activeProjectId) {
+        // Create new character
+        const newCharacter = createCharacter(activeProjectId, {
+          name: formData.name.trim(),
+          species: formData.species.trim(),
+          description: formData.description.trim(),
+        });
+        onSave?.(newCharacter);
+      }
+      setIsDirty(false);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isSaving, characterId, character, formData, validate, updateCharacter, createCharacter, activeProjectId, onSave, onClose]);
+
+  const handleCancel = useCallback(() => {
+    if (isDirty) {
+      // Show custom confirmation dialog instead of blocking window.confirm
+      setShowConfirmClose(true);
+      return;
+    }
+    onClose();
+  }, [isDirty, onClose]);
+
+  const handleConfirmClose = useCallback(() => {
+    setShowConfirmClose(false);
+    onClose();
+  }, [onClose]);
+
+  const handleCancelClose = useCallback(() => {
+    setShowConfirmClose(false);
+  }, []);
+
+  const handleColorAdd = useCallback((color: string) => {
+    if (characterId) {
+      addColor(color);
+    }
+  }, [characterId, addColor]);
+
+  const handleColorRemove = useCallback((color: string) => {
+    if (characterId) {
+      removeColor(color);
+    }
+  }, [characterId, removeColor]);
+
+  const handleFragmentAdd = useCallback((fragment: string) => {
+    if (characterId) {
+      addFragment(fragment);
+    }
+  }, [characterId, addFragment]);
+
+  const handleFragmentRemove = useCallback((fragment: string) => {
+    if (characterId) {
+      removeFragment(fragment);
+    }
+  }, [characterId, removeFragment]);
+
+  const handleGenerateFragments = useCallback(() => {
+    if (characterId) {
+      generateFragments();
+    }
+  }, [characterId, generateFragments]);
+
+  const handleLoraSelect = useCallback((loraId: string, strength: number) => {
+    if (characterId) {
+      associateLora(loraId, strength);
+    }
+  }, [characterId, associateLora]);
+
+  const handleLoraRemove = useCallback(() => {
+    if (characterId) {
+      removeLora();
+    }
+  }, [characterId, removeLora]);
+
+  const handleLoraStrengthChange = useCallback((strength: number) => {
+    if (characterId) {
+      updateStrength(strength);
+    }
+  }, [characterId, updateStrength]);
+
+  // ============================================================================
+  // Render
+  // ============================================================================
+
+  if (!isOpen) return null;
+
+  const isCreateMode = !characterId;
+
+  return (
+    <div
+      className={css({
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      })}
+      data-testid="character-editor-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="editor-title"
+    >
+      <div
+        className={css({
+          backgroundColor: '#1a1a2e',
+          borderRadius: '12px',
+          width: '90%',
+          maxWidth: '800px',
+          maxHeight: '90vh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          border: '1px solid #333',
+        })}
+        data-testid="character-editor"
+      >
+        {/* Header */}
+        <header
+          className={css({
+            padding: '16px 24px',
+            borderBottom: '1px solid #333',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          })}
+        >
+          <h2 id="editor-title" className={css({ margin: 0, color: '#fff', fontSize: '1.5rem' })}>
+            {isCreateMode ? 'Create Character' : `Edit: ${character?.name}`}
+          </h2>
+          <button
+            onClick={handleCancel}
+            className={css({
+              background: 'none',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              fontSize: '1.5rem',
+              padding: '4px',
+              _hover: { color: '#fff' },
+            })}
+            aria-label="Close editor"
+            data-testid="close-editor-button"
+          >
+            ×
+          </button>
+        </header>
+
+        {/* Tabs (only show for edit mode) */}
+        {!isCreateMode && (
+          <nav
+            className={css({
+              display: 'flex',
+              borderBottom: '1px solid #333',
+              padding: '0 24px',
+            })}
+            role="tablist"
+            aria-label="Editor sections"
+          >
+            <button
+              role="tab"
+              aria-selected={activeTab === 'details'}
+              aria-controls="panel-details"
+              onClick={() => setActiveTab('details')}
+              className={css({
+                padding: '12px 16px',
+                background: 'none',
+                border: 'none',
+                color: activeTab === 'details' ? '#fff' : '#888',
+                cursor: 'pointer',
+                borderBottom: activeTab === 'details' ? '2px solid #6366f1' : '2px solid transparent',
+                _hover: { color: '#fff' },
+              })}
+              data-testid="tab-details"
+            >
+              Details
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'references'}
+              aria-controls="panel-references"
+              onClick={() => setActiveTab('references')}
+              className={css({
+                padding: '12px 16px',
+                background: 'none',
+                border: 'none',
+                color: activeTab === 'references' ? '#fff' : '#888',
+                cursor: 'pointer',
+                borderBottom: activeTab === 'references' ? '2px solid #6366f1' : '2px solid transparent',
+                _hover: { color: '#fff' },
+              })}
+              data-testid="tab-references"
+            >
+              References ({character?.referenceImages.length || 0})
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'lora'}
+              aria-controls="panel-lora"
+              onClick={() => setActiveTab('lora')}
+              className={css({
+                padding: '12px 16px',
+                background: 'none',
+                border: 'none',
+                color: activeTab === 'lora' ? '#fff' : '#888',
+                cursor: 'pointer',
+                borderBottom: activeTab === 'lora' ? '2px solid #6366f1' : '2px solid transparent',
+                _hover: { color: '#fff' },
+              })}
+              data-testid="tab-lora"
+            >
+              LoRA {character?.lora ? '✓' : ''}
+            </button>
+          </nav>
+        )}
+
+        {/* Content */}
+        <div
+          className={css({
+            flex: 1,
+            overflow: 'auto',
+            padding: '24px',
+          })}
+        >
+          {/* Details Panel */}
+          {(isCreateMode || activeTab === 'details') && (
+            <div
+              id="panel-details"
+              role="tabpanel"
+              aria-labelledby="tab-details"
+              data-testid="panel-details"
+            >
+              {/* Name Field */}
+              <div className={css({ marginBottom: '16px' })}>
+                <label
+                  htmlFor="character-name"
+                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                >
+                  Name *
+                </label>
+                <input
+                  id="character-name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  className={css({
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#0f0f1a',
+                    border: errors.name ? '1px solid #ef4444' : '1px solid #333',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                  })}
+                  aria-invalid={!!errors.name}
+                  aria-describedby={errors.name ? 'name-error' : undefined}
+                  data-testid="character-name-input"
+                />
+                {errors.name && (
+                  <p id="name-error" className={css({ color: '#ef4444', fontSize: '0.875rem', marginTop: '4px' })} data-testid="name-error">
+                    {errors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Species Field */}
+              <div className={css({ marginBottom: '16px' })}>
+                <label
+                  htmlFor="character-species"
+                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                >
+                  Species *
+                </label>
+                <input
+                  id="character-species"
+                  type="text"
+                  value={formData.species}
+                  onChange={(e) => handleChange('species', e.target.value)}
+                  className={css({
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#0f0f1a',
+                    border: errors.species ? '1px solid #ef4444' : '1px solid #333',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                  })}
+                  aria-invalid={!!errors.species}
+                  aria-describedby={errors.species ? 'species-error' : undefined}
+                  data-testid="character-species-input"
+                />
+                {errors.species && (
+                  <p id="species-error" className={css({ color: '#ef4444', fontSize: '0.875rem', marginTop: '4px' })} data-testid="species-error">
+                    {errors.species}
+                  </p>
+                )}
+              </div>
+
+              {/* Description Field */}
+              <div className={css({ marginBottom: '16px' })}>
+                <label
+                  htmlFor="character-description"
+                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                >
+                  Description
+                </label>
+                <textarea
+                  id="character-description"
+                  value={formData.description}
+                  onChange={(e) => handleChange('description', e.target.value)}
+                  rows={4}
+                  className={css({
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: '#0f0f1a',
+                    border: errors.description ? '1px solid #ef4444' : '1px solid #333',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '1rem',
+                    resize: 'vertical',
+                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                  })}
+                  aria-invalid={!!errors.description}
+                  aria-describedby={errors.description ? 'description-error' : 'description-hint'}
+                  data-testid="character-description-input"
+                />
+                <p id="description-hint" className={css({ color: '#666', fontSize: '0.75rem', marginTop: '4px' })}>
+                  {formData.description.length}/{MAX_DESCRIPTION_LENGTH} characters
+                </p>
+                {errors.description && (
+                  <p id="description-error" className={css({ color: '#ef4444', fontSize: '0.875rem', marginTop: '4px' })} data-testid="description-error">
+                    {errors.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Color Palette (only in edit mode) */}
+              {!isCreateMode && character && (
+                <div className={css({ marginBottom: '16px' })}>
+                  <label className={css({ display: 'block', color: '#888', marginBottom: '8px' })}>
+                    Color Palette ({character.colorPalette.length}/{MAX_COLOR_PALETTE_SIZE})
+                  </label>
+                  <ColorPaletteDisplay
+                    colors={character.colorPalette}
+                    onAddColor={handleColorAdd}
+                    onRemoveColor={handleColorRemove}
+                    maxColors={MAX_COLOR_PALETTE_SIZE}
+                  />
+                </div>
+              )}
+
+              {/* Prompt Fragments (only in edit mode) */}
+              {!isCreateMode && character && (
+                <div className={css({ marginBottom: '16px' })}>
+                  <div className={css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' })}>
+                    <label className={css({ color: '#888' })}>
+                      Prompt Fragments ({character.promptFragments.length}/{MAX_PROMPT_FRAGMENTS})
+                    </label>
+                    <button
+                      onClick={handleGenerateFragments}
+                      className={css({
+                        padding: '4px 12px',
+                        backgroundColor: '#4f46e5',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        _hover: { backgroundColor: '#6366f1' },
+                      })}
+                      data-testid="generate-fragments-button"
+                    >
+                      Auto-Generate
+                    </button>
+                  </div>
+                  <div className={css({ display: 'flex', flexWrap: 'wrap', gap: '8px' })}>
+                    {character.promptFragments.map((fragment, index) => (
+                      <span
+                        key={index}
+                        className={css({
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '4px 8px',
+                          backgroundColor: '#2a2a4a',
+                          borderRadius: '4px',
+                          color: '#fff',
+                          fontSize: '0.875rem',
+                        })}
+                        data-testid="prompt-fragment"
+                      >
+                        {fragment}
+                        <button
+                          onClick={() => handleFragmentRemove(fragment)}
+                          className={css({
+                            background: 'none',
+                            border: 'none',
+                            color: '#888',
+                            cursor: 'pointer',
+                            padding: '0 2px',
+                            _hover: { color: '#ef4444' },
+                          })}
+                          aria-label={`Remove fragment: ${fragment}`}
+                          data-testid="remove-fragment-button"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* References Panel */}
+          {!isCreateMode && activeTab === 'references' && character && (
+            <div
+              id="panel-references"
+              role="tabpanel"
+              aria-labelledby="tab-references"
+              data-testid="panel-references"
+            >
+              <ReferenceGallery characterId={characterId!} />
+            </div>
+          )}
+
+          {/* LoRA Panel */}
+          {!isCreateMode && activeTab === 'lora' && character && (
+            <div
+              id="panel-lora"
+              role="tabpanel"
+              aria-labelledby="tab-lora"
+              data-testid="panel-lora"
+            >
+              <LoRABrowser
+                selectedLora={character.lora}
+                onSelect={handleLoraSelect}
+                onRemove={handleLoraRemove}
+                onStrengthChange={handleLoraStrengthChange}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer
+          className={css({
+            padding: '16px 24px',
+            borderTop: '1px solid #333',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '12px',
+          })}
+        >
+          <button
+            onClick={handleCancel}
+            className={css({
+              padding: '10px 20px',
+              backgroundColor: 'transparent',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#888',
+              cursor: 'pointer',
+              _hover: { backgroundColor: '#1a1a2e', color: '#fff' },
+            })}
+            data-testid="cancel-button"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || (!isDirty && !isCreateMode)}
+            className={css({
+              padding: '10px 20px',
+              backgroundColor: '#4f46e5',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              cursor: 'pointer',
+              _hover: { backgroundColor: '#6366f1' },
+              _disabled: { opacity: 0.5, cursor: 'not-allowed' },
+            })}
+            data-testid="save-button"
+          >
+            {isSaving ? 'Saving...' : isCreateMode ? 'Create' : 'Save'}
+          </button>
+        </footer>
+      </div>
+
+      {/* Confirmation Dialog - Non-blocking replacement for window.confirm */}
+      {showConfirmClose && (
+        <div
+          className={css({
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          })}
+          data-testid="confirm-close-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-close-title"
+          aria-describedby="confirm-close-description"
+        >
+          <div
+            className={css({
+              backgroundColor: '#1a1a2e',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '400px',
+              border: '1px solid #ef4444',
+            })}
+          >
+            <h3
+              id="confirm-close-title"
+              className={css({ color: '#fff', fontSize: '1.25rem', marginBottom: '12px' })}
+            >
+              Unsaved Changes
+            </h3>
+            <p
+              id="confirm-close-description"
+              className={css({ color: '#888', marginBottom: '24px' })}
+            >
+              You have unsaved changes. Are you sure you want to close? Your changes will be lost.
+            </p>
+            <div className={css({ display: 'flex', justifyContent: 'flex-end', gap: '12px' })}>
+              <button
+                onClick={handleCancelClose}
+                className={css({
+                  padding: '10px 20px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: '#888',
+                  cursor: 'pointer',
+                  _hover: { backgroundColor: '#1a1a2e', color: '#fff' },
+                })}
+                data-testid="cancel-close-button"
+              >
+                Keep Editing
+              </button>
+              <button
+                onClick={handleConfirmClose}
+                className={css({
+                  padding: '10px 20px',
+                  backgroundColor: '#ef4444',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  _hover: { backgroundColor: '#dc2626' },
+                })}
+                data-testid="confirm-close-button"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default CharacterEditor;
