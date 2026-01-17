@@ -154,13 +154,15 @@ const styles = {
     container: `
       flex items-center gap-2 sm:gap-3 text-xs text-[hsl(0_0%_45%)]
       flex-wrap
+      mt-1
     `,
     item: `
-      flex items-center gap-1
+      flex items-center gap-1.5
       whitespace-nowrap
+      min-w-0
     `,
     icon: `
-      w-3 h-3 opacity-60 flex-shrink-0
+      w-3.5 h-3.5 opacity-60 flex-shrink-0
     `,
   },
   menuButton: `
@@ -479,7 +481,7 @@ const ProjectInfo = memo(function ProjectInfo({
       <div className={styles.meta.container}>
         <div className={styles.meta.item} title={`${panelCount} panels`}>
           <Layers className={styles.meta.icon} aria-hidden="true" />
-          <span>{panelCount} panels</span>
+          <span className="truncate">{panelCount} panels</span>
         </div>
         <time
           className={styles.meta.item}
@@ -487,7 +489,7 @@ const ProjectInfo = memo(function ProjectInfo({
           title={`Updated ${formatFullDate(project.updatedAt)}`}
         >
           <Clock className={styles.meta.icon} aria-hidden="true" />
-          <span>Updated {updatedAt}</span>
+          <span className="truncate">Updated {updatedAt}</span>
         </time>
       </div>
     </div>

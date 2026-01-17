@@ -134,23 +134,25 @@ function RootLayout() {
         .mobile-menu {
           position: fixed;
           top: 56px;
-          left: 0;
           right: 0;
+          width: 200px;
           background: #18181b;
           border-bottom: 1px solid #27272a;
+          border-left: 1px solid #27272a;
           padding: 1rem;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
           z-index: 100;
-          transform: translateY(-100%);
+          transform: translateX(100%);
           opacity: 0;
           transition: all 0.2s ease;
           pointer-events: none;
+          box-shadow: -4px 4px 12px rgba(0, 0, 0, 0.3);
         }
         
         .mobile-menu.open {
-          transform: translateY(0);
+          transform: translateX(0);
           opacity: 1;
           pointer-events: all;
         }
