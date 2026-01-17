@@ -91,7 +91,7 @@ export const createCharacterSchema = z.object({
 
 export const updateCharacterSchema = z.object({
   name: nonEmptyString.max(255).optional(),
-  profile: characterProfileSchema.optional(),
+  profile: characterProfileSchema.partial().optional(),
   promptFragments: promptFragmentsSchema.optional(),
 });
 
