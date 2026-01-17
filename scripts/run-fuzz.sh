@@ -13,7 +13,8 @@ validate_port() {
 validate_host() {
   local host="$1"
   # Basic validation: no special shell characters, reasonable length
-  if [[ "$host" =~ [;&|`$()] ]] || [ ${#host} -gt 253 ]; then
+  # Escape special regex chars: ; & | ` $ ( )
+  if [[ "$host" =~ [\;\&\|\`\$\(\)] ]] || [ ${#host} -gt 253 ]; then
     echo "❌ Invalid host: $host (contains invalid characters or too long)"
     exit 1
   fi
