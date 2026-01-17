@@ -36,7 +36,6 @@ export const storyPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/story/from-outline": {
@@ -70,7 +69,6 @@ export const storyPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/story/parse-outline": {
@@ -103,7 +101,6 @@ export const storyPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
   },
