@@ -114,13 +114,13 @@ export const createStoryboardSchema = z.object({
   projectId: uuidSchema,
   name: nonEmptyString.max(255),
   description: optionalString,
-  lightingConfig: z.record(z.unknown()).optional(),
+  lightingConfig: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateStoryboardSchema = z.object({
   name: nonEmptyString.max(255).optional(),
   description: optionalString,
-  lightingConfig: z.record(z.unknown()).optional(),
+  lightingConfig: z.record(z.string(), z.unknown()).optional(),
 });
 
 // ============================================================================
