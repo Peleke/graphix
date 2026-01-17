@@ -78,6 +78,9 @@ const api = new Hono();
 api.route("/projects", projectRoutes);
 api.route("/characters", characterRoutes);
 api.route("/storyboards", storyboardRoutes);
+// Caption routes mounted BEFORE panels to handle /panels/:id/captions routes
+// (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
+api.route("/", captionRoutes);
 api.route("/panels", panelRoutes);
 api.route("/generations", generationRoutes);
 api.route("/composition", compositionRoutes);
@@ -88,9 +91,6 @@ api.route("/narrative", narrativeRoutes);
 api.route("/review", reviewRoutes);
 api.route("/text", textGenerationRoutes);
 api.route("/generated-texts", generatedTextRoutes);
-
-// Caption routes (mounted at /captions for direct caption CRUD, panels routes are nested)
-api.route("/captions", captionRoutes);
 
 // OpenAPI documentation (Swagger UI at /api/docs, spec at /api/docs/spec.json)
 api.route("/docs", openapi);
