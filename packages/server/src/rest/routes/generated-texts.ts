@@ -124,6 +124,18 @@ function sanitizeMetadata(
 }
 
 /**
+ * UUID validation regex pattern.
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Validate that a string is a valid UUID.
+ */
+function isValidUUID(id: string): boolean {
+  return UUID_REGEX.test(id);
+}
+
+/**
  * Validate numeric value is within bounds.
  */
 function validateNumericBounds(
@@ -325,9 +337,14 @@ generatedTextRoutes.get("/", async (c) => {
  * Get a specific generated text by ID.
  */
 generatedTextRoutes.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   try {
     const service = getGeneratedTextService();
-    const text = await service.getById(c.req.param("id"));
+    const text = await service.getById(id);
 
     if (!text) {
       return c.json(errorResponse("Generated text not found", "NOT_FOUND"), 404);
@@ -437,6 +454,11 @@ generatedTextRoutes.patch("/:id", async (c) => {
   const body = bodyResult.data;
   const id = c.req.param("id");
 
+  // Validate UUID format
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   // Validate text length if provided
   if (body.text) {
     const textError = validateLength(body.text as string, MAX_TEXT_LENGTH, "text");
@@ -483,9 +505,14 @@ generatedTextRoutes.patch("/:id", async (c) => {
  * Delete a generated text entry.
  */
 generatedTextRoutes.delete("/:id", async (c) => {
+  const id = c.req.param("id");
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   try {
     const service = getGeneratedTextService();
-    await service.delete(c.req.param("id"));
+    await service.delete(id);
 
     return c.body(null, 204);
   } catch (error) {
@@ -510,9 +537,14 @@ generatedTextRoutes.delete("/:id", async (c) => {
  * Archive a generated text (soft delete).
  */
 generatedTextRoutes.post("/:id/archive", async (c) => {
+  const id = c.req.param("id");
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   try {
     const service = getGeneratedTextService();
-    const text = await service.archive(c.req.param("id"));
+    const text = await service.archive(id);
 
     return c.json({
       success: true,
@@ -533,6 +565,11 @@ generatedTextRoutes.post("/:id/archive", async (c) => {
  * Regenerate text for an existing entry.
  */
 generatedTextRoutes.post("/:id/regenerate", async (c) => {
+  const id = c.req.param("id");
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   const bodyResult = await safeParseBody<Record<string, unknown>>(c, true);
   if (!bodyResult.success) {
     return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
@@ -548,7 +585,7 @@ generatedTextRoutes.post("/:id/regenerate", async (c) => {
 
   try {
     const service = getGeneratedTextService();
-    const text = await service.regenerate(c.req.param("id"), {
+    const text = await service.regenerate(id, {
       newPrompt: body.newPrompt as string | undefined,
       keepHistory: body.keepHistory as boolean | undefined,
       temperature: body.temperature as number | undefined,
@@ -575,9 +612,14 @@ generatedTextRoutes.post("/:id/regenerate", async (c) => {
  * Revert to original text (undo edits).
  */
 generatedTextRoutes.post("/:id/revert", async (c) => {
+  const id = c.req.param("id");
+  if (!isValidUUID(id)) {
+    return c.json(errorResponse("Invalid ID format", "INVALID_ID"), 400);
+  }
+
   try {
     const service = getGeneratedTextService();
-    const text = await service.revertToOriginal(c.req.param("id"));
+    const text = await service.revertToOriginal(id);
 
     return c.json({
       success: true,
