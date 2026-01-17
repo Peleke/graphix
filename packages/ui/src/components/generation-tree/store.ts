@@ -100,7 +100,7 @@ interface GenerationTreeActions {
 // ============================================================================
 
 function generateId(): string {
-  return `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `gen_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 function createEmptyTree(panelId: string): GenerationTree {
