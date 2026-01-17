@@ -90,7 +90,7 @@ export const setLoraSchema = z.object({
   path: nonEmptyString,
   strength: z.number().min(0).max(2).optional(),
   strengthClip: z.number().min(0).max(2).optional(),
-  trainingImages: z.array(z.string()).optional(),
+  trainingImages: z.number().int().positive(),
 });
 
 // ============================================================================

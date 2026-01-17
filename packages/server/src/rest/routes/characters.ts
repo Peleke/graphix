@@ -12,6 +12,14 @@ import {
   UploadError,
 } from "@graphix/core";
 import { ApiError, errors, ErrorCodes } from "../errors/index.js";
+import {
+  validateBody,
+  validateId,
+  createCharacterSchema,
+  updateCharacterSchema,
+  addReferenceSchema,
+  setLoraSchema,
+} from "../validation/index.js";
 
 // ============================================================================
 // Constants
@@ -34,12 +42,13 @@ const ALLOWED_IMAGE_TYPES = [
 const characterRoutes = new Hono();
 
 // Get character by ID
-characterRoutes.get("/:id", async (c) => {
+characterRoutes.get("/:id", validateId(), async (c) => {
   const service = getCharacterService();
-  const character = await service.getById(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const character = await service.getById(id);
 
   if (!character) {
-    return errors.notFound(c, "Character", c.req.param("id"));
+    return errors.notFound(c, "Character", id);
   }
 
   return c.json(character);
@@ -54,9 +63,9 @@ characterRoutes.get("/project/:projectId", async (c) => {
 });
 
 // Create character
-characterRoutes.post("/", async (c) => {
+characterRoutes.post("/", validateBody(createCharacterSchema), async (c) => {
   const service = getCharacterService();
-  const body = await c.req.json();
+  const body = c.req.valid("json");
 
   const character = await service.create({
     projectId: body.projectId,
@@ -70,42 +79,60 @@ characterRoutes.post("/", async (c) => {
 });
 
 // Update character
-characterRoutes.put("/:id", async (c) => {
-  const service = getCharacterService();
-  const body = await c.req.json();
+characterRoutes.put(
+  "/:id",
+  validateId(),
+  validateBody(updateCharacterSchema),
+  async (c) => {
+    const service = getCharacterService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const character = await service.update(c.req.param("id"), {
-    name: body.name,
-    profile: body.profile,
-    promptFragments: body.promptFragments,
-  });
+    const character = await service.update(id, {
+      name: body.name,
+      profile: body.profile,
+      promptFragments: body.promptFragments,
+    });
 
-  return c.json(character);
-});
+    return c.json(character);
+  }
+);
 
 // Partial update character
-characterRoutes.patch("/:id", async (c) => {
-  const service = getCharacterService();
-  const body = await c.req.json();
+characterRoutes.patch(
+  "/:id",
+  validateId(),
+  validateBody(updateCharacterSchema),
+  async (c) => {
+    const service = getCharacterService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const character = await service.update(c.req.param("id"), body);
+    const character = await service.update(id, body);
 
-  return c.json(character);
-});
+    return c.json(character);
+  }
+);
 
 // Add reference image (by path)
-characterRoutes.post("/:id/references", async (c) => {
-  const service = getCharacterService();
-  const body = await c.req.json();
+characterRoutes.post(
+  "/:id/references",
+  validateId(),
+  validateBody(addReferenceSchema),
+  async (c) => {
+    const service = getCharacterService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const character = await service.addReference(c.req.param("id"), body.imagePath);
+    const character = await service.addReference(id, body.imagePath);
 
-  return c.json(character);
-});
+    return c.json(character);
+  }
+);
 
 // Upload reference image (multipart/form-data)
-characterRoutes.post("/:id/references/upload", async (c) => {
-  const characterId = c.req.param("id");
+characterRoutes.post("/:id/references/upload", validateId(), async (c) => {
+  const { id: characterId } = c.req.valid("param");
   const service = getCharacterService();
 
   // Verify character exists
@@ -182,42 +209,56 @@ characterRoutes.post("/:id/references/upload", async (c) => {
 });
 
 // Remove reference image
-characterRoutes.delete("/:id/references", async (c) => {
-  const service = getCharacterService();
-  const body = await c.req.json();
+characterRoutes.delete(
+  "/:id/references",
+  validateId(),
+  validateBody(addReferenceSchema),
+  async (c) => {
+    const service = getCharacterService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const character = await service.removeReference(c.req.param("id"), body.imagePath);
+    const character = await service.removeReference(id, body.imagePath);
 
-  return c.json(character);
-});
+    return c.json(character);
+  }
+);
 
 // Set LoRA
-characterRoutes.post("/:id/lora", async (c) => {
-  const service = getCharacterService();
-  const body = await c.req.json();
+characterRoutes.post(
+  "/:id/lora",
+  validateId(),
+  validateBody(setLoraSchema),
+  async (c) => {
+    const service = getCharacterService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const character = await service.setLora(c.req.param("id"), {
-    path: body.path,
-    strength: body.strength,
-    strengthClip: body.strengthClip,
-    trainingImages: body.trainingImages,
-  });
+    const character = await service.setLora(id, {
+      path: body.path,
+      strength: body.strength,
+      strengthClip: body.strengthClip,
+      trainingImages: body.trainingImages,
+    });
 
-  return c.json(character);
-});
+    return c.json(character);
+  }
+);
 
 // Clear LoRA
-characterRoutes.delete("/:id/lora", async (c) => {
+characterRoutes.delete("/:id/lora", validateId(), async (c) => {
   const service = getCharacterService();
-  const character = await service.clearLora(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const character = await service.clearLora(id);
 
   return c.json(character);
 });
 
 // Delete character
-characterRoutes.delete("/:id", async (c) => {
+characterRoutes.delete("/:id", validateId(), async (c) => {
   const service = getCharacterService();
-  await service.delete(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  await service.delete(id);
 
   return c.body(null, 204);
 });
