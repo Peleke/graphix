@@ -222,6 +222,15 @@ describe("TextGenerationService", () => {
 // ==============================================================================
 
 describe("OllamaProvider", () => {
+  beforeEach(() => {
+    // Allow localhost URLs for testing (SSRF protection requires opt-in)
+    process.env.ALLOW_LOCAL_OLLAMA = "true";
+  });
+
+  afterEach(() => {
+    delete process.env.ALLOW_LOCAL_OLLAMA;
+  });
+
   describe("Configuration", () => {
     it("uses default URL when not specified", () => {
       const provider = new OllamaProvider();
@@ -278,7 +287,7 @@ describe("OllamaProvider", () => {
             eval_count: 10,
             prompt_eval_count: 5,
           }),
-          { status: 200 }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       });
 
@@ -302,7 +311,7 @@ describe("OllamaProvider", () => {
         capturedBody = JSON.parse(options.body);
         return new Response(
           JSON.stringify({ response: "Test", model: "llama3.2" }),
-          { status: 200 }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       });
 
@@ -327,7 +336,7 @@ describe("OllamaProvider", () => {
         capturedBody = JSON.parse(options.body);
         return new Response(
           JSON.stringify({ response: "Test", model: "llama3.2" }),
-          { status: 200 }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       });
 
@@ -354,7 +363,7 @@ describe("OllamaProvider", () => {
             eval_count: 15,
             prompt_eval_count: 10,
           }),
-          { status: 200 }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       });
 
@@ -484,12 +493,15 @@ describe("TextGenerationService High-Level Methods", () => {
   let originalFetch: typeof global.fetch;
 
   beforeEach(() => {
+    // Allow localhost URLs for testing (SSRF protection requires opt-in)
+    process.env.ALLOW_LOCAL_OLLAMA = "true";
     originalFetch = global.fetch;
     service = createTextGenerationService({ provider: "ollama" });
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    delete process.env.ALLOW_LOCAL_OLLAMA;
     resetTextGenerationService();
   });
 
@@ -498,7 +510,7 @@ describe("TextGenerationService High-Level Methods", () => {
       if (url.includes("/api/tags")) {
         return new Response(
           JSON.stringify({ models: [{ name: "llama3.2:latest" }] }),
-          { status: 200 }
+          { status: 200, headers: { "Content-Type": "application/json" } }
         );
       }
       return new Response(
@@ -508,7 +520,7 @@ describe("TextGenerationService High-Level Methods", () => {
           eval_count: 10,
           prompt_eval_count: 5,
         }),
-        { status: 200 }
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     });
   }
