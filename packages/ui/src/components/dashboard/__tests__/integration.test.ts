@@ -4,7 +4,7 @@
  * Full workflow tests that verify complete user journeys
  * through the dashboard functionality.
  *
- * ARR! We test the FULL VOYAGE, from port to port! 🏴‍☠️
+ * Complete workflow coverage from start to finish.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

@@ -4,7 +4,7 @@
  * Displays a project in the dashboard grid/list view.
  * Professional "$2000 aesthetic" with smooth animations and dark theme.
  *
- * ARR! This card be worth its weight in doubloons! 🏴‍☠️
+ * Designed for professional aesthetics with smooth animations.
  */
 
 import React, { memo, useCallback, useMemo } from "react";

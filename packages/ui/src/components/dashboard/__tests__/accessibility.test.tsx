@@ -2,7 +2,7 @@
  * Accessibility Tests for Project Dashboard
  *
  * WCAG 2.1 AA compliance tests for dashboard components.
- * All pirates deserve to navigate the seas, vision or no! 🏴‍☠️
+ * WCAG 2.1 AA compliance ensures accessibility for all users.
  *
  * Tests cover:
  * - Keyboard navigation

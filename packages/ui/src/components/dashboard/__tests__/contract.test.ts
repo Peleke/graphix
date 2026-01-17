@@ -5,7 +5,7 @@
  * the API response schema. If the backend schema changes, these tests
  * will catch it before it breaks the UI.
  *
- * ARR! Contract tests be the treaty between frontend and backend! 🏴‍☠️
+ * Ensures API contract compliance between frontend and backend.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

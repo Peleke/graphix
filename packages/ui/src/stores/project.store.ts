@@ -4,7 +4,7 @@
  * Zustand store for managing project dashboard state.
  * Handles project listing, filtering, sorting, and UI state.
  *
- * ARR! This be the treasure chest of dashboard state, ye scurvy dogs! 🏴‍☠️
+ * Manages dashboard state including projects, filters, sorting, and modals.
  */
 
 import { create } from "zustand";

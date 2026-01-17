@@ -4,7 +4,7 @@
  * Using property-based testing patterns to find edge cases
  * that example-based tests might miss.
  *
- * ARR! We test the INVARIANTS, ye scurvy dogs! 🏴‍☠️
+ * Property-based testing to verify invariants hold for all inputs.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

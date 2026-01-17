@@ -2,7 +2,7 @@
  * Project Dashboard Store Tests
  *
  * EXHAUSTIVE tests for the Zustand store managing project dashboard state.
- * ARR! We test EVERYTHING, ye scurvy landlubbers! 🏴‍☠️
+ * Complete coverage for all store operations.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

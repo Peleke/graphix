@@ -2,7 +2,7 @@
  * Dashboard Components
  *
  * Export all dashboard-related components for the project listing page.
- * ARR! These be the finest components on the high seas! 🏴‍☠️
+ * Export all dashboard-related components.
  */
 
 export { ProjectCard, type ProjectCardProps } from "./ProjectCard";

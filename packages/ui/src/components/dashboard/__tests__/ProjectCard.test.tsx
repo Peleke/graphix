@@ -4,7 +4,7 @@
  * React component rendering tests using @testing-library/react.
  * Tests the ProjectCard component's rendering, interactions, and props.
  *
- * ARR! We test every plank on this ship! 🏴‍☠️
+ * Comprehensive coverage for all rendering and interaction scenarios.
  */
 
 import { describe, it, expect, vi, afterEach } from "vitest";

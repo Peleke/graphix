@@ -4,7 +4,7 @@
  * Testing every conceivable edge case, boundary condition, and
  * error scenario for the project dashboard store.
  *
- * ARR! If it can break, we test it breakin'! 🏴‍☠️
+ * Comprehensive edge case coverage for robustness.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
