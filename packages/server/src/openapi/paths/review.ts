@@ -161,7 +161,14 @@ export const reviewPaths: Record<string, any> = {
         },
       },
       responses: {
-        "200": { description: "Auto review completed", content: { "application/json": { schema: { type: "object" } } } } },
+        "200": {
+          description: "Auto review completed",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -188,7 +195,14 @@ export const reviewPaths: Record<string, any> = {
       description: "Returns all review iterations for a panel.",
       parameters: [{ name: "panelId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Review history", content: { "application/json": { schema: { type: "object" } } } } },
+        "200": {
+          description: "Review history",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
         "400": {
           description: "Invalid panel ID format",
           content: {
@@ -270,7 +284,14 @@ export const reviewPaths: Record<string, any> = {
         },
       },
       responses: {
-        "200": { description: "Image approved", content: { "application/json": { schema: { type: "object" } } } } },
+        "200": {
+          description: "Image approved",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -305,7 +326,14 @@ export const reviewPaths: Record<string, any> = {
         },
       },
       responses: {
-        "200": { description: "Image rejected", content: { "application/json": { schema: { type: "object" } } } } },
+        "200": {
+          description: "Image rejected",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
         "400": {
           description: "Validation error",
           content: {
