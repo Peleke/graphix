@@ -86,7 +86,21 @@ export const reviewPaths: Record<string, any> = {
       description: "Returns the full review history for an image.",
       parameters: [{ name: "imageId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Review history", content: { "application/json": { schema: { type: "object", properties: { imageId: { type: "string" }, reviews: { type: "array", items: { $ref: "#/components/schemas/ImageReview" } }, count: { type: "number" } } } } } } } },
+        "200": {
+          description: "Review history",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  imageId: { type: "string" },
+                  reviews: { type: "array", items: { $ref: "#/components/schemas/ImageReview" } },
+                  count: { type: "number" },
+                },
+              },
+            },
+          },
+        },
         "400": {
           description: "Invalid image ID format",
           content: {
