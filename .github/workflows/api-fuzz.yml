@@ -1,0 +1,48 @@
+name: API Fuzz Testing
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/server/**'
+      - 'schemathesis.toml'
+      - '.github/workflows/api-fuzz.yml'
+  pull_request:
+    paths:
+      - 'packages/server/**'
+      - 'schemathesis.toml'
+      - '.github/workflows/api-fuzz.yml'
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Start server
+        run: |
+          bun run dev &
+          sleep 5
+          curl -f http://localhost:${PORT:-3002}/health || exit 1
+        env:
+          PORT: 3002
+
+      - name: Run Schemathesis
+        run: |
+          docker run --rm --network host \
+            -v "$PWD/schemathesis.toml:/app/schemathesis.toml:ro" \
+            schemathesis/schemathesis:stable \
+            run \
+            --config /app/schemathesis.toml \
+            --base-url "http://localhost:3002/api" \
+            --hypothesis-max-examples 20 \
+            "http://localhost:3002/api/docs/spec.json"

@@ -50,7 +50,7 @@ const batchAddCaptionsSchema = z.object({
       x: z.number(),
       y: z.number(),
     }).optional(),
-    style: z.record(z.unknown()).optional(),
+    style: z.record(z.string(), z.unknown()).optional(),
     zIndex: z.number().int().optional(),
   })).min(1),
 });

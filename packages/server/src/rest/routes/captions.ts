@@ -47,7 +47,7 @@ const generateCaptionsOptionsSchema = z.object({
   includeDialogue: z.boolean().optional(),
   includeNarration: z.boolean().optional(),
   includeSfx: z.boolean().optional(),
-  defaultPositions: z.record(z.object({
+  defaultPositions: z.record(z.string(), z.object({
     x: z.number().min(0).max(100),
     y: z.number().min(0).max(100),
   })).optional(),

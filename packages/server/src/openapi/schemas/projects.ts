@@ -19,7 +19,7 @@ import {
  * Project settings object
  */
 export const ProjectSettingsSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .optional()
   .describe("Project-specific settings");
 
