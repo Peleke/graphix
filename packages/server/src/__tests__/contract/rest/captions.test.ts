@@ -68,12 +68,12 @@ describe("REST /api/captions", () => {
   });
 
   // ============================================================================
-  // GET /api/captions/panel/:panelId
+  // GET /api/panels/:panelId/captions
   // ============================================================================
 
-  describe("GET /api/captions/panel/:panelId", () => {
+  describe("GET /api/panels/:panelId/captions", () => {
     it("returns 400 for invalid panel ID format", async () => {
-      const res = await app.request("/api/captions/panel/invalid-id");
+      const res = await app.request("/api/panels/invalid-id/captions");
       expect(res.status).toBe(400);
     });
 
@@ -82,7 +82,7 @@ describe("REST /api/captions", () => {
       const storyboard = await createTestStoryboard(project.id);
       const panel = await createTestPanel(storyboard.id);
 
-      const res = await app.request(`/api/captions/panel/${panel.id}`);
+      const res = await app.request(`/api/panels/${panel.id}/captions`);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveProperty("captions");
@@ -102,7 +102,7 @@ describe("REST /api/captions", () => {
         position: { x: 50, y: 50 },
       });
 
-      const res = await app.request(`/api/captions/panel/${panel.id}`);
+      const res = await app.request(`/api/panels/${panel.id}/captions`);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveProperty("captions");
@@ -113,12 +113,16 @@ describe("REST /api/captions", () => {
   });
 
   // ============================================================================
-  // POST /api/captions
+  // POST /api/panels/:panelId/captions
   // ============================================================================
 
-  describe("POST /api/captions", () => {
+  describe("POST /api/panels/:panelId/captions", () => {
     it("returns 400 when required fields are missing", async () => {
-      const res = await app.request("/api/captions", {
+      const project = await createTestProject();
+      const storyboard = await createTestStoryboard(project.id);
+      const panel = await createTestPanel(storyboard.id);
+
+      const res = await app.request(`/api/panels/${panel.id}/captions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -134,14 +138,14 @@ describe("REST /api/captions", () => {
       const storyboard = await createTestStoryboard(project.id);
       const panel = await createTestPanel(storyboard.id);
 
-      const res = await app.request("/api/captions", {
+      const res = await app.request(`/api/panels/${panel.id}/captions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          panelId: panel.id,
           type: "dialogue",
           text: "New caption",
-          position: { x: 50, y: 50 },
+          x: 50,
+          y: 50,
         }),
       });
 

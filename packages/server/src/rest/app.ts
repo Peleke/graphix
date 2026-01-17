@@ -89,8 +89,8 @@ api.route("/review", reviewRoutes);
 api.route("/text", textGenerationRoutes);
 api.route("/generated-texts", generatedTextRoutes);
 
-// Caption routes (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
-api.route("/", captionRoutes);
+// Caption routes (mounted at /captions for direct caption CRUD, panels routes are nested)
+api.route("/captions", captionRoutes);
 
 // OpenAPI documentation (Swagger UI at /api/docs, spec at /api/docs/spec.json)
 api.route("/docs", openapi);
