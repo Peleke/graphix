@@ -71,6 +71,7 @@ export function CharacterEditor({
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'references' | 'lora'>('details');
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   // Hooks for sub-features
   const { addColor, removeColor } = useColorPalette(characterId || '');
@@ -138,6 +139,8 @@ export function CharacterEditor({
   }, []);
 
   const handleSave = useCallback(async () => {
+    // Guard against double-submission (idempotency)
+    if (isSaving) return;
     if (!validate()) return;
 
     setIsSaving(true);
@@ -164,16 +167,25 @@ export function CharacterEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [characterId, character, formData, validate, updateCharacter, createCharacter, activeProjectId, onSave, onClose]);
+  }, [isSaving, characterId, character, formData, validate, updateCharacter, createCharacter, activeProjectId, onSave, onClose]);
 
   const handleCancel = useCallback(() => {
     if (isDirty) {
-      // Could show confirmation dialog here
-      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to close?');
-      if (!confirmed) return;
+      // Show custom confirmation dialog instead of blocking window.confirm
+      setShowConfirmClose(true);
+      return;
     }
     onClose();
   }, [isDirty, onClose]);
+
+  const handleConfirmClose = useCallback(() => {
+    setShowConfirmClose(false);
+    onClose();
+  }, [onClose]);
+
+  const handleCancelClose = useCallback(() => {
+    setShowConfirmClose(false);
+  }, []);
 
   const handleColorAdd = useCallback((color: string) => {
     if (characterId) {
@@ -635,6 +647,81 @@ export function CharacterEditor({
           </button>
         </footer>
       </div>
+
+      {/* Confirmation Dialog - Non-blocking replacement for window.confirm */}
+      {showConfirmClose && (
+        <div
+          className={css({
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          })}
+          data-testid="confirm-close-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-close-title"
+          aria-describedby="confirm-close-description"
+        >
+          <div
+            className={css({
+              backgroundColor: '#1a1a2e',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '400px',
+              border: '1px solid #ef4444',
+            })}
+          >
+            <h3
+              id="confirm-close-title"
+              className={css({ color: '#fff', fontSize: '1.25rem', marginBottom: '12px' })}
+            >
+              Unsaved Changes
+            </h3>
+            <p
+              id="confirm-close-description"
+              className={css({ color: '#888', marginBottom: '24px' })}
+            >
+              You have unsaved changes. Are you sure you want to close? Your changes will be lost.
+            </p>
+            <div className={css({ display: 'flex', justifyContent: 'flex-end', gap: '12px' })}>
+              <button
+                onClick={handleCancelClose}
+                className={css({
+                  padding: '10px 20px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: '#888',
+                  cursor: 'pointer',
+                  _hover: { backgroundColor: '#1a1a2e', color: '#fff' },
+                })}
+                data-testid="cancel-close-button"
+              >
+                Keep Editing
+              </button>
+              <button
+                onClick={handleConfirmClose}
+                className={css({
+                  padding: '10px 20px',
+                  backgroundColor: '#ef4444',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  _hover: { backgroundColor: '#dc2626' },
+                })}
+                data-testid="confirm-close-button"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,11 +7,41 @@
  * ARRR! Every pirate needs reference for their wanted posters! 📸🏴‍☠️
  */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { css } from '../../../styled-system/css';
 import { useCharacterStore } from './store';
 import { ReferenceImage, ReferenceImageType } from './types';
 import { MAX_REFERENCE_IMAGES, MAX_FILE_SIZE_MB } from '../../constants';
+
+// ============================================================================
+// Blob URL Management (Memory Leak Prevention)
+// ============================================================================
+
+/**
+ * Track blob URLs we create so we can revoke them on cleanup.
+ * This prevents memory leaks from orphaned blob URLs.
+ */
+const createdBlobUrls = new Set<string>();
+
+function trackBlobUrl(url: string): void {
+  if (url.startsWith('blob:')) {
+    createdBlobUrls.add(url);
+  }
+}
+
+function revokeBlobUrl(url: string): void {
+  if (url.startsWith('blob:') && createdBlobUrls.has(url)) {
+    URL.revokeObjectURL(url);
+    createdBlobUrls.delete(url);
+  }
+}
+
+function revokeAllTrackedBlobUrls(): void {
+  createdBlobUrls.forEach((url) => {
+    URL.revokeObjectURL(url);
+  });
+  createdBlobUrls.clear();
+}
 
 // ============================================================================
 // Types
@@ -244,6 +274,24 @@ export function ReferenceGallery({
   const canAddMore = references.length < MAX_REFERENCE_IMAGES && !readOnly;
 
   // ============================================================================
+  // Blob URL Cleanup (Memory Leak Prevention)
+  // ============================================================================
+
+  /**
+   * Clean up blob URLs when component unmounts.
+   * This prevents memory leaks from orphaned blob URLs.
+   * 
+   * Note: We only revoke URLs we created (tracked in createdBlobUrls).
+   * Server URLs are not affected.
+   */
+  useEffect(() => {
+    return () => {
+      // On unmount, revoke all blob URLs we created in this session
+      revokeAllTrackedBlobUrls();
+    };
+  }, []);
+
+  // ============================================================================
   // File Handling
   // ============================================================================
 
@@ -276,8 +324,9 @@ export function ReferenceGallery({
           continue;
         }
 
-        // Create object URL for preview
+        // Create object URL for preview and track it for cleanup
         const url = URL.createObjectURL(file);
+        trackBlobUrl(url);
         
         // Add reference (in real app, would upload to server first)
         addReference(characterId, {
@@ -334,8 +383,16 @@ export function ReferenceGallery({
   }, [characterId, updateReferenceType]);
 
   const handleDelete = useCallback((refId: string) => {
+    // Find the reference to revoke its blob URL before deletion
+    const refToDelete = references.find((r) => r.id === refId);
+    if (refToDelete) {
+      revokeBlobUrl(refToDelete.url);
+      if (refToDelete.thumbnailUrl) {
+        revokeBlobUrl(refToDelete.thumbnailUrl);
+      }
+    }
     removeReference(characterId, refId);
-  }, [characterId, removeReference]);
+  }, [characterId, removeReference, references]);
 
   const handleExtractColors = useCallback((refId: string) => {
     extractColorPalette(characterId, refId);
