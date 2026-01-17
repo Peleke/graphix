@@ -9,6 +9,12 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { HTTPException } from "hono/http-exception";
+import {
+  ApiError,
+  createErrorResponse,
+  inferApiError,
+  ErrorCodes,
+} from "./errors/index.js";
 import { projectRoutes } from "./routes/projects.js";
 import { characterRoutes } from "./routes/characters.js";
 import { storyboardRoutes } from "./routes/storyboards.js";
@@ -88,69 +94,58 @@ api.route("/", captionRoutes);
 // Mount API under /api prefix
 app.route("/api", api);
 
-// Error handling
+// Global error handling with standardized responses
 app.onError((err, c) => {
   const requestId = c.get("requestId") ?? "unknown";
 
+  // Handle Hono HTTP exceptions
   if (err instanceof HTTPException) {
-    return c.json(
-      {
-        error: err.message,
-        code: `HTTP_${err.status}`,
-        requestId,
-      },
-      err.status
+    const apiError = new ApiError(
+      err.message,
+      err.status === 401
+        ? ErrorCodes.UNAUTHORIZED
+        : err.status === 403
+          ? ErrorCodes.FORBIDDEN
+          : err.status === 404
+            ? ErrorCodes.NOT_FOUND
+            : ErrorCodes.INTERNAL_ERROR
     );
+    const response = createErrorResponse(c, apiError, requestId);
+    return c.json(response, err.status);
   }
 
-  // Handle validation errors
-  if (err.message.includes("required") || err.message.includes("must be")) {
-    return c.json(
-      {
-        error: err.message,
-        code: "VALIDATION_ERROR",
-        requestId,
-      },
-      400
-    );
+  // Handle our custom ApiError
+  if (err instanceof ApiError) {
+    const response = createErrorResponse(c, err, requestId);
+    return c.json(response, err.statusCode as any);
   }
 
-  // Handle not found errors
-  if (err.message.includes("not found")) {
-    return c.json(
-      {
-        error: err.message,
-        code: "NOT_FOUND",
-        requestId,
-      },
-      404
-    );
+  // Infer error type from message patterns for legacy errors
+  const inferredError = inferApiError(err);
+  const response = createErrorResponse(c, inferredError, requestId);
+
+  // Log unexpected/internal errors
+  if (inferredError.code === ErrorCodes.INTERNAL_ERROR) {
+    console.error(`[${requestId}] Unexpected error:`, err);
+    // In development, include stack trace in response
+    if (process.env.NODE_ENV === "development" && err.stack) {
+      (response.error as any).stack = err.stack;
+    }
   }
 
-  // Log unexpected errors
-  console.error(`[${requestId}] Unexpected error:`, err);
-
-  return c.json(
-    {
-      error: "Internal server error",
-      code: "INTERNAL_ERROR",
-      requestId,
-      ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
-    },
-    500
-  );
+  return c.json(response, inferredError.statusCode as any);
 });
 
-// 404 handler
+// 404 handler with standardized response
 app.notFound((c) => {
-  return c.json(
-    {
-      error: "Not found",
-      code: "NOT_FOUND",
-      path: c.req.path,
-    },
-    404
+  const requestId = c.get("requestId") ?? "unknown";
+  const apiError = new ApiError(
+    `Route '${c.req.path}' not found`,
+    ErrorCodes.NOT_FOUND,
+    { path: c.req.path, method: c.req.method }
   );
+  const response = createErrorResponse(c, apiError, requestId);
+  return c.json(response, 404);
 });
 
 export { app };
