@@ -46,3 +46,6 @@ projects/
 # But keep template assets
 !templates/**/*.png
 !templates/**/*.jpg
+# Tauri build artifacts
+packages/ui/src-tauri/target/
+

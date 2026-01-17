@@ -24,11 +24,12 @@ pub fn run() {
             let version = app.package_info().version.to_string();
             window.set_title(&format!("Graphix v{}", version)).ok();
             
-            // macOS: Set the window to use the native titlebar
+            // macOS: Use visible titlebar (not overlay) for proper spacing
+            // Change to TitleBarStyle::Overlay for frameless look later
             #[cfg(target_os = "macos")]
             {
                 use tauri::TitleBarStyle;
-                window.set_title_bar_style(TitleBarStyle::Overlay).ok();
+                window.set_title_bar_style(TitleBarStyle::Visible).ok();
             }
             
             Ok(())

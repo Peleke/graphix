@@ -1,0 +1,23 @@
+# ============================================================================
+# GRAPHIX UI DOCKERFILE (Development) 🏴‍☠️
+# ============================================================================
+
+FROM oven/bun:1.1-alpine
+WORKDIR /app
+
+# Install dependencies
+COPY package.json bun.lockb ./
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/client/package.json ./packages/client/
+RUN bun install
+
+# Copy source
+COPY packages/ui ./packages/ui
+COPY packages/client ./packages/client
+
+WORKDIR /app/packages/ui
+
+EXPOSE 5173
+
+# Vite dev server with HMR
+CMD ["bun", "run", "dev", "--host", "0.0.0.0"]
