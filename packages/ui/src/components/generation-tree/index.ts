@@ -41,5 +41,9 @@ export {
 // Components
 export { GenerationTreeVisualization, default as GenerationTree } from './GenerationTreeVisualization';
 
+// API Integration
+export { useGenerationTreeData } from './useGenerationTreeData';
+export { buildGenerationTree, apiGenerationToNode } from './api-adapter';
+
 // Demo (for development/testing)
 export { GenerationTreeDemo } from './demo';
