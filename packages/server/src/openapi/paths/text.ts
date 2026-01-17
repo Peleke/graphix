@@ -146,7 +146,6 @@ export const textPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/text/dialogue": {
@@ -179,7 +178,6 @@ export const textPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
   },
@@ -214,7 +212,6 @@ export const textPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/text/refine": {
@@ -247,7 +244,6 @@ export const textPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
   },
@@ -308,7 +304,6 @@ export const textPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
   },
@@ -383,7 +378,6 @@ export const textPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
     delete: {
