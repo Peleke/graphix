@@ -135,6 +135,24 @@ describe("REST /api/docs", () => {
       expect(deleteOp.responses).toHaveProperty("404");
     });
 
+    it("defines PATCH /projects/{id} operation", async () => {
+      const res = await app.request("/api/docs/spec.json");
+      const spec = await res.json();
+
+      const patchOp = spec.paths["/projects/{id}"].patch;
+      expect(patchOp).toHaveProperty("tags");
+      expect(patchOp.tags).toContain("Projects");
+      expect(patchOp).toHaveProperty("parameters");
+      expect(patchOp.parameters[0].name).toBe("id");
+      expect(patchOp.parameters[0].in).toBe("path");
+      expect(patchOp.parameters[0].required).toBe(true);
+      expect(patchOp).toHaveProperty("requestBody");
+      expect(patchOp.requestBody.required).toBe(true);
+      expect(patchOp.responses).toHaveProperty("200");
+      expect(patchOp.responses).toHaveProperty("400");
+      expect(patchOp.responses).toHaveProperty("404");
+    });
+
     it("includes component schemas", async () => {
       const res = await app.request("/api/docs/spec.json");
       const spec = await res.json();
@@ -193,6 +211,9 @@ describe("REST /api/docs", () => {
       expect(errorSchema.properties).toHaveProperty("error");
       expect(errorSchema.properties.error.properties).toHaveProperty("message");
       expect(errorSchema.properties.error.properties).toHaveProperty("code");
+      // requestId and timestamp are required for debugging
+      expect(errorSchema.properties).toHaveProperty("requestId");
+      expect(errorSchema.properties).toHaveProperty("timestamp");
     });
 
     it("pagination parameters are documented", async () => {
@@ -282,9 +303,11 @@ describe("REST /api/docs", () => {
       const createSchema = spec.components.schemas.CreateProject;
       expect(createSchema.required).toContain("name");
 
-      // Error must require error object
+      // Error must require error object, requestId, and timestamp
       const errorSchema = spec.components.schemas.Error;
       expect(errorSchema.required).toContain("error");
+      expect(errorSchema.required).toContain("requestId");
+      expect(errorSchema.required).toContain("timestamp");
     });
   });
 });

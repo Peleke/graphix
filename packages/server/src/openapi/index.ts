@@ -272,6 +272,54 @@ Response format:
           },
         },
       },
+      patch: {
+        tags: ["Projects"],
+        summary: "Partially update a project",
+        description: "Updates specific fields of an existing project. Only provided fields are updated.",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "Project ID (UUID or cuid2)",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateProject" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Project updated successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Project" },
+              },
+            },
+          },
+          "400": {
+            description: "Invalid ID format or validation error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Error" },
+              },
+            },
+          },
+          "404": {
+            description: "Project not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Error" },
+              },
+            },
+          },
+        },
+      },
       delete: {
         tags: ["Projects"],
         summary: "Delete a project",
