@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useStoryboards, useStoryboard, useCreateStoryboard } from "../../api/hooks/useStories";
+import { useCreatePanel } from "../../api/hooks/usePanels";
 
 interface StoryboardViewProps {
   projectId: string;
@@ -17,12 +18,15 @@ interface StoryboardViewProps {
 export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }: StoryboardViewProps) {
   const [selectedStoryboardId, setSelectedStoryboardId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreatePanelModal, setShowCreatePanelModal] = useState(false);
   const [newStoryboardName, setNewStoryboardName] = useState("");
   const [newStoryboardDesc, setNewStoryboardDesc] = useState("");
+  const [newPanelDescription, setNewPanelDescription] = useState("");
 
   const { data: storyboards, isLoading: loadingStoryboards } = useStoryboards(projectId);
   const { data: storyboard, isLoading: loadingStoryboard } = useStoryboard(selectedStoryboardId);
   const createStoryboard = useCreateStoryboard();
+  const createPanel = useCreatePanel();
 
   const handleCreateStoryboard = async () => {
     if (!newStoryboardName.trim()) return;
@@ -38,9 +42,32 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
       setShowCreateModal(false);
       if (created) {
         setSelectedStoryboardId(created.id);
+        if (onStoryboardSelect) {
+          onStoryboardSelect(created.id);
+        }
       }
     } catch (err) {
       console.error("Failed to create storyboard:", err);
+    }
+  };
+
+  const handleCreatePanel = async () => {
+    if (!selectedStoryboardId) return;
+
+    try {
+      const created = await createPanel.mutateAsync({
+        storyboardId: selectedStoryboardId,
+        description: newPanelDescription.trim() || undefined,
+        position: storyboard?.panels?.length || 0,
+      });
+      setNewPanelDescription("");
+      setShowCreatePanelModal(false);
+      if (created && onPanelSelect) {
+        // Navigate to Panel Generator with new panel
+        onPanelSelect(created.id);
+      }
+    } catch (err) {
+      console.error("Failed to create panel:", err);
     }
   };
 
@@ -394,6 +421,37 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
                 disabled={!newStoryboardName.trim() || createStoryboard.isPending}
               >
                 {createStoryboard.isPending ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Panel Modal */}
+      {showCreatePanelModal && selectedStoryboardId && (
+        <div className="modal-overlay" onClick={() => setShowCreatePanelModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Create Panel</h2>
+            <textarea
+              placeholder="Panel description (optional)"
+              value={newPanelDescription}
+              onChange={(e) => setNewPanelDescription(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && handleCreatePanel()}
+              autoFocus
+            />
+            <div style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: "1rem" }}>
+              Press Ctrl+Enter to create
+            </div>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowCreatePanelModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleCreatePanel}
+                disabled={createPanel.isPending}
+              >
+                {createPanel.isPending ? "Creating..." : "Create Panel"}
               </button>
             </div>
           </div>

@@ -22,6 +22,14 @@ export const panelKeys = {
 // Types
 // ============================================================================
 
+export interface CreatePanelInput {
+  storyboardId: string;
+  position?: number;
+  description?: string;
+  direction?: any; // PanelDirection
+  characterIds?: string[];
+}
+
 export interface GeneratePanelInput {
   model?: string;
   modelFamily?: string;
@@ -139,6 +147,38 @@ export function useGeneratePanelVariants() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: panelKeys.detail(variables.panelId) });
       queryClient.invalidateQueries({ queryKey: panelKeys.full(variables.panelId) });
+    },
+  });
+}
+
+/**
+ * Create a panel in a storyboard
+ */
+export function useCreatePanel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreatePanelInput) => {
+      const { data, error } = await apiClient.POST("/storyboards/{id}/panels", {
+        params: { path: { id: input.storyboardId } },
+        body: {
+          position: input.position,
+          description: input.description,
+          direction: input.direction,
+          characterIds: input.characterIds,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to create panel");
+      }
+
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate storyboard queries to refresh panel list
+      queryClient.invalidateQueries({ queryKey: ["stories", "storyboards", variables.storyboardId] });
+      queryClient.invalidateQueries({ queryKey: panelKeys.byStoryboard(variables.storyboardId) });
     },
   });
 }
