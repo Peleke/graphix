@@ -192,7 +192,7 @@ describe("REST /api/story", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error.message).toContain("Required");
+      expect(body.error.message).toContain("outline");
     });
   });
 
@@ -248,7 +248,7 @@ describe("REST /api/story", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error.message).toContain("Required");
+      expect(body.error.message).toContain("outline");
     });
 
     it("returns correct summary counts", async () => {

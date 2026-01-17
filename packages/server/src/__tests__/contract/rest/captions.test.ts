@@ -52,7 +52,7 @@ describe("REST /api/captions", () => {
       const service = getCaptionService();
       const caption = await service.create({
         panelId: panel.id,
-        type: "dialogue",
+        type: "speech",
         text: "Hello, world!",
         position: { x: 50, y: 50 },
       });
@@ -62,7 +62,7 @@ describe("REST /api/captions", () => {
       const body = await res.json();
       expect(body).toHaveProperty("id", caption.id);
       expect(body).toHaveProperty("panelId", panel.id);
-      expect(body).toHaveProperty("type", "dialogue");
+      expect(body).toHaveProperty("type", "speech");
       expect(body).toHaveProperty("text", "Hello, world!");
     });
   });
@@ -97,7 +97,7 @@ describe("REST /api/captions", () => {
       const service = getCaptionService();
       await service.create({
         panelId: panel.id,
-        type: "dialogue",
+        type: "speech",
         text: "Test caption",
         position: { x: 50, y: 50 },
       });
@@ -142,7 +142,7 @@ describe("REST /api/captions", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "dialogue",
+          type: "speech",
           text: "New caption",
           x: 50,
           y: 50,
@@ -153,7 +153,7 @@ describe("REST /api/captions", () => {
       const body = await res.json();
       expect(body).toHaveProperty("id");
       expect(body).toHaveProperty("panelId", panel.id);
-      expect(body).toHaveProperty("type", "dialogue");
+      expect(body).toHaveProperty("type", "speech");
       expect(body).toHaveProperty("text", "New caption");
     });
   });
@@ -181,7 +181,7 @@ describe("REST /api/captions", () => {
       const service = getCaptionService();
       const caption = await service.create({
         panelId: panel.id,
-        type: "dialogue",
+        type: "speech",
         text: "Original text",
         position: { x: 50, y: 50 },
       });
@@ -219,7 +219,7 @@ describe("REST /api/captions", () => {
       const service = getCaptionService();
       const caption = await service.create({
         panelId: panel.id,
-        type: "dialogue",
+        type: "speech",
         text: "To be deleted",
         position: { x: 50, y: 50 },
       });
