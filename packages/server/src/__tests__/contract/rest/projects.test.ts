@@ -27,22 +27,23 @@ describe("REST /api/projects", () => {
   // ============================================================================
 
   describe("GET /api/projects", () => {
-    it("returns 200 with empty projects array when none exist", async () => {
+    it("returns 200 with empty data array when none exist", async () => {
       const res = await app.request("/api/projects");
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body).toHaveProperty("projects");
-      expect(body.projects).toBeArrayOfSize(0);
+      expect(body).toHaveProperty("data");
+      expect(body.data).toBeArrayOfSize(0);
       expect(body).toHaveProperty("pagination");
       expect(body.pagination).toMatchObject({
-        limit: 100,
-        offset: 0,
+        limit: 20,
+        page: 1,
         count: 0,
+        hasMore: false,
       });
     });
 
-    it("returns 200 with projects array when projects exist", async () => {
+    it("returns 200 with data array when projects exist", async () => {
       await createTestProject("Project A");
       await createTestProject("Project B");
 
@@ -50,25 +51,25 @@ describe("REST /api/projects", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.projects).toBeArrayOfSize(2);
-      expect(body.projects[0]).toHaveProperty("id");
-      expect(body.projects[0]).toHaveProperty("name");
-      expect(body.projects[0]).toHaveProperty("createdAt");
+      expect(body.data).toBeArrayOfSize(2);
+      expect(body.data[0]).toHaveProperty("id");
+      expect(body.data[0]).toHaveProperty("name");
+      expect(body.data[0]).toHaveProperty("createdAt");
       expect(body.pagination.count).toBe(2);
     });
 
-    it("respects limit and offset pagination parameters", async () => {
+    it("respects limit and page pagination parameters", async () => {
       await createTestProject("Project 1");
       await createTestProject("Project 2");
       await createTestProject("Project 3");
 
-      const res = await app.request("/api/projects?limit=2&offset=1");
+      const res = await app.request("/api/projects?limit=2&page=2");
 
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.pagination).toMatchObject({
         limit: 2,
-        offset: 1,
+        page: 2,
       });
     });
   });
@@ -92,12 +93,20 @@ describe("REST /api/projects", () => {
     });
 
     it("returns 404 when project does not exist", async () => {
-      const res = await app.request("/api/projects/nonexistent-id");
+      // Use a valid UUID format that doesn't exist
+      const res = await app.request("/api/projects/00000000-0000-0000-0000-000000000000");
 
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("not found");
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const res = await app.request("/api/projects/not-a-valid-uuid");
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toHaveProperty("error");
     });
   });
 
@@ -165,15 +174,24 @@ describe("REST /api/projects", () => {
       expect(body).toHaveProperty("description", "Updated description");
     });
 
-    it("returns error when project does not exist", async () => {
-      const res = await app.request("/api/projects/nonexistent-id", {
+    it("returns 404 when project does not exist", async () => {
+      const res = await app.request("/api/projects/00000000-0000-0000-0000-000000000000", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Updated" }),
       });
 
-      // The error handler will catch this - could be 404 or 500 depending on service behavior
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const res = await app.request("/api/projects/not-a-valid-uuid", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Updated" }),
+      });
+
+      expect(res.status).toBe(400);
     });
   });
 
@@ -196,13 +214,20 @@ describe("REST /api/projects", () => {
       expect(verifyRes.status).toBe(404);
     });
 
-    it("returns error when project does not exist", async () => {
-      const res = await app.request("/api/projects/nonexistent-id", {
+    it("returns 404 when project does not exist", async () => {
+      const res = await app.request("/api/projects/00000000-0000-0000-0000-000000000000", {
         method: "DELETE",
       });
 
-      // The error handler will catch this
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const res = await app.request("/api/projects/not-a-valid-uuid", {
+        method: "DELETE",
+      });
+
+      expect(res.status).toBe(400);
     });
   });
 });

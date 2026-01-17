@@ -11,8 +11,23 @@ import { z } from "zod";
 // Common Schemas
 // ============================================================================
 
-/** UUID validation */
-export const uuidSchema = z.string().uuid("Invalid UUID format");
+/**
+ * ID validation - accepts both UUID and cuid2 formats
+ * cuid2: alphanumeric string ~24 chars (e.g., "bjjjtxe5k8pbziaecqogx81w")
+ * uuid: standard UUID format (e.g., "00000000-0000-0000-0000-000000000000")
+ */
+export const uuidSchema = z.string().min(1, "ID is required").refine(
+  (val) => {
+    // Accept UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(val)) return true;
+    // Accept cuid2 format (21-24 char alphanumeric, starts with lowercase letter)
+    const cuid2Regex = /^[a-z][a-z0-9]{20,23}$/;
+    if (cuid2Regex.test(val)) return true;
+    return false;
+  },
+  { message: "Invalid ID format" }
+);
 
 /** Non-empty string */
 export const nonEmptyString = z.string().min(1, "Cannot be empty");
