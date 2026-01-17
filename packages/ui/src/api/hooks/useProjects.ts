@@ -70,7 +70,11 @@ export function useProjects(params: ProjectListParams = {}) {
         throw new Error(error.error?.message || "Failed to fetch projects");
       }
 
-      return data;
+      // API returns { projects: [], pagination: {} }
+      return {
+        data: data?.projects || [],
+        pagination: data?.pagination,
+      };
     },
     staleTime: 1000 * 60, // 1 minute
   });
