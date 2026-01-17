@@ -12,8 +12,22 @@ export const consistencyPaths: Record<string, any> = {
       description: "Extracts a visual identity from reference images or panels.",
       requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExtractIdentity" } } } },
       responses: {
-        "200": { description: "Identity extracted", content: { "application/json": { schema: { $ref: "#/components/schemas/ExtractIdentityResponse" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Identity extracted",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ExtractIdentityResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -23,7 +37,20 @@ export const consistencyPaths: Record<string, any> = {
       summary: "List identities",
       description: "Returns all stored visual identities.",
       responses: {
-        "200": { description: "List of identities", content: { "application/json": { schema: { type: "object", properties: { count: { type: "number" }, identities: { type: "array", items: { type: "object" } } } } } } } },
+        "200": {
+          description: "List of identities",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  count: { type: "number" },
+                  identities: { type: "array", items: { type: "object" } },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
