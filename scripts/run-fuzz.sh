@@ -1,19 +1,60 @@
 #!/bin/bash
 set -euo pipefail
+
+# Input validation functions
+validate_port() {
+  local port="$1"
+  if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    echo "❌ Invalid port: $port (must be 1-65535)"
+    exit 1
+  fi
+}
+
+validate_host() {
+  local host="$1"
+  # Basic validation: no special shell characters, reasonable length
+  if [[ "$host" =~ [;&|`$()] ]] || [ ${#host} -gt 253 ]; then
+    echo "❌ Invalid host: $host (contains invalid characters or too long)"
+    exit 1
+  fi
+}
+
+# Defaults (from packages/server/src/config/server.ts)
 PORT="${PORT:-3002}"
 HOST="${HOST:-localhost}"
-BASE_URL="http://${HOST}:${PORT}/api"
-SPEC_URL="${BASE_URL}/docs/spec.json"
 QUICK=false
+
+# Validate defaults
+validate_port "$PORT"
+validate_host "$HOST"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --quick) QUICK=true; shift ;;
-    --port) PORT="$2"; BASE_URL="http://${HOST}:${PORT}/api"; SPEC_URL="${BASE_URL}/docs/spec.json"; shift 2 ;;
-    --host) HOST="$2"; BASE_URL="http://${HOST}:${PORT}/api"; SPEC_URL="${BASE_URL}/docs/spec.json"; shift 2 ;;
-    *) echo "Unknown: $1"; exit 1 ;;
+    --quick)
+      QUICK=true
+      shift
+      ;;
+    --port)
+      PORT="$2"
+      validate_port "$PORT"
+      shift 2
+      ;;
+    --host)
+      HOST="$2"
+      validate_host "$HOST"
+      shift 2
+      ;;
+    *)
+      echo "❌ Unknown option: $1"
+      echo "Usage: $0 [--quick] [--port PORT] [--host HOST]"
+      exit 1
+      ;;
   esac
 done
+
+# Build URLs after validation
+BASE_URL="http://${HOST}:${PORT}/api"
+SPEC_URL="${BASE_URL}/docs/spec.json"
 
 echo "🔍 Schemathesis Fuzz Testing"
 echo "Server: ${BASE_URL}"

@@ -38,10 +38,19 @@ deadline = 5000  # 5 seconds per test case
 phases = ["generate", "target"]  # Skip explicit examples for speed
 
 [schemathesis.auth]
-# Authentication (if needed in future)
+# Authentication configuration
+# Currently: No auth required (development mode)
+# Future: When auth is implemented, uncomment and configure:
 # type = "bearer"
 # token = "${API_TOKEN}"
+#
+# Security Note: In production, all endpoints should require authentication.
+# This is documented but not enforced during development per user requirements.
 
 [schemathesis.headers]
 # Custom headers (if needed)
 # Authorization = "Bearer ${API_TOKEN}"
+#
+# Rate Limiting Note: Consider adding rate limit headers for fuzz testing:
+# X-RateLimit-Limit = "100"
+# X-RateLimit-Remaining = "99"

@@ -15,8 +15,14 @@ import { allPaths } from "./paths/index.js";
 // Convert Zod Schemas to JSON Schema
 // ============================================================================
 
+// Type for zod-to-json-schema output
+type JsonSchemaWithDefs = {
+  definitions?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 // Extract the schema definitions
-function extractSchema(schemaWithDefs: any): any {
+function extractSchema(schemaWithDefs: JsonSchemaWithDefs): unknown {
   // zod-to-json-schema wraps the schema in a definitions structure
   if (schemaWithDefs.definitions) {
     const defKey = Object.keys(schemaWithDefs.definitions)[0];
@@ -28,17 +34,27 @@ function extractSchema(schemaWithDefs: any): any {
 // Convert all schemas to JSON Schema
 // Filter to only Zod schemas (those ending with Schema)
 const schemaEntries = Object.entries(schemas).filter(([key]) => key.endsWith("Schema"));
-const convertedSchemas: Record<string, any> = {};
 
-for (const [key, schema] of schemaEntries) {
-  try {
-    // Remove "Schema" suffix for component name
-    const componentName = key.replace(/Schema$/, "");
-    convertedSchemas[componentName] = zodToJsonSchema(schema as any, componentName);
-  } catch (error) {
-    console.warn(`Failed to convert schema ${key}:`, error);
-  }
-}
+// Convert schemas functionally (no mutation)
+const convertedSchemas = Object.fromEntries(
+  schemaEntries.map(([key, schema]) => {
+    try {
+      // Remove "Schema" suffix for component name
+      const componentName = key.replace(/Schema$/, "");
+      const converted = zodToJsonSchema(schema as any, componentName) as JsonSchemaWithDefs;
+      return [componentName, converted];
+    } catch (error) {
+      // Collect errors for critical schemas
+      const componentName = key.replace(/Schema$/, "");
+      const criticalSchemas = ["Error", "Id", "PaginationMeta"];
+      if (criticalSchemas.includes(componentName)) {
+        throw new Error(`Failed to convert critical schema ${key}: ${error}`);
+      }
+      console.warn(`Failed to convert schema ${key}:`, error);
+      return [componentName, null];
+    }
+  }).filter(([, converted]) => converted !== null)
+) as Record<string, JsonSchemaWithDefs>;
 
 // Build components.schemas object
 const componentsSchemas: Record<string, any> = {};
