@@ -200,7 +200,6 @@ export const consistencyPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/consistency/chain/sequence": {
