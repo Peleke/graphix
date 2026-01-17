@@ -282,3 +282,46 @@ export type {
   ReviewIssueType,
   ReviewIssueSeverity,
 } from "./review.types.js";
+
+// Text Generation Service
+export {
+  TextGenerationService,
+  createTextGenerationService,
+  getTextGenerationService,
+  resetTextGenerationService,
+} from "./text-generation.service.js";
+export {
+  DEFAULT_TEXT_CONFIG,
+} from "./text-generation.types.js";
+export type {
+  TextProvider,
+  TextGenerationConfig,
+  TextGenerationProvider,
+  ProviderStatus,
+  GenerateOptions,
+  GenerateResult,
+  PanelDescriptionContext,
+  DialogueContext,
+  GeneratedDialogue,
+  InferredCaption,
+  RefineTextContext,
+} from "./text-generation.types.js";
+
+// Generated Text Service (for storing/managing generated text)
+export {
+  GeneratedTextService,
+  createGeneratedTextService,
+  getGeneratedTextService,
+  resetGeneratedTextService,
+} from "./generated-text.service.js";
+export type {
+  CreateGeneratedTextInput,
+  UpdateGeneratedTextInput,
+  ListGeneratedTextsOptions,
+  RegenerateTextOptions,
+  GenerateAndStoreOptions,
+} from "./generated-text.service.js";
+
+// Providers
+export { OllamaProvider } from "./providers/ollama.provider.js";
+export { ClaudeProvider } from "./providers/claude.provider.js";

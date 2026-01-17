@@ -25,6 +25,10 @@ import { captionTools, executeCaptionTool } from "./caption.tools.js";
 // Phase 4 tools
 import { storyTools, handleStoryTool } from "./story.tools.js";
 import { batchTools, handleBatchTool } from "./batch.tools.js";
+// Text generation tools
+import { textGenerationTools, handleTextGenerationTool } from "./text-generation.tools.js";
+// Generated text storage tools
+import { generatedTextTools, handleGeneratedTextTool } from "./generated-text.tools.js";
 
 // All tools
 export const tools = {
@@ -49,6 +53,10 @@ export const tools = {
   // Phase 4
   ...storyTools,
   ...batchTools,
+  // Text generation
+  ...textGenerationTools,
+  // Generated text storage
+  ...generatedTextTools,
 };
 
 // Tool handlers by category
@@ -232,6 +240,33 @@ const handlers: Record<string, (name: string, args: Record<string, unknown>) => 
   panels_select_outputs_batch: handleBatchTool,
   panels_auto_select_batch: handleBatchTool,
   storyboard_get_panel_ids: handleBatchTool,
+
+  // Text generation tools
+  text_status: handleTextGenerationTool,
+  text_list_providers: handleTextGenerationTool,
+  text_set_provider: handleTextGenerationTool,
+  text_generate: handleTextGenerationTool,
+  text_panel_description: handleTextGenerationTool,
+  text_dialogue: handleTextGenerationTool,
+  text_suggest_captions: handleTextGenerationTool,
+  text_refine: handleTextGenerationTool,
+
+  // Generated text storage tools
+  generated_text_create: handleGeneratedTextTool,
+  generated_text_get: handleGeneratedTextTool,
+  generated_text_list: handleGeneratedTextTool,
+  generated_text_update: handleGeneratedTextTool,
+  generated_text_delete: handleGeneratedTextTool,
+  generated_text_archive: handleGeneratedTextTool,
+  generated_text_regenerate: handleGeneratedTextTool,
+  generated_text_revert: handleGeneratedTextTool,
+  generated_text_get_active: handleGeneratedTextTool,
+  generated_text_by_panel: handleGeneratedTextTool,
+  generated_text_by_page: handleGeneratedTextTool,
+  generated_text_by_project: handleGeneratedTextTool,
+  generated_text_stats: handleGeneratedTextTool,
+  generated_text_delete_by_panel: handleGeneratedTextTool,
+  generated_text_batch_archive: handleGeneratedTextTool,
 };
 
 /**

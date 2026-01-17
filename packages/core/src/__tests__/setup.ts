@@ -33,6 +33,8 @@ import { resetBatchService } from "../services/batch.service.js";
 import { resetNarrativeService } from "../services/narrative.service.js";
 import { resetLLMService } from "../services/llm.service.js";
 import { resetReviewService } from "../services/review.service.js";
+import { resetTextGenerationService } from "../services/text-generation.service.js";
+import { resetGeneratedTextService } from "../services/generated-text.service.js";
 
 // Generation reset imports
 import { resetComfyUIClient } from "../generation/comfyui-client.js";
@@ -316,6 +318,30 @@ export async function setupTestDatabase(): Promise<DatabaseConnection> {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS generated_texts (
+      id TEXT PRIMARY KEY,
+      panel_id TEXT REFERENCES panels(id) ON DELETE CASCADE,
+      page_layout_id TEXT REFERENCES page_layouts(id) ON DELETE CASCADE,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      text_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      tokens_used INTEGER,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      prompt TEXT,
+      system_prompt TEXT,
+      temperature REAL,
+      max_tokens INTEGER,
+      status TEXT NOT NULL DEFAULT 'active',
+      is_edited INTEGER NOT NULL DEFAULT 0,
+      edited_at INTEGER,
+      original_text TEXT,
+      metadata TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   return connection;
@@ -358,6 +384,8 @@ export function resetAllServices(): void {
   resetNarrativeService();
   resetLLMService();
   resetReviewService();
+  resetTextGenerationService();
+  resetGeneratedTextService();
 
   // Generation
   resetComfyUIClient();

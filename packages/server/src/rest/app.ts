@@ -21,6 +21,8 @@ import { storyRoutes } from "./routes/story.js";
 import { batchRoutes } from "./routes/batch.js";
 import { narrativeRoutes } from "./routes/narrative.js";
 import { reviewRoutes } from "./routes/review.js";
+import { textGenerationRoutes } from "./routes/text-generation.js";
+import { generatedTextRoutes } from "./routes/generated-texts.js";
 import { getDefaultConnection, checkDatabaseHealth, getConfig } from "@graphix/core";
 
 type Variables = {
@@ -77,6 +79,8 @@ api.route("/story", storyRoutes);
 api.route("/batch", batchRoutes);
 api.route("/narrative", narrativeRoutes);
 api.route("/review", reviewRoutes);
+api.route("/text", textGenerationRoutes);
+api.route("/generated-texts", generatedTextRoutes);
 
 // Caption routes (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
 api.route("/", captionRoutes);
