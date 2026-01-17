@@ -198,7 +198,7 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
           {loadingPremises ? (
             <div>Loading...</div>
           ) : premises && premises.length > 0 ? (
-            premises.map((premise: any) => (
+            premises.map((premise) => (
               <div
                 key={premise.id}
                 className={`premise-item ${selectedPremiseId === premise.id ? "selected" : ""}`}
@@ -225,7 +225,7 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
               <h3>Stories for Selected Premise</h3>
               {stories && stories.length > 0 ? (
                 <div>
-                  {stories.map((story: any) => (
+                  {stories.map((story) => (
                     <div key={story.id} style={{ marginBottom: "1rem", padding: "1rem", background: "#27272a", borderRadius: "8px" }}>
                       <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
                         {story.structure || "Unstructured"}
