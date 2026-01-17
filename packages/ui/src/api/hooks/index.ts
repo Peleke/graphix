@@ -9,3 +9,4 @@ export * from "./useCharacters";
 export * from "./useStories";
 export * from "./useGenerations";
 export * from "./usePanels";
+export * from "./useComposition";
