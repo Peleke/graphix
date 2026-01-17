@@ -32,8 +32,10 @@ function extractSchema(schemaWithDefs: JsonSchemaWithDefs): unknown {
 }
 
 // Convert all schemas to JSON Schema
-// Filter to only Zod schemas (those ending with Schema)
-const schemaEntries = Object.entries(schemas).filter(([key]) => key.endsWith("Schema"));
+// Filter to only Zod schemas (those ending with Schema) and exclude functions
+const schemaEntries = Object.entries(schemas).filter(
+  ([key, value]) => key.endsWith("Schema") && typeof value !== "function" && key !== "createPaginatedSchema"
+);
 
 // Convert schemas functionally (no mutation)
 const convertedSchemas = Object.fromEntries(

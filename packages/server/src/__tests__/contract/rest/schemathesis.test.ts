@@ -59,7 +59,9 @@ describe("Schemathesis Integration", () => {
     const schemas = openApiSpec.components.schemas || {};
     expect(schemas).toHaveProperty("Error");
     const errorSchema = schemas.Error as any;
-    expect(errorSchema).toHaveProperty("properties");
-    expect(errorSchema.properties).toHaveProperty("error");
+    // The schema might be wrapped in definitions or be direct
+    const actualSchema = errorSchema.definitions ? Object.values(errorSchema.definitions)[0] : errorSchema;
+    expect(actualSchema).toHaveProperty("properties");
+    expect(actualSchema.properties).toHaveProperty("error");
   });
 });
