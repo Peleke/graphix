@@ -80,7 +80,6 @@ export const textPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/text/generate": {
@@ -453,7 +452,6 @@ export const textPaths: Record<string, any> = {
             },
           },
         },
-      },
       },
     },
   },
