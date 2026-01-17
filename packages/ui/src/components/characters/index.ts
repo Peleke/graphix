@@ -61,6 +61,6 @@ export {
 export { CharacterPanel } from './CharacterPanel';
 export { CharacterCard } from './CharacterCard';
 export { CharacterEditor } from './CharacterEditor';
-export { ReferenceGallery } from './ReferenceGallery';
-export { ColorPalette } from './ColorPalette';
-export { LoRABrowser } from './LoRABrowser';
+export { ReferenceGallery, ReferenceCard } from './ReferenceGallery';
+export { ColorPaletteDisplay, ColorSwatch } from './ColorPalette';
+export { LoRABrowser, LoRACard } from './LoRABrowser';
