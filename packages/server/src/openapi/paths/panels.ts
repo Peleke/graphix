@@ -28,8 +28,22 @@ export const panelPaths: Record<string, any> = {
             },
           },
         },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     put: {
@@ -37,11 +51,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Update panel",
       description: "Updates an existing panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdatePanel" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/UpdatePanel" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Panel updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Panel updated",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     delete: {
@@ -51,8 +93,22 @@ export const panelPaths: Record<string, any> = {
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
         "204": { description: "Panel deleted" },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -63,9 +119,30 @@ export const panelPaths: Record<string, any> = {
       description: "Returns a panel with all its generations.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Panel with generations", content: { "application/json": { schema: { $ref: "#/components/schemas/PanelWithGenerations" } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Panel with generations",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PanelWithGenerations" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -75,11 +152,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Update panel description",
       description: "Updates the description and direction of a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdatePanel" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/UpdatePanel" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Panel updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Panel updated",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -89,11 +194,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Add character to panel",
       description: "Adds a character to a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/AddCharacter" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/AddCharacter" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Character added", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Character added",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     put: {
@@ -101,11 +234,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Set characters for panel",
       description: "Replaces all characters in a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SetCharacters" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SetCharacters" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Characters set", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Characters set",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -119,9 +280,30 @@ export const panelPaths: Record<string, any> = {
         { name: "characterId", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        "200": { description: "Character removed", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel or character not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Character removed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel or character not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -131,11 +313,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Select output for panel",
       description: "Selects a generation output for a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SelectOutput" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SelectOutput" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Output selected", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel or output not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Output selected",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel or output not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     delete: {
@@ -144,9 +354,30 @@ export const panelPaths: Record<string, any> = {
       description: "Clears the selected output for a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Selection cleared", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Selection cleared",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -157,9 +388,30 @@ export const panelPaths: Record<string, any> = {
       description: "Returns all generations for a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "List of generations", content: { "application/json": { schema: { $ref: "#/components/schemas/GenerationsListResponse" } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "List of generations",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GenerationsListResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -169,11 +421,39 @@ export const panelPaths: Record<string, any> = {
       summary: "Reorder panel",
       description: "Changes the position of a panel in its storyboard.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ReorderPanel" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ReorderPanel" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Panel reordered", content: { "application/json": { schema: { $ref: "#/components/schemas/Panel" } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "200": {
+          description: "Panel reordered",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Panel" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -183,12 +463,55 @@ export const panelPaths: Record<string, any> = {
       summary: "Generate image for panel",
       description: "Generates an image for a panel using AI.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/GenerateImage" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GenerateImage" },
+          },
+        },
+      },
       responses: {
-        "201": { description: "Image generated", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, generatedImage: { $ref: "#/components/schemas/GeneratedImage" }, seed: { type: "number" }, localPath: { type: "string" } } } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "500": { description: "Generation failed", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "201": {
+          description: "Image generated",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean" },
+                  generatedImage: { $ref: "#/components/schemas/GeneratedImage" },
+                  seed: { type: "number" },
+                  localPath: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "500": {
+          description: "Generation failed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -198,11 +521,48 @@ export const panelPaths: Record<string, any> = {
       summary: "Generate variants for panel",
       description: "Generates multiple variant images for a panel.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/GenerateImage" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/GenerateImage" },
+          },
+        },
+      },
       responses: {
-        "201": { description: "Variants generated", content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, total: { type: "number" }, successful: { type: "number" }, failed: { type: "number" }, generatedImages: { type: "array", items: { type: "object" } } } } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-        "404": { description: "Panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        "201": {
+          description: "Variants generated",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean" },
+                  total: { type: "number" },
+                  successful: { type: "number" },
+                  failed: { type: "number" },
+                  generatedImages: { type: "array", items: { type: "object" } },
+                },
+              },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -212,7 +572,19 @@ export const panelPaths: Record<string, any> = {
       summary: "List size presets",
       description: "Returns available size presets for panel generation.",
       responses: {
-        "200": { description: "List of size presets", content: { "application/json": { schema: { type: "object", properties: { presets: { type: "array", items: { type: "object" } } } } } } } },
+        "200": {
+          description: "List of size presets",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  presets: { type: "array", items: { type: "object" } },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -222,7 +594,19 @@ export const panelPaths: Record<string, any> = {
       summary: "List quality presets",
       description: "Returns available quality presets for panel generation.",
       responses: {
-        "200": { description: "List of quality presets", content: { "application/json": { schema: { type: "object", properties: { presets: { type: "array", items: { type: "object" } } } } } } } },
+        "200": {
+          description: "List of quality presets",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  presets: { type: "array", items: { type: "object" } },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
@@ -231,10 +615,31 @@ export const panelPaths: Record<string, any> = {
       tags: ["Panels"],
       summary: "Recommend size for slot",
       description: "Gets recommended dimensions for a composition slot.",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RecommendSize" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/RecommendSize" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Recommended dimensions", content: { "application/json": { schema: { type: "object" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Recommended dimensions",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -243,10 +648,31 @@ export const panelPaths: Record<string, any> = {
       tags: ["Panels"],
       summary: "Get template sizes",
       description: "Gets all slot sizes for a template.",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/TemplateSizes" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/TemplateSizes" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Template sizes", content: { "application/json": { schema: { type: "object" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Template sizes",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },

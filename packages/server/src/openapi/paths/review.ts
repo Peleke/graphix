@@ -19,7 +19,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/ImageReview" },
             },
           },
-        } },
+        },
         "400": {
           description: "Invalid image ID format",
           content: {
@@ -27,7 +27,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Review not found",
           content: {
@@ -35,7 +35,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
     post: {
@@ -59,7 +59,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/ReviewResult" },
             },
           },
-        } },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -67,7 +67,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Image not found",
           content: {
@@ -75,7 +75,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -94,7 +94,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -112,7 +112,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/ReviewResult" },
             },
           },
-        } },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -120,7 +120,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Panel not found",
           content: {
@@ -128,7 +128,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -155,7 +155,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Panel not found",
           content: {
@@ -163,7 +163,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -182,7 +182,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -208,7 +208,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/BatchReviewResult" },
             },
           },
-        } },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -216,7 +216,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -237,7 +237,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/PaginatedReviewQueue" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -264,7 +264,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Review not found",
           content: {
@@ -272,7 +272,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -299,7 +299,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Review not found",
           content: {
@@ -307,7 +307,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },
@@ -333,7 +333,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/ReviewResult" },
             },
           },
-        } },
+        },
         "400": {
           description: "Validation error",
           content: {
@@ -341,7 +341,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
         "404": {
           description: "Review not found",
           content: {
@@ -349,7 +349,7 @@ export const reviewPaths: Record<string, any> = {
               schema: { $ref: "#/components/schemas/Error" },
             },
           },
-        } },
+        },
       },
     },
   },

@@ -10,10 +10,31 @@ export const generationPaths: Record<string, any> = {
       tags: ["Generations"],
       summary: "Create generation",
       description: "Records a new generated image (usually called internally after ComfyUI generation).",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateGeneration" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/CreateGeneration" },
+          },
+        },
+      },
       responses: {
-        "201": { description: "Generation created", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "201": {
+          description: "Generation created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -24,9 +45,30 @@ export const generationPaths: Record<string, any> = {
       description: "Returns a single generation by its unique identifier.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Generation found", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Generation found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     delete: {
@@ -36,8 +78,22 @@ export const generationPaths: Record<string, any> = {
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
         "204": { description: "Generation deleted" },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -48,8 +104,22 @@ export const generationPaths: Record<string, any> = {
       description: "Returns all generations for a specific panel.",
       parameters: [{ name: "panelId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "List of generations", content: { "application/json": { schema: { $ref: "#/components/schemas/GenerationsListResponse" } } } } },
-        "400": { description: "Invalid panel ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "List of generations",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GenerationsListResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid panel ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     delete: {
@@ -58,8 +128,27 @@ export const generationPaths: Record<string, any> = {
       description: "Deletes all generations for a specific panel.",
       parameters: [{ name: "panelId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Generations deleted", content: { "application/json": { schema: { type: "object", properties: { deleted: { type: "number" } } } } } } },
-        "400": { description: "Invalid panel ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Generations deleted",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  deleted: { type: "number" },
+                },
+              },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid panel ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -70,9 +159,30 @@ export const generationPaths: Record<string, any> = {
       description: "Returns the currently selected generation for a panel.",
       parameters: [{ name: "panelId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Selected generation", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Invalid panel ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "No selected generation", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Selected generation",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid panel ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "No selected generation",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -83,8 +193,22 @@ export const generationPaths: Record<string, any> = {
       description: "Returns all favorited generations for a panel.",
       parameters: [{ name: "panelId", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "List of favorite generations", content: { "application/json": { schema: { $ref: "#/components/schemas/GenerationsListResponse" } } } } },
-        "400": { description: "Invalid panel ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "List of favorite generations",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GenerationsListResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid panel ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -95,8 +219,22 @@ export const generationPaths: Record<string, any> = {
       description: "Finds all generations with a specific seed value.",
       parameters: [{ name: "seed", in: "path", required: true, schema: { type: "integer" } }],
       responses: {
-        "200": { description: "List of generations", content: { "application/json": { schema: { $ref: "#/components/schemas/GenerationsListResponse" } } } } },
-        "400": { description: "Invalid seed format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "List of generations",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GenerationsListResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid seed format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -107,9 +245,30 @@ export const generationPaths: Record<string, any> = {
       description: "Toggles the favorite status of a generation.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Favorite toggled", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Favorite toggled",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -119,11 +278,39 @@ export const generationPaths: Record<string, any> = {
       summary: "Set rating",
       description: "Sets a rating (1-5) for a generation.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SetRating" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SetRating" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Rating set", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Rating set",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -133,11 +320,39 @@ export const generationPaths: Record<string, any> = {
       summary: "Update cloud URL",
       description: "Updates the cloud storage URL for a generation.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SetCloudUrl" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SetCloudUrl" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Cloud URL updated", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Cloud URL updated",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -147,11 +362,39 @@ export const generationPaths: Record<string, any> = {
       summary: "Update thumbnail",
       description: "Updates the thumbnail path for a generation.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SetThumbnail" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SetThumbnail" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Thumbnail updated", content: { "application/json": { schema: { $ref: "#/components/schemas/GeneratedImage" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Generation not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Thumbnail updated",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/GeneratedImage" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Generation not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
