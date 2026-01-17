@@ -5,7 +5,60 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
 import { getCompositionService } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import {
+  validateBody,
+  validateId,
+  nonEmptyString,
+  uuidSchema,
+} from "../validation/index.js";
+
+// ============================================================================
+// Local Zod Schemas
+// ============================================================================
+
+const composePageSchema = z.object({
+  storyboardId: uuidSchema,
+  templateId: nonEmptyString,
+  panelIds: z.array(uuidSchema).min(1, "At least one panel ID required"),
+  outputName: nonEmptyString,
+  pageSize: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  panelBorder: z.object({
+    width: z.number(),
+    color: z.string(),
+  }).optional(),
+});
+
+const composeStoryboardSchema = z.object({
+  storyboardId: uuidSchema,
+  templateId: z.string().optional(),
+  pageSize: z.string().optional(),
+  outputPrefix: z.string().optional(),
+});
+
+const contactSheetSchema = z.object({
+  storyboardId: uuidSchema,
+  outputPath: nonEmptyString,
+  columns: z.number().int().positive().optional(),
+  thumbnailSize: z.number().int().positive().optional(),
+});
+
+const exportPageSchema = z.object({
+  inputPath: nonEmptyString,
+  outputPath: nonEmptyString,
+  format: z.enum(["png", "jpeg", "webp", "pdf", "tiff"]),
+  quality: z.number().int().min(1).max(100).optional(),
+  dpi: z.number().int().positive().optional(),
+  bleed: z.number().nonnegative().optional(),
+  trimMarks: z.boolean().optional(),
+});
+
+// ============================================================================
+// Routes
+// ============================================================================
 
 const compositionRoutes = new Hono();
 
@@ -21,13 +74,14 @@ compositionRoutes.get("/templates", async (c) => {
 });
 
 // Get specific template
-compositionRoutes.get("/templates/:id", async (c) => {
+compositionRoutes.get("/templates/:id", validateId(), async (c) => {
   const service = getCompositionService();
+  const { id } = c.req.valid("param");
   const templates = service.listTemplates();
-  const template = templates.find((t) => t.id === c.req.param("id"));
+  const template = templates.find((t) => t.id === id);
 
   if (!template) {
-    return c.json({ error: "Template not found" }, 404);
+    return errors.notFound(c, "Template", id);
   }
 
   return c.json(template);
@@ -44,16 +98,9 @@ compositionRoutes.get("/page-sizes", async (c) => {
 });
 
 // Compose a page from panels
-compositionRoutes.post("/compose", async (c) => {
+compositionRoutes.post("/compose", validateBody(composePageSchema), async (c) => {
   const service = getCompositionService();
-  const body = await c.req.json();
-
-  // Validate required fields
-  if (!body.storyboardId || !body.templateId || !body.panelIds || !body.outputName) {
-    return c.json({
-      error: "Missing required fields: storyboardId, templateId, panelIds, outputName",
-    }, 400);
-  }
+  const body = c.req.valid("json");
 
   const result = await service.composePage({
     storyboardId: body.storyboardId,
@@ -66,21 +113,16 @@ compositionRoutes.post("/compose", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error }, 400);
+    return errors.badRequest(c, result.error ?? "Failed to compose page");
   }
 
   return c.json(result, 201);
 });
 
 // Auto-compose entire storyboard into pages
-compositionRoutes.post("/compose-storyboard", async (c) => {
+compositionRoutes.post("/compose-storyboard", validateBody(composeStoryboardSchema), async (c) => {
   const service = getCompositionService();
-  const body = await c.req.json();
-
-  // Validate required fields
-  if (!body.storyboardId) {
-    return c.json({ error: "Missing required field: storyboardId" }, 400);
-  }
+  const body = c.req.valid("json");
 
   const result = await service.composeStoryboard(body.storyboardId, {
     templateId: body.templateId,
@@ -89,23 +131,16 @@ compositionRoutes.post("/compose-storyboard", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error }, 400);
+    return errors.badRequest(c, result.error ?? "Failed to compose storyboard");
   }
 
   return c.json(result, 201);
 });
 
 // Create contact sheet
-compositionRoutes.post("/contact-sheet", async (c) => {
+compositionRoutes.post("/contact-sheet", validateBody(contactSheetSchema), async (c) => {
   const service = getCompositionService();
-  const body = await c.req.json();
-
-  // Validate required fields
-  if (!body.storyboardId || !body.outputPath) {
-    return c.json({
-      error: "Missing required fields: storyboardId, outputPath",
-    }, 400);
-  }
+  const body = c.req.valid("json");
 
   const result = await service.createContactSheet(body.storyboardId, body.outputPath, {
     columns: body.columns,
@@ -113,23 +148,16 @@ compositionRoutes.post("/contact-sheet", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error }, 400);
+    return errors.badRequest(c, result.error ?? "Failed to create contact sheet");
   }
 
   return c.json(result, 201);
 });
 
 // Export a composed page
-compositionRoutes.post("/export", async (c) => {
+compositionRoutes.post("/export", validateBody(exportPageSchema), async (c) => {
   const service = getCompositionService();
-  const body = await c.req.json();
-
-  // Validate required fields
-  if (!body.inputPath || !body.outputPath || !body.format) {
-    return c.json({
-      error: "Missing required fields: inputPath, outputPath, format",
-    }, 400);
-  }
+  const body = c.req.valid("json");
 
   const result = await service.exportPage({
     inputPath: body.inputPath,
@@ -142,7 +170,7 @@ compositionRoutes.post("/export", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error }, 400);
+    return errors.badRequest(c, result.error ?? "Failed to export page");
   }
 
   return c.json(result, 201);

@@ -10,18 +10,27 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   getReviewService,
   type ReviewConfig,
   type HumanDecision,
   type BatchReviewOptions,
 } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import {
+  validateBody,
+  validateParam,
+  validateQuery,
+  paginationSchema,
+  idParamSchema,
+  imageIdParamSchema,
+  panelIdParamSchema,
+} from "../validation/index.js";
 
 // ============================================================================
-// Validation Helpers
+// Validation Constants
 // ============================================================================
-
-const VALID_MODES: readonly string[] = ["unattended", "hitl"];
 
 /** Maximum length for feedback text (10KB should be more than enough) */
 const MAX_FEEDBACK_LENGTH = 10000;
@@ -32,117 +41,79 @@ const MAX_HINTS_LENGTH = 5000;
 /** Maximum length for prompt overrides (20KB) */
 const MAX_PROMPT_LENGTH = 20000;
 
-/**
- * Safely parse a number from a string with validation.
- */
-function safeParseNumber(
-  value: string | undefined,
-  defaultValue: number,
-  min: number,
-  max: number
-): number {
-  if (!value) return defaultValue;
-  const parsed = parseFloat(value);
-  if (isNaN(parsed)) return defaultValue;
-  if (parsed < min) return min;
-  if (parsed > max) return max;
-  return parsed;
-}
+// ============================================================================
+// Zod Schemas for Review Routes
+// ============================================================================
+
+/** Schema for single image review request */
+const reviewImageSchema = z.object({
+  prompt: z.string().max(MAX_PROMPT_LENGTH).optional(),
+  context: z.record(z.unknown()).optional(),
+});
+
+/** Schema for review config in request bodies */
+const reviewConfigSchema = z.object({
+  mode: z.enum(["unattended", "hitl"]).optional(),
+  maxIterations: z.number().int().min(1).max(10).optional(),
+  minAcceptanceScore: z.number().min(0).max(1).optional(),
+  autoApproveAbove: z.number().min(0).max(1).optional(),
+  pauseForHumanBelow: z.number().min(0).max(1).optional(),
+});
+
+/** Schema for batch review options */
+const batchReviewSchema = reviewConfigSchema.extend({
+  onlyPending: z.boolean().optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
+  parallel: z.boolean().optional(),
+  concurrency: z.number().int().min(1).max(10).optional(),
+});
+
+/** Schema for queue pagination */
+const queueQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Schema for approval request */
+const approveSchema = z.object({
+  feedback: z.string().max(MAX_FEEDBACK_LENGTH).optional(),
+});
+
+/** Schema for rejection request (feedback required) */
+const rejectSchema = z.object({
+  feedback: z.string().min(1, "Feedback is required when rejecting an image").max(MAX_FEEDBACK_LENGTH),
+});
+
+/** Schema for regeneration request */
+const regenerateSchema = z.object({
+  feedback: z.string().max(MAX_FEEDBACK_LENGTH).optional(),
+  hints: z.string().max(MAX_HINTS_LENGTH).optional(),
+});
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
 /**
- * Safely parse an integer from a string.
+ * Parse review config from validated body.
  */
-function safeParseInt(
-  value: string | undefined,
-  defaultValue: number,
-  min = 0,
-  max = 10000
-): number {
-  if (!value) return defaultValue;
-  const parsed = parseInt(value, 10);
-  if (isNaN(parsed)) return defaultValue;
-  if (parsed < min) return min;
-  if (parsed > max) return max;
-  return parsed;
-}
-
-/**
- * Create a consistent error response.
- */
-function errorResponse(message: string, code: string = "BAD_REQUEST") {
-  return { error: message, code };
-}
-
-/**
- * Result of parsing a JSON body - either success with data or error with response.
- */
-type BodyParseResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: { message: string; code: string } };
-
-/**
- * Safely parse JSON body from request.
- * Returns a structured result instead of silently swallowing errors.
- * If allowEmpty is true, returns empty object on parse failure (for optional bodies).
- */
-async function safeParseBody<T extends Record<string, unknown>>(
-  c: { req: { json: () => Promise<T> } },
-  allowEmpty = false
-): Promise<BodyParseResult<T>> {
-  try {
-    const body = await c.req.json();
-    return { success: true, data: body };
-  } catch {
-    if (allowEmpty) {
-      return { success: true, data: {} as T };
-    }
-    return {
-      success: false,
-      error: { message: "Invalid JSON in request body", code: "INVALID_JSON" },
-    };
-  }
-}
-
-/**
- * Validate string length and return sanitized value or null if invalid.
- */
-function validateStringLength(
-  value: unknown,
-  maxLength: number,
-  fieldName: string
-): { valid: true; value: string | undefined } | { valid: false; error: string } {
-  if (value === undefined || value === null) {
-    return { valid: true, value: undefined };
-  }
-  if (typeof value !== "string") {
-    return { valid: false, error: `${fieldName} must be a string` };
-  }
-  if (value.length > maxLength) {
-    return { valid: false, error: `${fieldName} exceeds maximum length of ${maxLength} characters` };
-  }
-  return { valid: true, value };
-}
-
-/**
- * Parse review config from request body.
- */
-function parseReviewConfig(body: Record<string, unknown>): Partial<ReviewConfig> {
+function parseReviewConfig(body: z.infer<typeof reviewConfigSchema>): Partial<ReviewConfig> {
   const config: Partial<ReviewConfig> = {};
 
-  if (body.mode && VALID_MODES.includes(body.mode as string)) {
-    config.mode = body.mode as "unattended" | "hitl";
+  if (body.mode) {
+    config.mode = body.mode;
   }
-  if (typeof body.maxIterations === "number") {
-    config.maxIterations = Math.max(1, Math.min(10, body.maxIterations));
+  if (body.maxIterations !== undefined) {
+    config.maxIterations = body.maxIterations;
   }
-  if (typeof body.minAcceptanceScore === "number") {
-    config.minAcceptanceScore = Math.max(0, Math.min(1, body.minAcceptanceScore));
+  if (body.minAcceptanceScore !== undefined) {
+    config.minAcceptanceScore = body.minAcceptanceScore;
   }
-  if (typeof body.autoApproveAbove === "number") {
-    config.autoApproveAbove = Math.max(0, Math.min(1, body.autoApproveAbove));
+  if (body.autoApproveAbove !== undefined) {
+    config.autoApproveAbove = body.autoApproveAbove;
   }
-  if (typeof body.pauseForHumanBelow === "number") {
-    config.pauseForHumanBelow = Math.max(0, Math.min(1, body.pauseForHumanBelow));
+  if (body.pauseForHumanBelow !== undefined) {
+    config.pauseForHumanBelow = body.pauseForHumanBelow;
   }
 
   return config;
@@ -158,72 +129,73 @@ const reviewRoutes = new Hono();
  * POST /api/review/images/:imageId
  * Review a single generated image for prompt adherence.
  */
-reviewRoutes.post("/images/:imageId", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.post(
+  "/images/:imageId",
+  validateParam(imageIdParamSchema),
+  validateBody(reviewImageSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since all fields are optional
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
+    try {
+      const result = await service.reviewImage(
+        imageId,
+        body.prompt, // Optional prompt override
+        body.context // Optional panel context
+      );
 
-  // Validate prompt length if provided
-  const promptValidation = validateStringLength(body.prompt, MAX_PROMPT_LENGTH, "prompt");
-  if (!promptValidation.valid) {
-    return c.json(errorResponse(promptValidation.error, "VALIDATION_ERROR"), 400);
-  }
-
-  try {
-    const result = await service.reviewImage(
-      imageId,
-      promptValidation.value, // Optional prompt override
-      body.context // Optional panel context
-    );
-
-    return c.json(result);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Image", imageId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 /**
  * GET /api/review/images/:imageId
  * Get the latest review result for an image.
  */
-reviewRoutes.get("/images/:imageId", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.get(
+  "/images/:imageId",
+  validateParam(imageIdParamSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
 
-  const review = await service.getLatestReview(imageId);
+    const review = await service.getLatestReview(imageId);
 
-  if (!review) {
-    return c.json(errorResponse("No review found for this image", "NOT_FOUND"), 404);
+    if (!review) {
+      return errors.notFound(c, "Review for image", imageId);
+    }
+
+    return c.json(review);
   }
-
-  return c.json(review);
-});
+);
 
 /**
  * GET /api/review/images/:imageId/history
  * Get the full review history for an image.
  */
-reviewRoutes.get("/images/:imageId/history", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.get(
+  "/images/:imageId/history",
+  validateParam(imageIdParamSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
 
-  const history = await service.getImageReviewHistory(imageId);
+    const history = await service.getImageReviewHistory(imageId);
 
-  return c.json({
-    imageId,
-    reviews: history,
-    count: history.length,
-  });
-});
+    return c.json({
+      imageId,
+      reviews: history,
+      count: history.length,
+    });
+  }
+);
 
 // ============================================================================
 // PANEL-LEVEL REVIEW ROUTES
@@ -233,83 +205,90 @@ reviewRoutes.get("/images/:imageId/history", async (c) => {
  * POST /api/review/panels/:panelId
  * Review the current/selected image for a panel.
  */
-reviewRoutes.post("/panels/:panelId", async (c) => {
-  const service = getReviewService();
-  const panelId = c.req.param("panelId");
+reviewRoutes.post(
+  "/panels/:panelId",
+  validateParam(panelIdParamSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { panelId } = c.req.valid("param");
 
-  try {
-    const result = await service.reviewPanel(panelId);
-    return c.json(result);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+    try {
+      const result = await service.reviewPanel(panelId);
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Panel", panelId);
+      }
+      if (error instanceof Error && error.message.includes("No images")) {
+        return errors.badRequest(c, error.message);
+      }
+      throw error;
     }
-    if (error instanceof Error && error.message.includes("No images")) {
-      return c.json(errorResponse(error.message, "NO_IMAGES"), 400);
-    }
-    throw error;
   }
-});
+);
 
 /**
  * POST /api/review/panels/:panelId/auto
  * Run the autonomous review+regenerate loop for a panel.
  */
-reviewRoutes.post("/panels/:panelId/auto", async (c) => {
-  const service = getReviewService();
-  const panelId = c.req.param("panelId");
+reviewRoutes.post(
+  "/panels/:panelId/auto",
+  validateParam(panelIdParamSchema),
+  validateBody(reviewConfigSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { panelId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since all fields are optional config
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
+    // Parse config from body
+    const config = parseReviewConfig(body);
 
-  // Parse config from body
-  const config = parseReviewConfig(body);
+    try {
+      const result = await service.reviewAndRegenerateUntilAccepted(panelId, config);
 
-  try {
-    const result = await service.reviewAndRegenerateUntilAccepted(panelId, config);
-
-    return c.json({
-      panelId,
-      ...result,
-      iterationSummary: result.iterations.map((i) => ({
-        iteration: i.iteration,
-        score: i.score,
-        status: i.status,
-        recommendation: i.recommendation,
-      })),
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      return c.json({
+        panelId,
+        ...result,
+        iterationSummary: result.iterations.map((i) => ({
+          iteration: i.iteration,
+          score: i.score,
+          status: i.status,
+          recommendation: i.recommendation,
+        })),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Panel", panelId);
+      }
+      if (error instanceof Error && error.message.includes("No images")) {
+        return errors.badRequest(c, error.message);
+      }
+      throw error;
     }
-    if (error instanceof Error && error.message.includes("No images")) {
-      return c.json(errorResponse(error.message, "NO_IMAGES"), 400);
-    }
-    throw error;
   }
-});
+);
 
 /**
  * GET /api/review/panels/:panelId/history
  * Get all review iterations for a panel.
  */
-reviewRoutes.get("/panels/:panelId/history", async (c) => {
-  const service = getReviewService();
-  const panelId = c.req.param("panelId");
+reviewRoutes.get(
+  "/panels/:panelId/history",
+  validateParam(panelIdParamSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { panelId } = c.req.valid("param");
 
-  const history = await service.getPanelReviewHistory(panelId);
+    const history = await service.getPanelReviewHistory(panelId);
 
-  return c.json({
-    panelId,
-    reviews: history,
-    count: history.length,
-    latestIteration: history.length > 0 ? history[0].iteration : 0,
-  });
-});
+    return c.json({
+      panelId,
+      reviews: history,
+      count: history.length,
+      latestIteration: history.length > 0 ? history[0].iteration : 0,
+    });
+  }
+);
 
 // ============================================================================
 // BATCH OPERATIONS (STORYBOARD-LEVEL)
@@ -319,118 +298,116 @@ reviewRoutes.get("/panels/:panelId/history", async (c) => {
  * POST /api/review/storyboards/:id
  * Review all panels in a storyboard (non-autonomous mode).
  */
-reviewRoutes.post("/storyboards/:id", async (c) => {
-  const service = getReviewService();
-  const storyboardId = c.req.param("id");
+reviewRoutes.post(
+  "/storyboards/:id",
+  validateParam(idParamSchema),
+  validateBody(batchReviewSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { id: storyboardId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since all fields are optional config
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
-
-  const options: BatchReviewOptions = {
-    config: {
-      ...parseReviewConfig(body),
-      mode: "hitl", // Force non-autonomous for this endpoint
-    },
-    onlyPending: body.onlyPending === true,
-    limit: body.limit ? safeParseInt(String(body.limit), 100, 1, 1000) : undefined,
-    parallel: body.parallel === true,
-    concurrency: body.concurrency ? safeParseInt(String(body.concurrency), 3, 1, 10) : 3,
-  };
-
-  try {
-    const result = await service.reviewStoryboard(storyboardId, options);
-
-    // Convert Map to array for JSON serialization
-    const resultsArray = Array.from(result.results.entries()).map(([panelId, review]) => ({
-      panelId,
-      score: review.score,
-      status: review.status,
-      recommendation: review.recommendation,
-      issueCount: review.issues.length,
-    }));
-
-    return c.json({
-      storyboardId,
-      summary: {
-        total: result.total,
-        approved: result.approved,
-        needsWork: result.needsWork,
-        rejected: result.rejected,
-        pendingHuman: result.pendingHuman,
+    const options: BatchReviewOptions = {
+      config: {
+        ...parseReviewConfig(body),
+        mode: "hitl", // Force non-autonomous for this endpoint
       },
-      results: resultsArray,
-      errors: result.errors,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      onlyPending: body.onlyPending === true,
+      limit: body.limit,
+      parallel: body.parallel === true,
+      concurrency: body.concurrency ?? 3,
+    };
+
+    try {
+      const result = await service.reviewStoryboard(storyboardId, options);
+
+      // Convert Map to array for JSON serialization
+      const resultsArray = Array.from(result.results.entries()).map(([panelId, review]) => ({
+        panelId,
+        score: review.score,
+        status: review.status,
+        recommendation: review.recommendation,
+        issueCount: review.issues.length,
+      }));
+
+      return c.json({
+        storyboardId,
+        summary: {
+          total: result.total,
+          approved: result.approved,
+          needsWork: result.needsWork,
+          rejected: result.rejected,
+          pendingHuman: result.pendingHuman,
+        },
+        results: resultsArray,
+        errors: result.errors,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Storyboard", storyboardId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 /**
  * POST /api/review/storyboards/:id/auto
  * Run autonomous review on all panels in a storyboard.
  */
-reviewRoutes.post("/storyboards/:id/auto", async (c) => {
-  const service = getReviewService();
-  const storyboardId = c.req.param("id");
+reviewRoutes.post(
+  "/storyboards/:id/auto",
+  validateParam(idParamSchema),
+  validateBody(batchReviewSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { id: storyboardId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since all fields are optional config
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
-
-  const options: BatchReviewOptions = {
-    config: {
-      ...parseReviewConfig(body),
-      mode: "unattended", // Force autonomous for this endpoint
-    },
-    onlyPending: body.onlyPending === true,
-    limit: body.limit ? safeParseInt(String(body.limit), 100, 1, 1000) : undefined,
-    parallel: body.parallel === true,
-    concurrency: body.concurrency ? safeParseInt(String(body.concurrency), 3, 1, 10) : 3,
-  };
-
-  try {
-    const result = await service.reviewStoryboard(storyboardId, options);
-
-    // Convert Map to array for JSON serialization
-    const resultsArray = Array.from(result.results.entries()).map(([panelId, review]) => ({
-      panelId,
-      score: review.score,
-      status: review.status,
-      recommendation: review.recommendation,
-      issueCount: review.issues.length,
-    }));
-
-    return c.json({
-      storyboardId,
-      mode: "unattended",
-      summary: {
-        total: result.total,
-        approved: result.approved,
-        needsWork: result.needsWork,
-        rejected: result.rejected,
-        pendingHuman: result.pendingHuman,
+    const options: BatchReviewOptions = {
+      config: {
+        ...parseReviewConfig(body),
+        mode: "unattended", // Force autonomous for this endpoint
       },
-      results: resultsArray,
-      errors: result.errors,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      onlyPending: body.onlyPending === true,
+      limit: body.limit,
+      parallel: body.parallel === true,
+      concurrency: body.concurrency ?? 3,
+    };
+
+    try {
+      const result = await service.reviewStoryboard(storyboardId, options);
+
+      // Convert Map to array for JSON serialization
+      const resultsArray = Array.from(result.results.entries()).map(([panelId, review]) => ({
+        panelId,
+        score: review.score,
+        status: review.status,
+        recommendation: review.recommendation,
+        issueCount: review.issues.length,
+      }));
+
+      return c.json({
+        storyboardId,
+        mode: "unattended",
+        summary: {
+          total: result.total,
+          approved: result.approved,
+          needsWork: result.needsWork,
+          rejected: result.rejected,
+          pendingHuman: result.pendingHuman,
+        },
+        results: resultsArray,
+        errors: result.errors,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Storyboard", storyboardId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 // ============================================================================
 // HUMAN-IN-THE-LOOP (HITL) ROUTES
@@ -440,19 +417,22 @@ reviewRoutes.post("/storyboards/:id/auto", async (c) => {
  * GET /api/review/queue
  * Get images pending human review.
  */
-reviewRoutes.get("/queue", async (c) => {
-  const service = getReviewService();
-  const limit = safeParseInt(c.req.query("limit"), 50, 1, 200);
-  const offset = safeParseInt(c.req.query("offset"), 0, 0);
+reviewRoutes.get(
+  "/queue",
+  validateQuery(queueQuerySchema),
+  async (c) => {
+    const service = getReviewService();
+    const { limit, offset } = c.req.valid("query");
 
-  const queue = await service.getHumanReviewQueue(limit, offset);
+    const queue = await service.getHumanReviewQueue(limit, offset);
 
-  return c.json({
-    queue,
-    count: queue.length,
-    pagination: { limit, offset },
-  });
-});
+    return c.json({
+      queue,
+      count: queue.length,
+      pagination: { limit, offset },
+    });
+  }
+);
 
 /**
  * POST /api/review/queue/:imageId/approve
@@ -461,42 +441,35 @@ reviewRoutes.get("/queue", async (c) => {
  * @param imageId - The generated image ID (not the review ID)
  * @body feedback - Optional approval feedback
  */
-reviewRoutes.post("/queue/:imageId/approve", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.post(
+  "/queue/:imageId/approve",
+  validateParam(imageIdParamSchema),
+  validateBody(approveSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since feedback is optional
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
+    try {
+      const decision: HumanDecision = {
+        action: "approve",
+        feedback: body.feedback,
+      };
 
-  // Validate feedback length if provided
-  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
-  if (!feedbackValidation.valid) {
-    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
-  }
+      const result = await service.recordHumanDecision(imageId, decision);
 
-  try {
-    const decision: HumanDecision = {
-      action: "approve",
-      feedback: feedbackValidation.value,
-    };
-
-    const result = await service.recordHumanDecision(imageId, decision);
-
-    return c.json({
-      ...result,
-      message: "Image approved",
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      return c.json({
+        ...result,
+        message: "Image approved",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Image", imageId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 /**
  * POST /api/review/queue/:imageId/reject
@@ -505,48 +478,35 @@ reviewRoutes.post("/queue/:imageId/approve", async (c) => {
  * @param imageId - The generated image ID (not the review ID)
  * @body feedback - Required rejection feedback explaining why
  */
-reviewRoutes.post("/queue/:imageId/reject", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.post(
+  "/queue/:imageId/reject",
+  validateParam(imageIdParamSchema),
+  validateBody(rejectSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - required for reject (need feedback)
-  const bodyResult = await safeParseBody(c, false);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
+    try {
+      const decision: HumanDecision = {
+        action: "reject",
+        feedback: body.feedback,
+      };
 
-  // Validate feedback - required for rejection
-  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
-  if (!feedbackValidation.valid) {
-    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
-  }
-  if (!feedbackValidation.value) {
-    return c.json(
-      errorResponse("Feedback is required when rejecting an image", "MISSING_FEEDBACK"),
-      400
-    );
-  }
+      const result = await service.recordHumanDecision(imageId, decision);
 
-  try {
-    const decision: HumanDecision = {
-      action: "reject",
-      feedback: feedbackValidation.value,
-    };
-
-    const result = await service.recordHumanDecision(imageId, decision);
-
-    return c.json({
-      ...result,
-      message: "Image rejected",
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      return c.json({
+        ...result,
+        message: "Image rejected",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Image", imageId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 /**
  * POST /api/review/queue/:imageId/regenerate
@@ -556,49 +516,36 @@ reviewRoutes.post("/queue/:imageId/reject", async (c) => {
  * @body feedback - Optional feedback about why regeneration is needed
  * @body hints - Optional hints for the regeneration (e.g., "more dramatic lighting")
  */
-reviewRoutes.post("/queue/:imageId/regenerate", async (c) => {
-  const service = getReviewService();
-  const imageId = c.req.param("imageId");
+reviewRoutes.post(
+  "/queue/:imageId/regenerate",
+  validateParam(imageIdParamSchema),
+  validateBody(regenerateSchema),
+  async (c) => {
+    const service = getReviewService();
+    const { imageId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  // Parse body - allow empty since all fields are optional
-  const bodyResult = await safeParseBody(c, true);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
-  }
-  const body = bodyResult.data;
+    try {
+      const decision: HumanDecision = {
+        action: "regenerate",
+        feedback: body.feedback,
+        regenerationHints: body.hints,
+      };
 
-  // Validate feedback length if provided
-  const feedbackValidation = validateStringLength(body.feedback, MAX_FEEDBACK_LENGTH, "feedback");
-  if (!feedbackValidation.valid) {
-    return c.json(errorResponse(feedbackValidation.error, "VALIDATION_ERROR"), 400);
-  }
+      const result = await service.recordHumanDecision(imageId, decision);
 
-  // Validate hints length if provided
-  const hintsValidation = validateStringLength(body.hints, MAX_HINTS_LENGTH, "hints");
-  if (!hintsValidation.valid) {
-    return c.json(errorResponse(hintsValidation.error, "VALIDATION_ERROR"), 400);
-  }
-
-  try {
-    const decision: HumanDecision = {
-      action: "regenerate",
-      feedback: feedbackValidation.value,
-      regenerationHints: hintsValidation.value,
-    };
-
-    const result = await service.recordHumanDecision(imageId, decision);
-
-    return c.json({
-      ...result,
-      message: "Regeneration requested",
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not found")) {
-      return c.json(errorResponse(error.message, "NOT_FOUND"), 404);
+      return c.json({
+        ...result,
+        message: "Regeneration requested",
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        return errors.notFound(c, "Image", imageId);
+      }
+      throw error;
     }
-    throw error;
   }
-});
+);
 
 // ============================================================================
 // CONFIGURATION & STATUS
@@ -619,23 +566,21 @@ reviewRoutes.get("/config", async (c) => {
  * PUT /api/review/config
  * Update the review service configuration.
  */
-reviewRoutes.put("/config", async (c) => {
-  const service = getReviewService();
+reviewRoutes.put(
+  "/config",
+  validateBody(reviewConfigSchema),
+  async (c) => {
+    const service = getReviewService();
+    const body = c.req.valid("json");
 
-  // Parse body - required for config update
-  const bodyResult = await safeParseBody(c, false);
-  if (!bodyResult.success) {
-    return c.json(errorResponse(bodyResult.error.message, bodyResult.error.code), 400);
+    const config = parseReviewConfig(body);
+    service.setConfig(config);
+
+    return c.json({
+      message: "Configuration updated",
+      config: service.getConfig(),
+    });
   }
-  const body = bodyResult.data;
-
-  const config = parseReviewConfig(body);
-  service.setConfig(config);
-
-  return c.json({
-    message: "Configuration updated",
-    config: service.getConfig(),
-  });
-});
+);
 
 export { reviewRoutes };

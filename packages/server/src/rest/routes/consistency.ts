@@ -5,6 +5,7 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   getConsistencyService,
   type ChainOptions,
@@ -12,6 +13,69 @@ import {
 import { getIPAdapter, type IPAdapterModel } from "@graphix/core";
 import { getControlNetStack } from "@graphix/core";
 import type { QualityPresetId } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import { validateBody, validateId, validateParam } from "../validation/index.js";
+import { uuidSchema, nonEmptyString } from "../validation/index.js";
+
+// ============================================================================
+// Zod Schemas
+// ============================================================================
+
+/** Schema for extracting identity */
+const extractIdentitySchema = z.object({
+  name: nonEmptyString,
+  description: z.string().optional(),
+  sources: z.array(z.string()).min(1, "At least one source is required"),
+  sourcesArePanelIds: z.boolean().optional(),
+  adapterModel: z.string().optional(),
+});
+
+/** Schema for applying identity to a panel */
+const applyIdentitySchema = z.object({
+  panelId: nonEmptyString,
+  identityId: nonEmptyString,
+  strength: z.number().min(0).max(2).optional(),
+  prompt: z.string().optional(),
+  qualityPreset: z.string().optional(),
+  seed: z.number().int().optional(),
+});
+
+/** Schema for chaining from previous panel */
+const chainSchema = z.object({
+  panelId: nonEmptyString,
+  previousPanelId: nonEmptyString,
+  maintain: z.object({
+    identity: z.boolean().optional(),
+  }).optional(),
+  continuityStrength: z.number().min(0).max(1).optional(),
+  prompt: z.string().optional(),
+  qualityPreset: z.string().optional(),
+});
+
+/** Schema for chaining a sequence of panels */
+const chainSequenceSchema = z.object({
+  panelIds: z.array(z.string()).min(2, "At least 2 panel IDs are required"),
+  maintain: z.object({
+    identity: z.boolean().optional(),
+  }).optional(),
+  continuityStrength: z.number().min(0).max(1).optional(),
+  qualityPreset: z.string().optional(),
+});
+
+/** Schema for generating a reference sheet */
+const referenceSheetSchema = z.object({
+  identityId: nonEmptyString,
+  outputDir: nonEmptyString,
+  poseCount: z.number().int().positive().optional(),
+  poses: z.array(z.string()).optional(),
+  includeExpressions: z.boolean().optional(),
+  qualityPreset: z.string().optional(),
+});
+
+/** Schema for identity ID param */
+const identityIdParamSchema = z.object({
+  id: nonEmptyString,
+});
 
 // ============================================================================
 // Routes
@@ -27,18 +91,12 @@ export const consistencyRoutes = new Hono();
  * POST /consistency/identity/extract
  * Extract identity from reference images or panels
  */
-consistencyRoutes.post("/identity/extract", async (c) => {
-  const consistency = getConsistencyService();
-  try {
-    const body = await c.req.json();
-
-    // Validate required fields
-    if (!body.name || typeof body.name !== "string") {
-      return c.json({ success: false, error: "name is required" }, 400);
-    }
-    if (!body.sources || !Array.isArray(body.sources) || body.sources.length === 0) {
-      return c.json({ success: false, error: "sources array is required" }, 400);
-    }
+consistencyRoutes.post(
+  "/identity/extract",
+  validateBody(extractIdentitySchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const body = c.req.valid("json");
 
     const result = await consistency.extractIdentity({
       name: body.name,
@@ -49,7 +107,7 @@ consistencyRoutes.post("/identity/extract", async (c) => {
     });
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      return errors.badRequest(c, result.error ?? "Failed to extract identity");
     }
 
     return c.json({
@@ -57,13 +115,8 @@ consistencyRoutes.post("/identity/extract", async (c) => {
       identityId: result.identityId,
       message: `Identity "${body.name}" created successfully`,
     });
-  } catch (error) {
-    return c.json(
-      { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-      400
-    );
   }
-});
+);
 
 /**
  * GET /consistency/identities
@@ -91,63 +144,65 @@ consistencyRoutes.get("/identities", async (c) => {
  * GET /consistency/identity/:id
  * Get identity details
  */
-consistencyRoutes.get("/identity/:id", async (c) => {
-  const consistency = getConsistencyService();
-  const identityId = c.req.param("id");
-  const identity = consistency.getIdentity(identityId);
+consistencyRoutes.get(
+  "/identity/:id",
+  validateParam(identityIdParamSchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const { id: identityId } = c.req.valid("param");
+    const identity = consistency.getIdentity(identityId);
 
-  if (!identity) {
-    return c.json({ success: false, error: "Identity not found" }, 404);
+    if (!identity) {
+      return errors.notFound(c, "Identity", identityId);
+    }
+
+    return c.json({
+      success: true,
+      identity: {
+        id: identity.id,
+        name: identity.name,
+        description: identity.description,
+        adapterModel: identity.embedding.adapterModel,
+        defaultStrength: identity.defaultStrength,
+        referenceImages: identity.referenceImages,
+        usageCount: identity.usageCount,
+        createdAt: identity.createdAt,
+        lastUsedAt: identity.lastUsedAt,
+      },
+    });
   }
-
-  return c.json({
-    success: true,
-    identity: {
-      id: identity.id,
-      name: identity.name,
-      description: identity.description,
-      adapterModel: identity.embedding.adapterModel,
-      defaultStrength: identity.defaultStrength,
-      referenceImages: identity.referenceImages,
-      usageCount: identity.usageCount,
-      createdAt: identity.createdAt,
-      lastUsedAt: identity.lastUsedAt,
-    },
-  });
-});
+);
 
 /**
  * DELETE /consistency/identity/:id
  * Delete a stored identity
  */
-consistencyRoutes.delete("/identity/:id", async (c) => {
-  const consistency = getConsistencyService();
-  const identityId = c.req.param("id");
-  const deleted = consistency.deleteIdentity(identityId);
+consistencyRoutes.delete(
+  "/identity/:id",
+  validateParam(identityIdParamSchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const { id: identityId } = c.req.valid("param");
+    const deleted = consistency.deleteIdentity(identityId);
 
-  if (!deleted) {
-    return c.json({ success: false, error: "Identity not found" }, 404);
+    if (!deleted) {
+      return errors.notFound(c, "Identity", identityId);
+    }
+
+    return c.json({ success: true, message: "Identity deleted" });
   }
-
-  return c.json({ success: true, message: "Identity deleted" });
-});
+);
 
 /**
  * POST /consistency/identity/apply
  * Apply identity to a panel
  */
-consistencyRoutes.post("/identity/apply", async (c) => {
-  const consistency = getConsistencyService();
-  try {
-    const body = await c.req.json();
-
-    // Validate required fields
-    if (!body.panelId || typeof body.panelId !== "string") {
-      return c.json({ success: false, error: "panelId is required" }, 400);
-    }
-    if (!body.identityId || typeof body.identityId !== "string") {
-      return c.json({ success: false, error: "identityId is required" }, 400);
-    }
+consistencyRoutes.post(
+  "/identity/apply",
+  validateBody(applyIdentitySchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const body = c.req.valid("json");
 
     const result = await consistency.applyIdentity({
       panelId: body.panelId,
@@ -159,7 +214,7 @@ consistencyRoutes.post("/identity/apply", async (c) => {
     });
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      return errors.badRequest(c, result.error ?? "Failed to apply identity");
     }
 
     return c.json({
@@ -169,13 +224,8 @@ consistencyRoutes.post("/identity/apply", async (c) => {
       signedUrl: result.generationResult?.signedUrl,
       seed: result.generationResult?.seed,
     });
-  } catch (error) {
-    return c.json(
-      { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-      400
-    );
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // Panel Chaining
@@ -185,18 +235,12 @@ consistencyRoutes.post("/identity/apply", async (c) => {
  * POST /consistency/chain
  * Chain from previous panel
  */
-consistencyRoutes.post("/chain", async (c) => {
-  const consistency = getConsistencyService();
-  try {
-    const body = await c.req.json();
-
-    // Validate required fields
-    if (!body.panelId || typeof body.panelId !== "string") {
-      return c.json({ success: false, error: "panelId is required" }, 400);
-    }
-    if (!body.previousPanelId || typeof body.previousPanelId !== "string") {
-      return c.json({ success: false, error: "previousPanelId is required" }, 400);
-    }
+consistencyRoutes.post(
+  "/chain",
+  validateBody(chainSchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const body = c.req.valid("json");
 
     const result = await consistency.chainFromPrevious({
       panelId: body.panelId,
@@ -208,7 +252,7 @@ consistencyRoutes.post("/chain", async (c) => {
     });
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      return errors.badRequest(c, result.error ?? "Failed to chain panels");
     }
 
     return c.json({
@@ -218,30 +262,19 @@ consistencyRoutes.post("/chain", async (c) => {
       signedUrl: result.generationResult?.signedUrl,
       seed: result.generationResult?.seed,
     });
-  } catch (error) {
-    return c.json(
-      { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-      400
-    );
   }
-});
+);
 
 /**
  * POST /consistency/chain/sequence
  * Chain an entire sequence of panels
  */
-consistencyRoutes.post("/chain/sequence", async (c) => {
-  const consistency = getConsistencyService();
-  try {
-    const body = await c.req.json();
-
-    // Validate required fields
-    if (!body.panelIds || !Array.isArray(body.panelIds) || body.panelIds.length < 2) {
-      return c.json(
-        { success: false, error: "panelIds array with at least 2 panels is required" },
-        400
-      );
-    }
+consistencyRoutes.post(
+  "/chain/sequence",
+  validateBody(chainSequenceSchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const body = c.req.valid("json");
 
     const result = await consistency.chainSequence(body.panelIds, {
       maintain: body.maintain ?? { identity: true },
@@ -260,13 +293,8 @@ consistencyRoutes.post("/chain/sequence", async (c) => {
         error: r.error,
       })),
     });
-  } catch (error) {
-    return c.json(
-      { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-      400
-    );
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // Reference Sheets
@@ -276,18 +304,12 @@ consistencyRoutes.post("/chain/sequence", async (c) => {
  * POST /consistency/reference-sheet
  * Generate reference sheet for an identity
  */
-consistencyRoutes.post("/reference-sheet", async (c) => {
-  const consistency = getConsistencyService();
-  try {
-    const body = await c.req.json();
-
-    // Validate required fields
-    if (!body.identityId || typeof body.identityId !== "string") {
-      return c.json({ success: false, error: "identityId is required" }, 400);
-    }
-    if (!body.outputDir || typeof body.outputDir !== "string") {
-      return c.json({ success: false, error: "outputDir is required" }, 400);
-    }
+consistencyRoutes.post(
+  "/reference-sheet",
+  validateBody(referenceSheetSchema),
+  async (c) => {
+    const consistency = getConsistencyService();
+    const body = c.req.valid("json");
 
     const result = await consistency.generateReferenceSheet({
       identityId: body.identityId,
@@ -299,7 +321,7 @@ consistencyRoutes.post("/reference-sheet", async (c) => {
     });
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      return errors.badRequest(c, result.error ?? "Failed to generate reference sheet");
     }
 
     return c.json({
@@ -307,13 +329,8 @@ consistencyRoutes.post("/reference-sheet", async (c) => {
       imageCount: result.images.length,
       images: result.images,
     });
-  } catch (error) {
-    return c.json(
-      { success: false, error: error instanceof Error ? error.message : "Invalid request" },
-      400
-    );
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // Reference Data

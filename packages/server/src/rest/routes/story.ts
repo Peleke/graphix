@@ -5,7 +5,62 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
 import { getStoryScaffoldService } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import { validateBody } from "../validation/index.js";
+
+// ============================================================================
+// Local Schemas
+// ============================================================================
+
+/** Panel direction schema for scaffolding */
+const scaffoldDirectionSchema = z.object({
+  cameraAngle: z.string().optional(),
+  mood: z.string().optional(),
+  lighting: z.string().optional(),
+}).partial().optional();
+
+/** Panel input schema */
+const scaffoldPanelSchema = z.object({
+  description: z.string(),
+  characterNames: z.array(z.string()).optional(),
+  direction: scaffoldDirectionSchema,
+});
+
+/** Scene input schema */
+const scaffoldSceneSchema = z.object({
+  name: z.string().min(1, "Scene name is required"),
+  description: z.string().optional(),
+  panels: z.array(scaffoldPanelSchema),
+});
+
+/** Act input schema */
+const scaffoldActSchema = z.object({
+  name: z.string().min(1, "Act name is required"),
+  description: z.string().optional(),
+  scenes: z.array(scaffoldSceneSchema),
+});
+
+/** POST /scaffold body schema */
+const scaffoldBodySchema = z.object({
+  projectId: z.string().uuid("Invalid project ID"),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  characterNames: z.array(z.string()).optional(),
+  acts: z.array(scaffoldActSchema),
+});
+
+/** POST /from-outline body schema */
+const fromOutlineBodySchema = z.object({
+  projectId: z.string().uuid("Invalid project ID"),
+  outline: z.string().min(1, "Outline is required"),
+});
+
+/** POST /parse-outline body schema */
+const parseOutlineBodySchema = z.object({
+  outline: z.string().min(1, "Outline is required"),
+});
 
 const storyRoutes = new Hono();
 
@@ -30,9 +85,9 @@ const storyRoutes = new Hono();
  *   }]
  * }
  */
-storyRoutes.post("/scaffold", async (c) => {
+storyRoutes.post("/scaffold", validateBody(scaffoldBodySchema), async (c) => {
   const service = getStoryScaffoldService();
-  const body = await c.req.json();
+  const body = c.req.valid("json");
 
   const result = await service.scaffold({
     projectId: body.projectId,
@@ -43,7 +98,7 @@ storyRoutes.post("/scaffold", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error, result }, 400);
+    return errors.badRequest(c, result.error || "Scaffold operation failed");
   }
 
   return c.json(result, 201);
@@ -59,18 +114,14 @@ storyRoutes.post("/scaffold", async (c) => {
  *   outline: string (markdown format)
  * }
  */
-storyRoutes.post("/from-outline", async (c) => {
+storyRoutes.post("/from-outline", validateBody(fromOutlineBodySchema), async (c) => {
   const service = getStoryScaffoldService();
-  const body = await c.req.json();
-
-  if (!body.projectId || !body.outline) {
-    return c.json({ error: "projectId and outline are required" }, 400);
-  }
+  const body = c.req.valid("json");
 
   const result = await service.fromOutline(body.projectId, body.outline);
 
   if (!result.success) {
-    return c.json({ error: result.error, result }, 400);
+    return errors.badRequest(c, result.error || "Failed to create story from outline");
   }
 
   return c.json(result, 201);
@@ -83,13 +134,9 @@ storyRoutes.post("/from-outline", async (c) => {
  * Body:
  * { outline: string }
  */
-storyRoutes.post("/parse-outline", async (c) => {
+storyRoutes.post("/parse-outline", validateBody(parseOutlineBodySchema), async (c) => {
   const service = getStoryScaffoldService();
-  const body = await c.req.json();
-
-  if (!body.outline) {
-    return c.json({ error: "outline is required" }, 400);
-  }
+  const body = c.req.valid("json");
 
   const parsed = service.parseOutline(body.outline);
 

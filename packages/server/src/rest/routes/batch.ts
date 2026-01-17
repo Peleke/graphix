@@ -6,6 +6,104 @@
 
 import { Hono } from "hono";
 import { getBatchService } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import {
+  validateBody,
+  validateParam,
+  uuidSchema,
+} from "../validation/index.js";
+import { z } from "zod";
+
+// Schemas for batch operations
+const batchCreatePanelsSchema = z.object({
+  storyboardId: uuidSchema,
+  panels: z.array(z.object({
+    description: z.string().optional(),
+    position: z.number().int().optional(),
+    characterIds: z.array(uuidSchema).optional(),
+    direction: z.object({
+      cameraAngle: z.string().optional(),
+      mood: z.string().optional(),
+      lighting: z.string().optional(),
+    }).optional(),
+  })).min(1),
+});
+
+const batchDeletePanelsSchema = z.object({
+  panelIds: z.array(uuidSchema).min(1),
+});
+
+const captionTypeSchema = z.enum(["speech", "thought", "narration", "sfx", "whisper"]);
+
+const batchAddCaptionsSchema = z.object({
+  captions: z.array(z.object({
+    panelId: uuidSchema,
+    type: captionTypeSchema,
+    text: z.string(),
+    position: z.object({
+      x: z.number(),
+      y: z.number(),
+      anchor: z.string().optional(),
+    }),
+    characterId: uuidSchema.optional(),
+    tailDirection: z.object({
+      x: z.number(),
+      y: z.number(),
+    }).optional(),
+    style: z.record(z.unknown()).optional(),
+    zIndex: z.number().int().optional(),
+  })).min(1),
+});
+
+const qualityPresetSchema = z.enum(["draft", "standard", "high", "ultra"]);
+
+const batchGenerateSchema = z.object({
+  panelIds: z.array(uuidSchema).min(1),
+  options: z.object({
+    sizePreset: z.string().optional(),
+    qualityPreset: qualityPresetSchema.optional(),
+    model: z.string().optional(),
+    seed: z.number().int().optional(),
+    uploadToCloud: z.boolean().optional(),
+  }).optional(),
+  continueOnError: z.boolean().optional(),
+});
+
+const batchGenerateVariantsSchema = z.object({
+  panelIds: z.array(uuidSchema).min(1),
+  variantCount: z.number().int().min(1).max(10).optional(),
+  options: z.object({
+    sizePreset: z.string().optional(),
+    qualityPreset: qualityPresetSchema.optional(),
+    model: z.string().optional(),
+    seed: z.number().int().optional(),
+    uploadToCloud: z.boolean().optional(),
+  }).optional(),
+  continueOnError: z.boolean().optional(),
+});
+
+const batchRenderCaptionsSchema = z.object({
+  panelIds: z.array(uuidSchema).min(1),
+  outputDir: z.string().min(1),
+  format: z.enum(["png", "jpeg", "webp"]).optional(),
+  continueOnError: z.boolean().optional(),
+});
+
+const batchSelectOutputsSchema = z.object({
+  selections: z.array(z.object({
+    panelId: uuidSchema,
+    outputId: uuidSchema,
+  })).min(1),
+});
+
+const batchAutoSelectSchema = z.object({
+  panelIds: z.array(uuidSchema).min(1),
+  mode: z.enum(["first", "latest"]).optional(),
+});
+
+const storyboardIdParamSchema = z.object({
+  storyboardId: uuidSchema,
+});
 
 const batchRoutes = new Hono();
 
@@ -16,59 +114,50 @@ const batchRoutes = new Hono();
 /**
  * POST /panels
  * Create multiple panels in a storyboard
- *
- * Body:
- * {
- *   storyboardId: string,
- *   panels: [{ description?: string, position?: number, characterIds?: string[], direction?: {...} }]
- * }
  */
-batchRoutes.post("/panels", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/panels",
+  validateBody(batchCreatePanelsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!body.storyboardId || !Array.isArray(body.panels)) {
-    return c.json({ error: "storyboardId and panels array are required" }, 400);
+    const result = await service.createPanels(body.storyboardId, body.panels);
+
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.panels.length,
+        created: result.created.length,
+        failed: result.errors.length,
+      },
+    }, result.success ? 201 : 207);
   }
-
-  const result = await service.createPanels(body.storyboardId, body.panels);
-
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.panels.length,
-      created: result.created.length,
-      failed: result.errors.length,
-    },
-  }, result.success ? 201 : 207);
-});
+);
 
 /**
  * DELETE /panels
  * Delete multiple panels
- *
- * Body:
- * { panelIds: string[] }
  */
-batchRoutes.delete("/panels", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.delete(
+  "/panels",
+  validateBody(batchDeletePanelsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds)) {
-    return c.json({ error: "panelIds array is required" }, 400);
+    const result = await service.deletePanels(body.panelIds);
+
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.panelIds.length,
+        deleted: result.deleted.length,
+        failed: result.errors.length,
+      },
+    });
   }
-
-  const result = await service.deletePanels(body.panelIds);
-
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.panelIds.length,
-      deleted: result.deleted.length,
-      failed: result.errors.length,
-    },
-  });
-});
+);
 
 // ============================================================================
 // Caption Operations
@@ -77,81 +166,64 @@ batchRoutes.delete("/panels", async (c) => {
 /**
  * POST /captions
  * Add captions to multiple panels
- *
- * Body:
- * {
- *   captions: [{
- *     panelId: string,
- *     type: string,
- *     text: string,
- *     position: { x: number, y: number, anchor?: string },
- *     characterId?: string,
- *     tailDirection?: { x: number, y: number },
- *     style?: {...},
- *     zIndex?: number
- *   }]
- * }
  */
-batchRoutes.post("/captions", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/captions",
+  validateBody(batchAddCaptionsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.captions)) {
-    return c.json({ error: "captions array is required" }, 400);
-  }
-
-  // Transform to BatchCaptionInput format
-  const inputs = body.captions.map((cap: Record<string, unknown>) => ({
-    panelId: cap.panelId as string,
-    caption: {
+    // Transform to BatchCaptionInput format
+    const inputs = body.captions.map((cap) => ({
       panelId: cap.panelId,
-      type: cap.type,
-      text: cap.text,
-      characterId: cap.characterId,
-      position: cap.position,
-      tailDirection: cap.tailDirection,
-      style: cap.style,
-      zIndex: cap.zIndex,
-    },
-  }));
+      caption: {
+        panelId: cap.panelId,
+        type: cap.type,
+        text: cap.text,
+        characterId: cap.characterId,
+        position: cap.position,
+        tailDirection: cap.tailDirection,
+        style: cap.style,
+        zIndex: cap.zIndex,
+      },
+    }));
 
-  const result = await service.addCaptions(inputs);
+    const result = await service.addCaptions(inputs);
 
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.captions.length,
-      created: result.created.length,
-      failed: result.errors.length,
-    },
-  }, result.success ? 201 : 207);
-});
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.captions.length,
+        created: result.created.length,
+        failed: result.errors.length,
+      },
+    }, result.success ? 201 : 207);
+  }
+);
 
 /**
  * DELETE /captions
  * Clear all captions from multiple panels
- *
- * Body:
- * { panelIds: string[] }
  */
-batchRoutes.delete("/captions", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.delete(
+  "/captions",
+  validateBody(batchDeletePanelsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds)) {
-    return c.json({ error: "panelIds array is required" }, 400);
+    const result = await service.clearCaptions(body.panelIds);
+
+    return c.json({
+      ...result,
+      summary: {
+        panels: body.panelIds.length,
+        captionsCleared: result.cleared,
+      },
+    });
   }
-
-  const result = await service.clearCaptions(body.panelIds);
-
-  return c.json({
-    ...result,
-    summary: {
-      panels: body.panelIds.length,
-      captionsCleared: result.cleared,
-    },
-  });
-});
+);
 
 // ============================================================================
 // Generation Operations
@@ -160,76 +232,61 @@ batchRoutes.delete("/captions", async (c) => {
 /**
  * POST /generate
  * Generate images for multiple panels
- *
- * Body:
- * {
- *   panelIds: string[],
- *   options?: { sizePreset?, qualityPreset?, model?, seed?, uploadToCloud? },
- *   continueOnError?: boolean
- * }
  */
-batchRoutes.post("/generate", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/generate",
+  validateBody(batchGenerateSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds)) {
-    return c.json({ error: "panelIds array is required" }, 400);
+    const result = await service.generatePanels(body.panelIds, {
+      ...body.options,
+      continueOnError: body.continueOnError,
+    });
+
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.panelIds.length,
+        generated: result.totalGenerated,
+        failed: result.totalFailed,
+      },
+    });
   }
-
-  const result = await service.generatePanels(body.panelIds, {
-    ...body.options,
-    continueOnError: body.continueOnError,
-  });
-
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.panelIds.length,
-      generated: result.totalGenerated,
-      failed: result.totalFailed,
-    },
-  });
-});
+);
 
 /**
  * POST /generate/variants
  * Generate multiple variants for each panel
- *
- * Body:
- * {
- *   panelIds: string[],
- *   variantCount?: number (default: 3),
- *   options?: {...},
- *   continueOnError?: boolean
- * }
  */
-batchRoutes.post("/generate/variants", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/generate/variants",
+  validateBody(batchGenerateVariantsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds)) {
-    return c.json({ error: "panelIds array is required" }, 400);
+    const result = await service.generateVariants(
+      body.panelIds,
+      body.variantCount,
+      {
+        ...body.options,
+        continueOnError: body.continueOnError,
+      }
+    );
+
+    return c.json({
+      ...result,
+      summary: {
+        panels: body.panelIds.length,
+        variantsPerPanel: body.variantCount ?? 3,
+        totalGenerated: result.totalGenerated,
+        totalFailed: result.totalFailed,
+      },
+    });
   }
-
-  const result = await service.generateVariants(
-    body.panelIds,
-    body.variantCount,
-    {
-      ...body.options,
-      continueOnError: body.continueOnError,
-    }
-  );
-
-  return c.json({
-    ...result,
-    summary: {
-      panels: body.panelIds.length,
-      variantsPerPanel: body.variantCount ?? 3,
-      totalGenerated: result.totalGenerated,
-      totalFailed: result.totalFailed,
-    },
-  });
-});
+);
 
 // ============================================================================
 // Render Operations
@@ -238,39 +295,31 @@ batchRoutes.post("/generate/variants", async (c) => {
 /**
  * POST /render/captions
  * Render captions onto generated images for multiple panels
- *
- * Body:
- * {
- *   panelIds: string[],
- *   outputDir: string,
- *   format?: "png" | "jpeg" | "webp",
- *   continueOnError?: boolean
- * }
  */
-batchRoutes.post("/render/captions", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/render/captions",
+  validateBody(batchRenderCaptionsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds) || !body.outputDir) {
-    return c.json({ error: "panelIds array and outputDir are required" }, 400);
-  }
-
-  const result = await service.renderCaptions(body.panelIds, {
-    outputDir: body.outputDir,
-    format: body.format,
-    continueOnError: body.continueOnError,
-  });
-
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.panelIds.length,
-      rendered: result.totalRendered,
-      failed: result.totalFailed,
+    const result = await service.renderCaptions(body.panelIds, {
       outputDir: body.outputDir,
-    },
-  });
-});
+      format: body.format,
+      continueOnError: body.continueOnError,
+    });
+
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.panelIds.length,
+        rendered: result.totalRendered,
+        failed: result.totalFailed,
+        outputDir: body.outputDir,
+      },
+    });
+  }
+);
 
 // ============================================================================
 // Selection Operations
@@ -279,62 +328,51 @@ batchRoutes.post("/render/captions", async (c) => {
 /**
  * POST /select
  * Select outputs for multiple panels
- *
- * Body:
- * {
- *   selections: [{ panelId: string, outputId: string }]
- * }
  */
-batchRoutes.post("/select", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/select",
+  validateBody(batchSelectOutputsSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.selections)) {
-    return c.json({ error: "selections array is required" }, 400);
+    const result = await service.selectOutputs(body.selections);
+
+    return c.json({
+      ...result,
+      summary: {
+        requested: body.selections.length,
+        selected: result.selected,
+        failed: result.errors.length,
+      },
+    });
   }
-
-  const result = await service.selectOutputs(body.selections);
-
-  return c.json({
-    ...result,
-    summary: {
-      requested: body.selections.length,
-      selected: result.selected,
-      failed: result.errors.length,
-    },
-  });
-});
+);
 
 /**
  * POST /select/auto
  * Auto-select first or latest generated image for multiple panels
- *
- * Body:
- * {
- *   panelIds: string[],
- *   mode?: "first" | "latest" (default: "latest")
- * }
  */
-batchRoutes.post("/select/auto", async (c) => {
-  const service = getBatchService();
-  const body = await c.req.json();
+batchRoutes.post(
+  "/select/auto",
+  validateBody(batchAutoSelectSchema),
+  async (c) => {
+    const service = getBatchService();
+    const body = c.req.valid("json");
 
-  if (!Array.isArray(body.panelIds)) {
-    return c.json({ error: "panelIds array is required" }, 400);
+    const result = await service.autoSelectOutputs(body.panelIds, body.mode);
+
+    return c.json({
+      ...result,
+      summary: {
+        panels: body.panelIds.length,
+        selected: result.selected,
+        skipped: result.skipped,
+        failed: result.errors.length,
+      },
+    });
   }
-
-  const result = await service.autoSelectOutputs(body.panelIds, body.mode);
-
-  return c.json({
-    ...result,
-    summary: {
-      panels: body.panelIds.length,
-      selected: result.selected,
-      skipped: result.skipped,
-      failed: result.errors.length,
-    },
-  });
-});
+);
 
 // ============================================================================
 // Utility
@@ -344,16 +382,20 @@ batchRoutes.post("/select/auto", async (c) => {
  * GET /storyboard/:storyboardId/panel-ids
  * Get all panel IDs from a storyboard in position order
  */
-batchRoutes.get("/storyboard/:storyboardId/panel-ids", async (c) => {
-  const service = getBatchService();
-  const storyboardId = c.req.param("storyboardId");
-  const panelIds = await service.getPanelIds(storyboardId);
+batchRoutes.get(
+  "/storyboard/:storyboardId/panel-ids",
+  validateParam(storyboardIdParamSchema),
+  async (c) => {
+    const service = getBatchService();
+    const { storyboardId } = c.req.valid("param");
+    const panelIds = await service.getPanelIds(storyboardId);
 
-  return c.json({
-    storyboardId,
-    panelIds,
-    count: panelIds.length,
-  });
-});
+    return c.json({
+      storyboardId,
+      panelIds,
+      count: panelIds.length,
+    });
+  }
+);
 
 export { batchRoutes };
