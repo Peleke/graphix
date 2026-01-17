@@ -114,19 +114,11 @@ export const updateStoryboardSchema = z.object({
 // Panel Schemas
 // ============================================================================
 
-export const panelDirectionSchema = z.enum([
-  "establishing",
-  "wide",
-  "medium",
-  "close",
-  "extreme_close",
-  "pov",
-  "over_shoulder",
-  "two_shot",
-  "group",
-  "insert",
-  "cutaway",
-]);
+export const panelDirectionSchema = z.object({
+  cameraAngle: z.string().optional(),
+  mood: z.string().optional(),
+  lighting: z.string().optional(),
+}).partial();
 
 export const createPanelSchema = z.object({
   storyboardId: uuidSchema,
@@ -283,11 +275,58 @@ export const reviewDecisionSchema = z.object({
 });
 
 // ============================================================================
-// ID Param Schema
+// ID Param Schemas
 // ============================================================================
 
 export const idParamSchema = z.object({
   id: uuidSchema,
+});
+
+export const projectIdParamSchema = z.object({
+  projectId: uuidSchema,
+});
+
+export const panelIdParamSchema = z.object({
+  panelId: uuidSchema,
+});
+
+export const storyboardIdParamSchema = z.object({
+  storyboardId: uuidSchema,
+});
+
+export const characterIdParamSchema = z.object({
+  characterId: uuidSchema,
+});
+
+export const captionIdParamSchema = z.object({
+  captionId: uuidSchema,
+});
+
+export const imageIdParamSchema = z.object({
+  imageId: uuidSchema,
+});
+
+export const storyIdParamSchema = z.object({
+  storyId: uuidSchema,
+});
+
+export const premiseIdParamSchema = z.object({
+  premiseId: uuidSchema,
+});
+
+export const seedParamSchema = z.object({
+  seed: z.coerce.number().int(),
+});
+
+// Combined param schemas for nested routes
+export const panelCaptionParamSchema = z.object({
+  panelId: uuidSchema,
+  captionId: uuidSchema,
+});
+
+export const idCharacterIdParamSchema = z.object({
+  id: uuidSchema,
+  characterId: uuidSchema,
 });
 
 // ============================================================================
