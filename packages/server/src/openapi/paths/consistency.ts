@@ -233,7 +233,6 @@ export const consistencyPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
 };
