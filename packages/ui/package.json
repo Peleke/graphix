@@ -16,7 +16,11 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "codegen": "panda codegen"
+    "codegen": "panda codegen",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:icon": "tauri icon"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.0",
