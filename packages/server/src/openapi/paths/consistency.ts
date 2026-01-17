@@ -10,7 +10,14 @@ export const consistencyPaths: Record<string, any> = {
       tags: ["Consistency"],
       summary: "Extract identity",
       description: "Extracts a visual identity from reference images or panels.",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExtractIdentity" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ExtractIdentity" },
+          },
+        },
+      },
       responses: {
         "200": {
           description: "Identity extracted",
@@ -61,9 +68,30 @@ export const consistencyPaths: Record<string, any> = {
       description: "Returns details for a specific identity.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Identity found", content: { "application/json": { schema: { type: "object" } } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Identity not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Identity found",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Identity not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
     delete: {
@@ -72,9 +100,30 @@ export const consistencyPaths: Record<string, any> = {
       description: "Deletes a visual identity.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
       responses: {
-        "200": { description: "Identity deleted", content: { "application/json": { schema: { type: "object" } } } } },
-        "400": { description: "Invalid ID format", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Identity not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Identity deleted",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid ID format",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Identity not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
       },
     },
   },
@@ -84,11 +133,40 @@ export const consistencyPaths: Record<string, any> = {
       summary: "Apply identity to panel",
       description: "Applies a visual identity to a panel for generation.",
       parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ApplyIdentity" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ApplyIdentity" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Identity applied", content: { "application/json": { schema: { $ref: "#/components/schemas/ChainOperationResponse" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
-        "404": { description: "Identity or panel not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Identity applied",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ChainOperationResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "404": {
+          description: "Identity or panel not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
       },
     },
   },
@@ -97,10 +175,32 @@ export const consistencyPaths: Record<string, any> = {
       tags: ["Consistency"],
       summary: "Chain from previous panel",
       description: "Generates a panel chained from a previous panel for visual continuity.",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Chain" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/Chain" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Panel chained", content: { "application/json": { schema: { $ref: "#/components/schemas/ChainOperationResponse" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Panel chained",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ChainOperationResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
       },
     },
   },
@@ -109,10 +209,32 @@ export const consistencyPaths: Record<string, any> = {
       tags: ["Consistency"],
       summary: "Chain sequence of panels",
       description: "Generates a sequence of panels with visual continuity.",
-      requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChainSequence" } } } },
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ChainSequence" },
+          },
+        },
+      },
       responses: {
-        "200": { description: "Sequence chained", content: { "application/json": { schema: { type: "object" } } } } },
-        "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } },
+        "200": {
+          description: "Sequence chained",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
       },
     },
   },
