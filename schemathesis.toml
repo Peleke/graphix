@@ -1,0 +1,47 @@
+# Schemathesis Configuration
+# 
+# Configuration for API fuzz testing using Schemathesis Docker image.
+# Server config source: packages/server/src/config/server.ts
+# Default port: 3002 (can be overridden via PORT env var)
+
+[schemathesis]
+# Base URL for the API (will be overridden by script)
+base_url = "http://localhost:3002/api"
+
+# OpenAPI spec location (relative to container or absolute URL)
+# Scripts will use the spec URL from server config
+spec = "http://localhost:3002/api/docs/spec.json"
+
+# Test execution settings
+[schemathesis.checks]
+# Enable all checks
+all = true
+
+# Specific checks to run
+# See: https://schemathesis.readthedocs.io/en/stable/checks.html
+response_schema_conformance = true
+response_headers_conformance = true
+response_content_type_conformance = true
+status_code_conformance = true
+
+[schemathesis.targets]
+# Target specific operations (empty = all)
+operations = []
+
+# Target specific tags (empty = all)
+tags = []
+
+[schemathesis.hypothesis]
+# Hypothesis settings for property-based testing
+max_examples = 50  # Reduced for faster runs
+deadline = 5000  # 5 seconds per test case
+phases = ["generate", "target"]  # Skip explicit examples for speed
+
+[schemathesis.auth]
+# Authentication (if needed in future)
+# type = "bearer"
+# token = "${API_TOKEN}"
+
+[schemathesis.headers]
+# Custom headers (if needed)
+# Authorization = "Bearer ${API_TOKEN}"
