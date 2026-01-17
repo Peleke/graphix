@@ -22,7 +22,8 @@
     "test:all": "bun test packages/core && bun test packages/server",
     "test:coverage": "bun test packages/core --coverage",
     "typecheck": "tsc --build",
-    "lint": "echo 'ESLint not configured yet'"
+    "lint": "echo 'ESLint not configured yet'",
+    "client:generate": "npm run --workspace @graphix/client generate"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

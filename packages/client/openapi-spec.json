@@ -1,0 +1,449 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Graphix API",
+    "version": "0.2.0",
+    "description": "REST API for comic generation and storyboard management.",
+    "contact": {
+      "name": "Graphix",
+      "url": "https://github.com/Peleke/graphix"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base path"
+    }
+  ],
+  "tags": [
+    { "name": "Projects", "description": "Project management endpoints" },
+    { "name": "Characters", "description": "Character creation and configuration" },
+    { "name": "Storyboards", "description": "Storyboard management" },
+    { "name": "Panels", "description": "Panel management and generation" },
+    { "name": "Generations", "description": "Generated image management" },
+    { "name": "Captions", "description": "Caption management for panels" }
+  ],
+  "paths": {
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "tags": ["Projects"],
+        "summary": "List all projects",
+        "description": "Returns a paginated list of all projects.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+            "description": "Items per page (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data", "pagination"],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Project" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "tags": ["Projects"],
+        "summary": "Create a new project",
+        "description": "Creates a new project with the provided details.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateProject" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "operationId": "getProject",
+        "tags": ["Projects"],
+        "summary": "Get project by ID",
+        "description": "Returns a single project by its unique identifier.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Project ID (UUID or cuid2)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateProject",
+        "tags": ["Projects"],
+        "summary": "Update a project",
+        "description": "Updates an existing project with the provided details.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Project ID (UUID or cuid2)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID format or validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchProject",
+        "tags": ["Projects"],
+        "summary": "Partially update a project",
+        "description": "Updates specific fields of an existing project. Only provided fields are updated.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Project ID (UUID or cuid2)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProject" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID format or validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "tags": ["Projects"],
+        "summary": "Delete a project",
+        "description": "Permanently deletes a project and all associated data.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Project ID (UUID or cuid2)"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Project deleted successfully"
+          },
+          "400": {
+            "description": "Invalid ID format",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "required": ["id", "name", "createdAt", "updatedAt"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier (UUID or cuid2 format)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Project name"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional project description"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Project-specific settings"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          }
+        }
+      },
+      "CreateProject": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Project name (required)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional project description"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Project-specific settings"
+          }
+        }
+      },
+      "UpdateProject": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "New project name"
+          },
+          "description": {
+            "type": "string",
+            "description": "New project description"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Project-specific settings"
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "required": ["page", "limit", "count", "hasMore"],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Items per page"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of items in current page"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether more pages exist"
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "VALIDATION_ERROR",
+          "INVALID_INPUT",
+          "MISSING_REQUIRED_FIELD",
+          "INVALID_FORMAT",
+          "NOT_FOUND",
+          "ALREADY_EXISTS",
+          "INVALID_ID",
+          "LIMIT_EXCEEDED",
+          "INVALID_STATE",
+          "OPERATION_NOT_ALLOWED",
+          "UNAUTHORIZED",
+          "FORBIDDEN",
+          "INVALID_TOKEN",
+          "TOKEN_EXPIRED",
+          "FILE_TOO_LARGE",
+          "INVALID_FILE_TYPE",
+          "INVALID_MAGIC_BYTES",
+          "FILE_NOT_FOUND",
+          "SYMLINK_NOT_ALLOWED",
+          "PATH_TRAVERSAL",
+          "SERVICE_UNAVAILABLE",
+          "TIMEOUT",
+          "INTERNAL_ERROR",
+          "DATABASE_ERROR",
+          "EXTERNAL_SERVICE_ERROR",
+          "RATE_LIMIT_EXCEEDED"
+        ],
+        "description": "Machine-readable error code"
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error", "requestId", "timestamp"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["message", "code"],
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Human-readable error message"
+              },
+              "code": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Additional error context"
+              }
+            }
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Unique request identifier for debugging"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of the error"
+          }
+        }
+      }
+    }
+  }
+}

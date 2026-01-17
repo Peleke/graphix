@@ -21,7 +21,9 @@
       "@graphix/server": ["./packages/server/src/index.ts"],
       "@graphix/server/*": ["./packages/server/src/*"],
       "@graphix/skills": ["./packages/skills/src/index.ts"],
-      "@graphix/skills/*": ["./packages/skills/src/*"]
+      "@graphix/skills/*": ["./packages/skills/src/*"],
+      "@graphix/client": ["./packages/client/src/index.ts"],
+      "@graphix/client/*": ["./packages/client/src/*"]
     },
     "types": ["bun-types"]
   },
