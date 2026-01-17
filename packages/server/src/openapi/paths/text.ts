@@ -113,7 +113,6 @@ export const textPaths: Record<string, any> = {
           },
         },
       },
-      },
     },
   },
   "/text/panel-description": {
