@@ -17,9 +17,12 @@
   "dependencies": {
     "@graphix/core": "*",
     "@hono/node-server": "^1.13.0",
+    "@hono/swagger-ui": "^0.5.3",
+    "@hono/zod-openapi": "^1.2.0",
     "@hono/zod-validator": "^0.7.6",
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
