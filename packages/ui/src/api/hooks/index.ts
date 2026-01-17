@@ -5,3 +5,4 @@
  */
 
 export * from "./useProjects";
+export * from "./useCharacters";
