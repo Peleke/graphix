@@ -29,6 +29,7 @@ import { narrativeRoutes } from "./routes/narrative.js";
 import { reviewRoutes } from "./routes/review.js";
 import { textGenerationRoutes } from "./routes/text-generation.js";
 import { generatedTextRoutes } from "./routes/generated-texts.js";
+import { openapi } from "../openapi/index.js";
 import { getDefaultConnection, checkDatabaseHealth, getConfig } from "@graphix/core";
 
 type Variables = {
@@ -90,6 +91,9 @@ api.route("/generated-texts", generatedTextRoutes);
 
 // Caption routes (mounted at root since they have both /panels/:id/captions and /captions/:id paths)
 api.route("/", captionRoutes);
+
+// OpenAPI documentation (Swagger UI at /api/docs, spec at /api/docs/spec.json)
+api.route("/docs", openapi);
 
 // Mount API under /api prefix
 app.route("/api", api);
