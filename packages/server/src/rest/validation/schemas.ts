@@ -54,7 +54,7 @@ export const paginationSchema = z.object({
 export const createProjectSchema = z.object({
   name: nonEmptyString.max(255, "Name must be 255 characters or less"),
   description: optionalString,
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateProjectSchema = createProjectSchema.partial();
