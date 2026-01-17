@@ -152,13 +152,15 @@ const styles = {
   `,
   meta: {
     container: `
-      flex items-center gap-3 text-xs text-[hsl(0_0%_45%)]
+      flex items-center gap-2 sm:gap-3 text-xs text-[hsl(0_0%_45%)]
+      flex-wrap
     `,
     item: `
       flex items-center gap-1
+      whitespace-nowrap
     `,
     icon: `
-      w-3 h-3 opacity-60
+      w-3 h-3 opacity-60 flex-shrink-0
     `,
   },
   menuButton: `

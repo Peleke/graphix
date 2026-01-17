@@ -103,6 +103,18 @@ function DashboardPage() {
           gap: 1rem;
         }
         
+        @media (max-width: 640px) {
+          .dashboard-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+          }
+          
+          .dashboard-header > div:first-child {
+            width: 100%;
+          }
+        }
+        
         .dashboard-title {
           font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
           font-size: 2rem;
@@ -120,6 +132,19 @@ function DashboardPage() {
           display: flex;
           gap: 0.75rem;
           align-items: center;
+          flex-wrap: wrap;
+        }
+        
+        @media (max-width: 640px) {
+          .header-actions {
+            width: 100%;
+            justify-content: space-between;
+          }
+          
+          .header-actions .search-input {
+            flex: 1;
+            min-width: 0;
+          }
         }
         
         .search-input {
@@ -168,7 +193,7 @@ function DashboardPage() {
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.625rem 1.25rem;
+          padding: 0.625rem 1rem;
           background: #8b5cf6;
           color: white;
           border: none;
@@ -177,6 +202,14 @@ function DashboardPage() {
           font-weight: 600;
           cursor: pointer;
           transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+        
+        @media (max-width: 640px) {
+          .btn-primary {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.8125rem;
+          }
         }
         
         .btn-primary:hover {
