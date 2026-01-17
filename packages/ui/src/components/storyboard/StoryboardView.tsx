@@ -283,7 +283,12 @@ export function StoryboardView({ projectId }: StoryboardViewProps) {
               <div
                 key={sb.id}
                 className={`storyboard-item ${selectedStoryboardId === sb.id ? "selected" : ""}`}
-                onClick={() => setSelectedStoryboardId(sb.id)}
+                onClick={() => {
+                  setSelectedStoryboardId(sb.id);
+                  if (onStoryboardSelect) {
+                    onStoryboardSelect(sb.id);
+                  }
+                }}
               >
                 <div className="storyboard-name">{sb.name}</div>
                 <div className="storyboard-meta">
@@ -309,7 +314,15 @@ export function StoryboardView({ projectId }: StoryboardViewProps) {
                 {storyboard.panels && storyboard.panels.length > 0 ? (
                   <div className="panels-grid">
                     {storyboard.panels.map((panel: any) => (
-                      <div key={panel.id} className="panel-card">
+                      <div 
+                        key={panel.id} 
+                        className="panel-card"
+                        onClick={() => {
+                          if (onPanelSelect) {
+                            onPanelSelect(panel.id);
+                          }
+                        }}
+                      >
                         <div className="panel-thumb">
                           {panel.selectedGeneration?.thumbnailPath ? (
                             <img 
