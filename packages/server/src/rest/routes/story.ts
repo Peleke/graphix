@@ -42,9 +42,23 @@ const scaffoldActSchema = z.object({
   scenes: z.array(scaffoldSceneSchema),
 });
 
+/** ID validation - accepts both UUID and cuid2 formats */
+const idSchema = z.string().min(1, "ID is required").refine(
+  (val) => {
+    // Accept UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(val)) return true;
+    // Accept cuid2 format (21-24 char alphanumeric, starts with lowercase letter)
+    const cuid2Regex = /^[a-z][a-z0-9]{20,23}$/;
+    if (cuid2Regex.test(val)) return true;
+    return false;
+  },
+  { message: "Invalid ID format" }
+);
+
 /** POST /scaffold body schema */
 const scaffoldBodySchema = z.object({
-  projectId: z.string().uuid("Invalid project ID"),
+  projectId: idSchema,
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   characterNames: z.array(z.string()).optional(),
@@ -53,7 +67,7 @@ const scaffoldBodySchema = z.object({
 
 /** POST /from-outline body schema */
 const fromOutlineBodySchema = z.object({
-  projectId: z.string().uuid("Invalid project ID"),
+  projectId: idSchema,
   outline: z.string().min(1, "Outline is required"),
 });
 

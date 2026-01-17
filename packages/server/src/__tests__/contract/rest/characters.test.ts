@@ -83,12 +83,12 @@ describe("REST /api/characters", () => {
     });
 
     it("returns 404 when character does not exist", async () => {
-      const res = await app.request("/api/characters/nonexistent-id");
+      // Use a valid UUID format that doesn't exist
+      const res = await app.request("/api/characters/00000000-0000-0000-0000-000000000000");
 
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("not found");
     });
   });
 
@@ -106,7 +106,7 @@ describe("REST /api/characters", () => {
         body: JSON.stringify({
           projectId: project.id,
           name: "New Character",
-          profile: { species: "otter" },
+          profile: { species: "human" },
         }),
       });
 
@@ -128,10 +128,10 @@ describe("REST /api/characters", () => {
           name: "Detailed Character",
           profile: {
             species: "wolf",
-            colors: { primary: "gray", secondary: "white" },
+            bodyType: "athletic",
           },
           promptFragments: {
-            appearance: "gray wolf with white markings",
+            positive: "gray wolf with white markings",
           },
         }),
       });

@@ -174,7 +174,8 @@ describe("REST /api/story", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("required");
+      // New error format has error as an object with message property
+      expect(body.error.message).toContain("Required");
     });
 
     it("returns 400 when outline is missing", async () => {
@@ -191,7 +192,7 @@ describe("REST /api/story", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("required");
+      expect(body.error.message).toContain("Required");
     });
   });
 
@@ -247,7 +248,7 @@ describe("REST /api/story", () => {
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("required");
+      expect(body.error.message).toContain("Required");
     });
 
     it("returns correct summary counts", async () => {

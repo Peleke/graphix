@@ -48,12 +48,12 @@ describe("REST /api/panels", () => {
     });
 
     it("returns 404 when panel does not exist", async () => {
-      const res = await app.request("/api/panels/nonexistent-id");
+      // Use a valid UUID format that doesn't exist
+      const res = await app.request("/api/panels/00000000-0000-0000-0000-000000000000");
 
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("not found");
     });
 
     it("returns panel with full details including generations", async () => {

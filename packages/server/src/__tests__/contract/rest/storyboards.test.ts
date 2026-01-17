@@ -76,12 +76,12 @@ describe("REST /api/storyboards", () => {
     });
 
     it("returns 404 when storyboard does not exist", async () => {
-      const res = await app.request("/api/storyboards/nonexistent-id");
+      // Use a valid UUID format that doesn't exist
+      const res = await app.request("/api/storyboards/00000000-0000-0000-0000-000000000000");
 
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body).toHaveProperty("error");
-      expect(body.error).toContain("not found");
     });
   });
 

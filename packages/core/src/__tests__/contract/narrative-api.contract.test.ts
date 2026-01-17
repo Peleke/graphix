@@ -19,14 +19,14 @@ const createTestApp = () => {
   app.route("/narrative", narrativeRoutes);
 
   // Error handling middleware (matches the real app)
-  app.onError((err, c) => {
-    // Handle validation errors
-    if (err.message.includes("required") || err.message.includes("must be")) {
-      return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
+  app.onError((err: Error & { code?: string; details?: unknown }, c) => {
+    // Handle ApiError (includes validation errors from Zod middleware)
+    if (err.code === "VALIDATION_ERROR") {
+      return c.json({ error: err.message, code: err.code, details: err.details }, 400);
     }
 
-    // Handle not found errors
-    if (err.message.includes("not found") || err.message.includes("Not found")) {
+    // Handle not found errors (from ApiError or message-based)
+    if (err.code === "NOT_FOUND" || err.message.includes("not found") || err.message.includes("Not found")) {
       return c.json({ error: err.message, code: "NOT_FOUND" }, 404);
     }
 
@@ -46,6 +46,7 @@ const createTestApp = () => {
     }
 
     // Default: 500 internal error
+    console.error("Unhandled error in test app:", err);
     return c.json({ error: "Internal server error", code: "INTERNAL_ERROR" }, 500);
   });
 
@@ -132,7 +133,7 @@ describe("Narrative API Contract Tests", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            projectId: "non-existent-id",
+            projectId: "00000000-0000-0000-0000-000000000000",
             logline: "A logline",
           }),
         });
@@ -160,7 +161,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when premise does not exist", async () => {
-        const res = await app.request("/narrative/premises/non-existent-id");
+        const res = await app.request("/narrative/premises/00000000-0000-0000-0000-000000000000");
 
         expect(res.status).toBe(404);
         const body = await res.json();
@@ -184,13 +185,14 @@ describe("Narrative API Contract Tests", () => {
 
         expect(res.status).toBe(200);
         const body = await res.json();
-        expect(body).toHaveProperty("premises");
+        // New API format uses 'data' instead of 'premises'
+        expect(body).toHaveProperty("data");
         expect(body).toHaveProperty("pagination");
-        expect(Array.isArray(body.premises)).toBe(true);
-        expect(body.premises).toHaveLength(2);
+        expect(Array.isArray(body.data)).toBe(true);
+        expect(body.data).toHaveLength(2);
         expect(body.pagination).toMatchObject({
-          limit: 100,
-          offset: 0,
+          limit: 20, // New default is 20
+          page: 1, // New format uses 'page' instead of 'offset'
           count: 2,
         });
       });
@@ -202,7 +204,7 @@ describe("Narrative API Contract Tests", () => {
 
         expect(res.status).toBe(200);
         const body = await res.json();
-        expect(body.premises).toEqual([]);
+        expect(body.data).toEqual([]);
         expect(body.pagination.count).toBe(0);
       });
     });
@@ -231,7 +233,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when premise does not exist", async () => {
-        const res = await app.request("/narrative/premises/non-existent-id", {
+        const res = await app.request("/narrative/premises/00000000-0000-0000-0000-000000000000", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ logline: "New logline" }),
@@ -261,7 +263,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when premise does not exist", async () => {
-        const res = await app.request("/narrative/premises/non-existent-id", {
+        const res = await app.request("/narrative/premises/00000000-0000-0000-0000-000000000000", {
           method: "DELETE",
         });
 
@@ -322,7 +324,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when premise does not exist", async () => {
-        const res = await app.request("/narrative/premises/non-existent-id/stories", {
+        const res = await app.request("/narrative/premises/00000000-0000-0000-0000-000000000000/stories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -355,7 +357,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when story does not exist", async () => {
-        const res = await app.request("/narrative/stories/non-existent-id");
+        const res = await app.request("/narrative/stories/00000000-0000-0000-0000-000000000000");
 
         expect(res.status).toBe(404);
       });
@@ -578,7 +580,7 @@ describe("Narrative API Contract Tests", () => {
       });
 
       it("returns 404 when beat does not exist", async () => {
-        const res = await app.request("/narrative/beats/non-existent-id", {
+        const res = await app.request("/narrative/beats/00000000-0000-0000-0000-000000000000", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ visualDescription: "New" }),
@@ -832,10 +834,11 @@ describe("Narrative API Contract Tests", () => {
 
   describe("Response Shape Consistency", () => {
     it("all error responses have error property", async () => {
+      // Use valid UUID format for IDs to avoid validation errors
       const endpoints = [
-        { method: "GET", path: "/narrative/premises/invalid" },
-        { method: "GET", path: "/narrative/stories/invalid" },
-        { method: "DELETE", path: "/narrative/beats/invalid" },
+        { method: "GET", path: "/narrative/premises/00000000-0000-0000-0000-000000000000" },
+        { method: "GET", path: "/narrative/stories/00000000-0000-0000-0000-000000000000" },
+        { method: "DELETE", path: "/narrative/beats/00000000-0000-0000-0000-000000000000" },
       ];
 
       for (const { method, path } of endpoints) {
@@ -852,10 +855,10 @@ describe("Narrative API Contract Tests", () => {
 
       const res = await app.request(`/narrative/projects/${project.id}/premises`);
       const body = await res.json();
-      // List responses use paginated structure with array in named property
-      expect(body).toHaveProperty("premises");
+      // List responses use paginated structure with 'data' array
+      expect(body).toHaveProperty("data");
       expect(body).toHaveProperty("pagination");
-      expect(Array.isArray(body.premises)).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
     });
 
     it("all created resources have id and timestamps", async () => {

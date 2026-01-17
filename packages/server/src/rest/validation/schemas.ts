@@ -63,24 +63,22 @@ export const updateProjectSchema = createProjectSchema.partial();
 // Character Schemas
 // ============================================================================
 
+/** Valid body types for characters */
+const VALID_BODY_TYPES = ["athletic", "slim", "muscular", "shortstack", "tall", "average"] as const;
+
 export const characterProfileSchema = z.object({
-  age: optionalString,
-  gender: optionalString,
-  ethnicity: optionalString,
-  bodyType: optionalString,
-  hairColor: optionalString,
-  hairStyle: optionalString,
-  eyeColor: optionalString,
-  distinguishingFeatures: z.array(z.string()).optional(),
-  clothingStyle: optionalString,
-  personality: optionalString,
-}).partial();
+  species: z.string().min(1, "Species is required"),
+  bodyType: z.enum(VALID_BODY_TYPES).optional(),
+  features: z.array(z.string()).optional(),
+  ageDescriptors: z.array(z.string()).optional(),
+  clothing: z.array(z.string()).optional(),
+  distinguishing: z.array(z.string()).optional(),
+});
 
 export const promptFragmentsSchema = z.object({
-  base: optionalString,
-  style: optionalString,
-  quality: optionalString,
+  positive: optionalString,
   negative: optionalString,
+  triggers: z.array(z.string()).optional(),
 }).partial();
 
 export const createCharacterSchema = z.object({
