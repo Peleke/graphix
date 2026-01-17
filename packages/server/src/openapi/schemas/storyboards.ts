@@ -29,7 +29,7 @@ export const StoryboardSchema = z
     name: z.string().describe("Storyboard name"),
     description: z.string().nullable().describe("Optional storyboard description"),
     lightingConfig: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe("Scene lighting configuration (JSON)"),
   })

@@ -140,7 +140,7 @@ export const ErrorSchema = z
       message: z.string().describe("Human-readable error message"),
       code: ErrorCodeSchema,
       details: z
-        .record(z.unknown())
+        .record(z.string(), z.unknown())
         .optional()
         .describe("Additional error context"),
     }),

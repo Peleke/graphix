@@ -111,7 +111,7 @@ export const StorySchema = z
     actualLength: z.number().int().nullable().optional().describe("Actual beat count"),
     structure: StoryStructureSchema.default("three-act").describe("Story structure"),
     structureNotes: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .nullable()
       .optional()
       .describe("Structure notes"),
@@ -153,7 +153,7 @@ export const BeatSchema = z
     emotionalTone: z.string().nullable().optional().describe("Emotional tone"),
     characterIds: z.array(IdSchema).default([]).describe("Character IDs"),
     characterActions: z
-      .record(z.string())
+      .record(z.string(), z.string())
       .nullable()
       .optional()
       .describe("Character actions"),
@@ -235,7 +235,7 @@ export const CreateBeatSchema = z
     narrativeContext: z.string().optional(),
     emotionalTone: z.string().optional(),
     characterIds: z.array(IdSchema).optional(),
-    characterActions: z.record(z.string()).optional(),
+    characterActions: z.record(z.string(), z.string()).optional(),
     cameraAngle: z.string().optional(),
     composition: z.string().optional(),
     dialogue: z.array(BeatDialogueSchema).optional(),

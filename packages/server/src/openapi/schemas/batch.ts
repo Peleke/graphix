@@ -74,7 +74,7 @@ export const BatchAddCaptionsSchema = z
             })
             .optional()
             .describe("Tail direction"),
-          style: z.record(z.unknown()).optional().describe("Caption style"),
+          style: z.record(z.string(), z.unknown()).optional().describe("Caption style"),
           zIndex: z.number().int().optional().describe("Z-index"),
         })
       )

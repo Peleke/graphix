@@ -87,7 +87,7 @@ export const ImageReviewSchema = z
 export const ReviewImageSchema = z
   .object({
     prompt: z.string().max(20000).optional().describe("Prompt override"),
-    context: z.record(z.unknown()).optional().describe("Additional context"),
+    context: z.record(z.string(), z.unknown()).optional().describe("Additional context"),
   })
   .describe("Review image request");
 

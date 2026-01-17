@@ -77,7 +77,7 @@ export const GeneratedTextSchema = z
     isEdited: z.boolean().default(false).describe("Whether text was edited"),
     editedAt: z.string().datetime().nullable().optional().describe("Edit timestamp"),
     originalText: z.string().nullable().optional().describe("Original text before edits"),
-    metadata: z.record(z.unknown()).nullable().optional().describe("Additional metadata"),
+    metadata: z.record(z.string(), z.unknown()).nullable().optional().describe("Additional metadata"),
   })
   .merge(TimestampsSchema)
   .describe("Generated text");
@@ -229,7 +229,7 @@ export const CreateGeneratedTextSchema = z
     systemPrompt: z.string().max(100000).optional(),
     temperature: z.number().optional(),
     maxTokens: z.number().int().optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .describe("Create generated text request");
 
@@ -240,7 +240,7 @@ export const UpdateGeneratedTextSchema = z
   .object({
     text: z.string().min(1).max(500000).optional(),
     status: GeneratedTextStatusSchema.optional(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .describe("Update generated text request");
 
@@ -313,8 +313,8 @@ export const SuggestCaptionsResponseSchema = z
 export const GeneratedTextStatsSchema = z
   .object({
     total: z.number().int(),
-    byType: z.record(z.number().int()),
-    byStatus: z.record(z.number().int()),
+    byType: z.record(z.string(), z.number().int()),
+    byStatus: z.record(z.string(), z.number().int()),
     totalTokens: z.number().int().optional(),
   })
   .describe("Generated text statistics");

@@ -54,7 +54,7 @@ export const CaptionPositionObjectSchema = z
  * Caption style object
  */
 export const CaptionStyleObjectSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .optional()
   .describe("Caption style configuration (JSON)");
 
@@ -129,7 +129,7 @@ export const GenerateCaptionsOptionsSchema = z
     includeNarration: z.boolean().optional().describe("Include narration captions"),
     includeSfx: z.boolean().optional().describe("Include sound effects"),
     defaultPositions: z
-      .record(CaptionPositionObjectSchema)
+      .record(z.string(), CaptionPositionObjectSchema)
       .optional()
       .describe("Default positions by caption type"),
   })
