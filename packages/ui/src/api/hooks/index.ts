@@ -7,3 +7,4 @@
 export * from "./useProjects";
 export * from "./useCharacters";
 export * from "./useStories";
+export * from "./useGenerations";
