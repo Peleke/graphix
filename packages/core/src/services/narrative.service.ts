@@ -31,7 +31,9 @@ import {
   type CaptionPosition,
 } from "../db/index.js";
 import { getPanelService } from "./panel.service.js";
-import { getLLMService, type InferredCaption } from "./llm.service.js";
+import { getLLMService } from "./llm.service.js";
+import { getTextGenerationService } from "./text-generation.service.js";
+import type { InferredCaption } from "./text-generation.types.js";
 import { validatePosition as validatePositionUtil, sanitizeText } from "../utils/security.js";
 
 // ============================================================================
@@ -960,11 +962,12 @@ export class NarrativeService {
         beat.visualDescription.trim().length > 0
       ) {
         try {
-          const llmService = getLLMService();
+          const textGenService = getTextGenerationService();
 
-          // Only attempt inference if LLM service is ready
-          if (llmService.isReady()) {
-            const inferredCaptions = await llmService.inferCaptionsFromVisualDescription(
+          // Only attempt inference if text generation service is available
+          const status = await textGenService.getStatus();
+          if (status.available) {
+            const inferredCaptions = await textGenService.suggestCaptions(
               beat.visualDescription
             );
 
