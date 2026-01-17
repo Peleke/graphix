@@ -5,8 +5,8 @@
  */
 
 import { mkdir, writeFile, unlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { join, dirname, extname, basename } from "node:path";
+import { lstatSync } from "node:fs";
+import { join, dirname, extname, basename, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { validateFilePathWithinAllowedDirs } from "./security.js";
@@ -81,6 +81,20 @@ const MIME_TO_EXTENSION: Record<string, string> = {
   "image/webp": ".webp",
 };
 
+/** Magic bytes (file signatures) for image validation - P0 SECURITY */
+const MAGIC_BYTES: Record<string, number[]> = {
+  "image/jpeg": [0xff, 0xd8, 0xff],
+  "image/jpg": [0xff, 0xd8, 0xff],
+  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  "image/webp": [0x52, 0x49, 0x46, 0x46], // RIFF header (WebP also has WEBP at offset 8)
+};
+
+/** Maximum image dimension to prevent DoS via decompression bomb - P1 SECURITY */
+const MAX_IMAGE_DIMENSION = 16384; // 16K pixels
+
+/** Character ID validation pattern (UUID or alphanumeric) - P1 SECURITY */
+const VALID_CHARACTER_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
 // ============================================================================
 // Validation
 // ============================================================================
@@ -132,6 +146,96 @@ export function validateFileSize(
     throw new UploadError(
       `File size (${fileMB}MB) exceeds maximum allowed size (${maxMB}MB)`,
       "FILE_TOO_LARGE"
+    );
+  }
+}
+
+/**
+ * Validate file content matches claimed MIME type via magic bytes.
+ * P0 SECURITY: Prevents MIME type spoofing attacks.
+ */
+export function validateMagicBytes(buffer: Buffer, mimeType: string): void {
+  const expectedBytes = MAGIC_BYTES[mimeType.toLowerCase()];
+  if (!expectedBytes) {
+    // No magic bytes defined for this type - skip validation
+    return;
+  }
+
+  if (buffer.length < expectedBytes.length) {
+    throw new UploadError(
+      "File is too small to be a valid image",
+      "INVALID_MAGIC_BYTES"
+    );
+  }
+
+  // Check magic bytes match
+  for (let i = 0; i < expectedBytes.length; i++) {
+    if (buffer[i] !== expectedBytes[i]) {
+      throw new UploadError(
+        "File content does not match declared MIME type",
+        "INVALID_MAGIC_BYTES"
+      );
+    }
+  }
+
+  // Additional check for WebP: verify WEBP signature at offset 8
+  if (mimeType.toLowerCase() === "image/webp") {
+    if (buffer.length < 12) {
+      throw new UploadError(
+        "File is too small to be a valid WebP image",
+        "INVALID_MAGIC_BYTES"
+      );
+    }
+    const webpSignature = [0x57, 0x45, 0x42, 0x50]; // "WEBP"
+    for (let i = 0; i < webpSignature.length; i++) {
+      if (buffer[8 + i] !== webpSignature[i]) {
+        throw new UploadError(
+          "File content does not match declared MIME type",
+          "INVALID_MAGIC_BYTES"
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Validate character ID to prevent path injection.
+ * P1 SECURITY: Prevents path traversal via malicious character IDs.
+ */
+export function validateCharacterId(characterId: string): void {
+  if (!characterId || typeof characterId !== "string") {
+    throw new UploadError("Character ID is required", "INVALID_CHARACTER_ID");
+  }
+
+  if (!VALID_CHARACTER_ID_PATTERN.test(characterId)) {
+    throw new UploadError(
+      "Character ID contains invalid characters",
+      "INVALID_CHARACTER_ID"
+    );
+  }
+
+  // Prevent path traversal attempts
+  if (characterId.includes("..") || characterId.includes("/") || characterId.includes("\\")) {
+    throw new UploadError(
+      "Character ID contains invalid path characters",
+      "INVALID_CHARACTER_ID"
+    );
+  }
+}
+
+/**
+ * Validate image dimensions to prevent decompression bomb DoS.
+ * P1 SECURITY: Prevents memory exhaustion via oversized images.
+ */
+export function validateImageDimensions(
+  width: number,
+  height: number,
+  maxDimension: number = MAX_IMAGE_DIMENSION
+): void {
+  if (width > maxDimension || height > maxDimension) {
+    throw new UploadError(
+      `Image dimensions (${width}x${height}) exceed maximum allowed (${maxDimension}x${maxDimension})`,
+      "IMAGE_TOO_LARGE"
     );
   }
 }
@@ -207,9 +311,10 @@ export async function processUpload(
     ? fileData
     : Buffer.from(fileData);
 
-  // Validate
+  // Validate file type, size, and magic bytes (P0 SECURITY)
   validateFileType(mimeType, originalFilename, allowedTypes);
   validateFileSize(buffer.length, maxSize);
+  validateMagicBytes(buffer, mimeType);
 
   // Generate filename
   const sanitizedOriginal = sanitizeFilename(originalFilename);
@@ -218,17 +323,42 @@ export async function processUpload(
     ? `${sanitizeFilename(filename)}${ext}`
     : `${randomUUID()}${ext}`;
 
-  // Construct paths
-  const originalPath = join(destDir, savedFilename);
+  // Construct paths - resolve to absolute to prevent symlink shenanigans
+  const resolvedDestDir = resolve(destDir);
+  const originalPath = join(resolvedDestDir, savedFilename);
   const thumbnailFilename = `thumb_${savedFilename}`;
-  const thumbnailPath = join(destDir, thumbnailFilename);
+  const thumbnailPath = join(resolvedDestDir, thumbnailFilename);
 
   // Validate destination is within allowed directories
   validateFilePathWithinAllowedDirs(originalPath, "write");
 
-  // Create destination directory if it doesn't exist
-  if (!existsSync(destDir)) {
-    await mkdir(destDir, { recursive: true });
+  // P1 SECURITY: Check if destDir exists and is a symlink (symlink attack prevention)
+  try {
+    const stats = lstatSync(resolvedDestDir);
+    if (stats.isSymbolicLink()) {
+      throw new UploadError(
+        "Destination directory cannot be a symbolic link",
+        "SYMLINK_NOT_ALLOWED"
+      );
+    }
+  } catch (err) {
+    // Directory doesn't exist yet - that's fine, we'll create it
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw err;
+    }
+  }
+
+  // P1 SECURITY: Atomic directory creation (fixes TOCTOU race condition)
+  // mkdir with recursive:true is atomic and won't fail if dir exists
+  await mkdir(resolvedDestDir, { recursive: true });
+
+  // After creation, verify it's not a symlink (race condition protection)
+  const postCreateStats = lstatSync(resolvedDestDir);
+  if (postCreateStats.isSymbolicLink()) {
+    throw new UploadError(
+      "Destination directory cannot be a symbolic link",
+      "SYMLINK_NOT_ALLOWED"
+    );
   }
 
   // Get image metadata using sharp
@@ -239,9 +369,15 @@ export async function processUpload(
     try {
       const metadata = await sharp(buffer).metadata();
       if (metadata.width && metadata.height) {
+        // P1 SECURITY: Validate image dimensions to prevent decompression bomb
+        validateImageDimensions(metadata.width, metadata.height);
         dimensions = { width: metadata.width, height: metadata.height };
       }
-    } catch {
+    } catch (err) {
+      // Check if it's our dimension error
+      if (err instanceof UploadError) {
+        throw err;
+      }
       // Not a valid image despite MIME type
       throw new UploadError(
         "File appears to be corrupted or not a valid image",
@@ -307,8 +443,12 @@ export async function deleteUpload(
 
 /**
  * Get the default upload directory for character references.
+ * P1 SECURITY: Validates character ID to prevent path injection.
  */
 export function getCharacterUploadDir(characterId: string): string {
+  // P1 SECURITY: Validate character ID before using in path
+  validateCharacterId(characterId);
+
   const baseDir = process.env.GRAPHIX_UPLOAD_DIR || "./uploads";
   return join(baseDir, "characters", characterId);
 }

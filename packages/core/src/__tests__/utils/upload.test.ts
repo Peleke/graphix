@@ -10,6 +10,9 @@ import {
   processUpload,
   validateFileType,
   validateFileSize,
+  validateMagicBytes,
+  validateCharacterId,
+  validateImageDimensions,
   sanitizeFilename,
   deleteUpload,
   getCharacterUploadDir,
@@ -90,6 +93,126 @@ describe("Upload Utilities", () => {
     it("uses custom size limit", () => {
       expect(() => validateFileSize(1024, 512)).toThrow(UploadError);
       expect(() => validateFileSize(512, 1024)).not.toThrow();
+    });
+  });
+
+  // ============================================================================
+  // validateMagicBytes (P0 Security)
+  // ============================================================================
+
+  describe("validateMagicBytes", () => {
+    it("accepts valid PNG magic bytes", () => {
+      const pngBuffer = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+        0x00, 0x00, 0x00, 0x00, // padding
+      ]);
+      expect(() => validateMagicBytes(pngBuffer, "image/png")).not.toThrow();
+    });
+
+    it("accepts valid JPEG magic bytes", () => {
+      const jpegBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, // JPEG signature
+        0x00, 0x00, 0x00, 0x00, // padding
+      ]);
+      expect(() => validateMagicBytes(jpegBuffer, "image/jpeg")).not.toThrow();
+    });
+
+    it("accepts valid WebP magic bytes", () => {
+      const webpBuffer = Buffer.from([
+        0x52, 0x49, 0x46, 0x46, // RIFF
+        0x00, 0x00, 0x00, 0x00, // file size
+        0x57, 0x45, 0x42, 0x50, // WEBP
+      ]);
+      expect(() => validateMagicBytes(webpBuffer, "image/webp")).not.toThrow();
+    });
+
+    it("rejects mismatched magic bytes", () => {
+      const jpegBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, // JPEG signature
+        0x00, 0x00, 0x00, 0x00, // padding
+      ]);
+      expect(() => validateMagicBytes(jpegBuffer, "image/png")).toThrow(UploadError);
+    });
+
+    it("rejects files too small for magic bytes", () => {
+      const tinyBuffer = Buffer.from([0x89, 0x50]); // Only 2 bytes
+      expect(() => validateMagicBytes(tinyBuffer, "image/png")).toThrow(UploadError);
+    });
+
+    it("rejects invalid WebP (missing WEBP signature)", () => {
+      const badWebp = Buffer.from([
+        0x52, 0x49, 0x46, 0x46, // RIFF
+        0x00, 0x00, 0x00, 0x00, // file size
+        0x00, 0x00, 0x00, 0x00, // NOT WEBP
+      ]);
+      expect(() => validateMagicBytes(badWebp, "image/webp")).toThrow(UploadError);
+    });
+
+    it("skips validation for unknown MIME types", () => {
+      const buffer = Buffer.from("any content");
+      // Should not throw for types we don't have magic bytes for
+      expect(() => validateMagicBytes(buffer, "application/octet-stream")).not.toThrow();
+    });
+  });
+
+  // ============================================================================
+  // validateCharacterId (P1 Security)
+  // ============================================================================
+
+  describe("validateCharacterId", () => {
+    it("accepts valid character IDs", () => {
+      expect(() => validateCharacterId("char-123")).not.toThrow();
+      expect(() => validateCharacterId("my_character")).not.toThrow();
+      expect(() => validateCharacterId("abc123")).not.toThrow();
+      expect(() => validateCharacterId("UUID-like-123-abc")).not.toThrow();
+    });
+
+    it("rejects path traversal attempts", () => {
+      expect(() => validateCharacterId("../../../etc")).toThrow(UploadError);
+      expect(() => validateCharacterId("char/../admin")).toThrow(UploadError);
+    });
+
+    it("rejects directory separators", () => {
+      expect(() => validateCharacterId("char/nested")).toThrow(UploadError);
+      expect(() => validateCharacterId("char\\nested")).toThrow(UploadError);
+    });
+
+    it("rejects special characters", () => {
+      expect(() => validateCharacterId("char<script>")).toThrow(UploadError);
+      expect(() => validateCharacterId("char;rm -rf")).toThrow(UploadError);
+    });
+
+    it("rejects empty or null IDs", () => {
+      expect(() => validateCharacterId("")).toThrow(UploadError);
+      expect(() => validateCharacterId(null as any)).toThrow(UploadError);
+    });
+  });
+
+  // ============================================================================
+  // validateImageDimensions (P1 Security)
+  // ============================================================================
+
+  describe("validateImageDimensions", () => {
+    it("accepts normal image dimensions", () => {
+      expect(() => validateImageDimensions(1920, 1080)).not.toThrow();
+      expect(() => validateImageDimensions(4096, 4096)).not.toThrow();
+    });
+
+    it("accepts images at the limit", () => {
+      expect(() => validateImageDimensions(16384, 16384)).not.toThrow();
+    });
+
+    it("rejects oversized width", () => {
+      expect(() => validateImageDimensions(20000, 1080)).toThrow(UploadError);
+    });
+
+    it("rejects oversized height", () => {
+      expect(() => validateImageDimensions(1920, 20000)).toThrow(UploadError);
+    });
+
+    it("uses custom max dimension", () => {
+      expect(() => validateImageDimensions(2000, 2000, 1000)).toThrow(UploadError);
+      expect(() => validateImageDimensions(500, 500, 1000)).not.toThrow();
     });
   });
 
@@ -185,6 +308,21 @@ describe("Upload Utilities", () => {
       expect(existsSync(newDir)).toBe(true);
       expect(existsSync(result.originalPath)).toBe(true);
     });
+
+    it("rejects files with invalid magic bytes (P0 Security)", async () => {
+      // Create a buffer that claims to be PNG but has JPEG magic bytes
+      const fakeBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, // JPEG signature, not PNG
+        0x00, 0x00, 0x00, 0x00,
+      ]);
+
+      await expect(
+        processUpload(fakeBuffer, "fake.png", "image/png", {
+          destDir: TEST_UPLOAD_DIR,
+          generateThumbnail: false,
+        })
+      ).rejects.toThrow(UploadError);
+    });
   });
 
   // ============================================================================
@@ -237,6 +375,16 @@ describe("Upload Utilities", () => {
       } else {
         delete process.env.GRAPHIX_UPLOAD_DIR;
       }
+    });
+
+    it("rejects path traversal attempts (P1 Security)", () => {
+      expect(() => getCharacterUploadDir("../../../etc")).toThrow(UploadError);
+      expect(() => getCharacterUploadDir("char/../admin")).toThrow(UploadError);
+    });
+
+    it("rejects invalid character IDs (P1 Security)", () => {
+      expect(() => getCharacterUploadDir("char<script>")).toThrow(UploadError);
+      expect(() => getCharacterUploadDir("")).toThrow(UploadError);
     });
   });
 });
