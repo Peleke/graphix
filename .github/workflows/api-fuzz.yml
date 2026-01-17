@@ -1,0 +1,142 @@
+name: API Fuzz Testing
+
+on:
+  pull_request:
+    branches: [main]
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      max_examples:
+        description: 'Maximum examples per endpoint'
+        required: false
+        default: '500'
+
+concurrency:
+  group: api-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schemathesis:
+    name: Schemathesis Property-Based Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Start server in background
+        run: |
+          bun run start &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+        env:
+          NODE_ENV: test
+
+      - name: Wait for server to be ready
+        run: |
+          echo "Waiting for server to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3002/health > /dev/null 2>&1; then
+              echo "Server is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting..."
+            sleep 2
+          done
+          echo "Server failed to start within 60 seconds"
+          exit 1
+
+      - name: Verify OpenAPI spec is accessible
+        run: |
+          echo "Checking OpenAPI spec endpoint..."
+          curl -f http://localhost:3002/api/docs/spec.json | head -c 500
+          echo ""
+          echo "OpenAPI spec is accessible!"
+
+      - name: Run Schemathesis
+        id: schemathesis
+        continue-on-error: true
+        run: |
+          MAX_EXAMPLES="${{ github.event.inputs.max_examples || '500' }}"
+          echo "Running Schemathesis with ${MAX_EXAMPLES} examples per endpoint..."
+
+          docker run --rm \
+            --network="host" \
+            -v ${{ github.workspace }}:/workspace \
+            schemathesis/schemathesis:stable \
+            run http://localhost:3002/api/docs/spec.json \
+            --hypothesis-max-examples=${MAX_EXAMPLES} \
+            --hypothesis-deadline=120000 \
+            --checks=all \
+            --stateful=links \
+            --validate-schema=true \
+            --cassette-path=/workspace/schemathesis-cassette.yaml \
+            --report=/workspace/schemathesis-report.tar.gz \
+            2>&1 | tee schemathesis-output.txt
+
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            kill $SERVER_PID 2>/dev/null || true
+          fi
+
+      - name: Upload Schemathesis Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemathesis-report
+          path: |
+            schemathesis-report.tar.gz
+            schemathesis-cassette.yaml
+            schemathesis-output.txt
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Parse test results
+        if: always()
+        run: |
+          echo "## Schemathesis Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f schemathesis-output.txt ]; then
+            # Extract key metrics if available
+            if grep -q "PASSED" schemathesis-output.txt; then
+              echo ":white_check_mark: **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            elif grep -q "FAILED" schemathesis-output.txt; then
+              echo ":x: **Some tests failed**" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Failures" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              grep -A 10 "FAILED\|ERROR\|Failure" schemathesis-output.txt | head -50 >> $GITHUB_STEP_SUMMARY || true
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Test Output (last 50 lines)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 schemathesis-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No output file found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check test result
+        if: steps.schemathesis.outputs.exit_code != '0'
+        run: |
+          echo "Schemathesis tests failed!"
+          echo "Check the uploaded artifacts for detailed failure reports."
+          exit 1

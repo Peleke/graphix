@@ -21,6 +21,9 @@
     "test:server": "bun test packages/server",
     "test:all": "bun test packages/core && bun test packages/server",
     "test:coverage": "bun test packages/core --coverage",
+    "test:fuzz": "./scripts/run-fuzz.sh 500",
+    "test:fuzz:quick": "./scripts/run-fuzz.sh 100",
+    "setup:hooks": "./scripts/setup-hooks.sh",
     "typecheck": "tsc --build",
     "lint": "echo 'ESLint not configured yet'"
   },

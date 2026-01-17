@@ -1,0 +1,45 @@
+# Schemathesis Configuration
+# Property-based API testing from OpenAPI spec
+# Documentation: https://schemathesis.readthedocs.io/en/stable/configuration.html
+
+[api]
+# Base URL for the API server
+# This is overridden by CLI --url flag in pre-push hook and CI
+base_url = "http://localhost:3002"
+
+[generation]
+# Allow Unicode strings in generated test data
+allow_x00 = false
+
+[output]
+# Output format for test results
+color = "auto"
+
+[phases.explicit]
+# Enable explicit examples testing (from OpenAPI spec)
+enabled = true
+
+[phases.generate]
+# Enable generated test cases
+enabled = true
+
+[phases.stateful]
+# Enable stateful testing (link operations)
+enabled = true
+
+# Default checks (all enabled)
+# - not_a_server_error: Response code is not 5xx
+# - status_code_conformance: Response status matches documented codes
+# - content_type_conformance: Response content-type matches documented types
+# - response_headers_conformance: Response headers match spec
+# - response_schema_conformance: Response body matches documented schema
+# - negative_data_rejection: Invalid data should be rejected (4xx)
+# - use_after_free: Stateful test check
+
+# Custom checks can be added via Python hooks (see scripts/schemathesis_hooks.py)
+
+# Notes:
+# - No auth configuration needed currently (API has no auth)
+# - If auth is added later, configure here:
+#   [headers]
+#   Authorization = "Bearer ${API_TOKEN}"
