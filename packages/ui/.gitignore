@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Generated Panda CSS output
+styled-system/
+
+# Vite
+*.local
+
+# Playwright
+playwright-report/
+playwright/.cache/
+test-results/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
