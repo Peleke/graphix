@@ -9,16 +9,11 @@ import { getStoryboardService, getPanelService } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import {
   validateBody,
-  validateQuery,
   validateId,
-  paginationSchema,
   createStoryboardSchema,
   updateStoryboardSchema,
   createPanelSchema,
-  projectIdParamSchema,
-  createPaginatedResponse,
 } from "../validation/index.js";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 
 // Schema for duplicate request (name only)

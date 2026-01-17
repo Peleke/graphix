@@ -13,130 +13,221 @@ import {
   listQualityPresets,
   type QualityPresetId,
   type SlotContext,
+  type ModelFamily,
 } from "@graphix/core";
+import { errors } from "../errors/index.js";
+import {
+  validateBody,
+  validateId,
+  validateParam,
+  updatePanelSchema,
+  uuidSchema,
+} from "../validation/index.js";
+import { z } from "zod";
+
+// Local schemas for panel-specific operations
+const addCharacterSchema = z.object({
+  characterId: uuidSchema,
+});
+
+const setCharactersSchema = z.object({
+  characterIds: z.array(uuidSchema),
+});
+
+const selectOutputSchema = z.object({
+  outputId: uuidSchema,
+});
+
+const reorderSchema = z.object({
+  position: z.number().int().nonnegative(),
+});
+
+const recommendSizeSchema = z.object({
+  templateId: z.string().min(1),
+  slotId: z.string().min(1),
+  pageSizePreset: z.string().optional(),
+  modelFamily: z.string().optional(),
+});
+
+const templateSizesSchema = z.object({
+  templateId: z.string().min(1),
+  pageSizePreset: z.string().optional(),
+  modelFamily: z.string().optional(),
+});
+
+// Schema for character ID param
+const characterIdParamSchema = z.object({
+  id: uuidSchema,
+  characterId: uuidSchema,
+});
 
 const panelRoutes = new Hono();
 
 // Get panel by ID
-panelRoutes.get("/:id", async (c) => {
+panelRoutes.get("/:id", validateId(), async (c) => {
   const service = getPanelService();
-  const panel = await service.getById(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const panel = await service.getById(id);
 
   if (!panel) {
-    return c.json({ error: "Panel not found" }, 404);
+    return errors.notFound(c, "Panel", id);
   }
 
   return c.json(panel);
 });
 
 // Get panel with generations
-panelRoutes.get("/:id/full", async (c) => {
+panelRoutes.get("/:id/full", validateId(), async (c) => {
   const service = getPanelService();
-  const panel = await service.getById(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const panel = await service.getById(id);
 
   if (!panel) {
-    return c.json({ error: "Panel not found" }, 404);
+    return errors.notFound(c, "Panel", id);
   }
 
-  const generations = await service.getGenerations(c.req.param("id"));
+  const generations = await service.getGenerations(id);
 
   return c.json({ panel, generations });
 });
 
 // Update panel description and direction
-panelRoutes.post("/:id/describe", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.post(
+  "/:id/describe",
+  validateId(),
+  validateBody(updatePanelSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.describe(c.req.param("id"), {
-    description: body.description,
-    direction: body.direction,
-  });
+    const panel = await service.describe(id, {
+      description: body.description,
+      direction: body.direction,
+    });
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Update panel (general)
-panelRoutes.put("/:id", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.put(
+  "/:id",
+  validateId(),
+  validateBody(updatePanelSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.describe(c.req.param("id"), {
-    description: body.description,
-    direction: body.direction,
-  });
+    const panel = await service.describe(id, {
+      description: body.description,
+      direction: body.direction,
+    });
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Add character to panel
-panelRoutes.post("/:id/characters", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.post(
+  "/:id/characters",
+  validateId(),
+  validateBody(addCharacterSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.addCharacter(c.req.param("id"), body.characterId);
+    const panel = await service.addCharacter(id, body.characterId);
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Set characters (replace all)
-panelRoutes.put("/:id/characters", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.put(
+  "/:id/characters",
+  validateId(),
+  validateBody(setCharactersSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.setCharacters(c.req.param("id"), body.characterIds);
+    const panel = await service.setCharacters(id, body.characterIds);
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Remove character from panel
-panelRoutes.delete("/:id/characters/:characterId", async (c) => {
-  const service = getPanelService();
-  const panel = await service.removeCharacter(c.req.param("id"), c.req.param("characterId"));
+panelRoutes.delete(
+  "/:id/characters/:characterId",
+  validateParam(characterIdParamSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id, characterId } = c.req.valid("param");
+    const panel = await service.removeCharacter(id, characterId);
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Select output
-panelRoutes.post("/:id/select", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.post(
+  "/:id/select",
+  validateId(),
+  validateBody(selectOutputSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.selectOutput(c.req.param("id"), body.outputId);
+    const panel = await service.selectOutput(id, body.outputId);
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Clear selection
-panelRoutes.delete("/:id/select", async (c) => {
+panelRoutes.delete("/:id/select", validateId(), async (c) => {
   const service = getPanelService();
-  const panel = await service.clearSelection(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const panel = await service.clearSelection(id);
 
   return c.json(panel);
 });
 
 // Get generations for panel
-panelRoutes.get("/:id/generations", async (c) => {
+panelRoutes.get("/:id/generations", validateId(), async (c) => {
   const service = getPanelService();
-  const generations = await service.getGenerations(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  const generations = await service.getGenerations(id);
 
   return c.json({ generations });
 });
 
 // Reorder panel
-panelRoutes.post("/:id/reorder", async (c) => {
-  const service = getPanelService();
-  const body = await c.req.json();
+panelRoutes.post(
+  "/:id/reorder",
+  validateId(),
+  validateBody(reorderSchema),
+  async (c) => {
+    const service = getPanelService();
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-  const panel = await service.reorder(c.req.param("id"), body.position);
+    const panel = await service.reorder(id, body.position);
 
-  return c.json(panel);
-});
+    return c.json(panel);
+  }
+);
 
 // Generate image for panel
-panelRoutes.post("/:id/generate", async (c) => {
+panelRoutes.post("/:id/generate", validateId(), async (c) => {
   const generator = getPanelGenerator();
-  const panelId = c.req.param("id");
+  const { id: panelId } = c.req.valid("param");
   const body = await c.req.json().catch(() => ({}));
 
   // Build slot context if composition params provided
@@ -166,7 +257,7 @@ panelRoutes.post("/:id/generate", async (c) => {
   });
 
   if (!result.success) {
-    return c.json({ error: result.error }, 500);
+    return errors.internal(c, result.error || "Generation failed");
   }
 
   return c.json({
@@ -178,9 +269,9 @@ panelRoutes.post("/:id/generate", async (c) => {
 });
 
 // Generate multiple variants for panel
-panelRoutes.post("/:id/generate/variants", async (c) => {
+panelRoutes.post("/:id/generate/variants", validateId(), async (c) => {
   const generator = getPanelGenerator();
-  const panelId = c.req.param("id");
+  const { id: panelId } = c.req.valid("param");
   const body = await c.req.json().catch(() => ({}));
 
   // Build slot context if composition params provided
@@ -224,9 +315,10 @@ panelRoutes.post("/:id/generate/variants", async (c) => {
 });
 
 // Delete panel
-panelRoutes.delete("/:id", async (c) => {
+panelRoutes.delete("/:id", validateId(), async (c) => {
   const service = getPanelService();
-  await service.delete(c.req.param("id"));
+  const { id } = c.req.valid("param");
+  await service.delete(id);
 
   return c.body(null, 204);
 });
@@ -248,56 +340,56 @@ panelRoutes.get("/config/quality", async (c) => {
 });
 
 // Get recommended size for a slot
-panelRoutes.post("/config/recommend-size", async (c) => {
-  const body = await c.req.json();
-  const { templateId, slotId, pageSizePreset, modelFamily } = body;
+panelRoutes.post(
+  "/config/recommend-size",
+  validateBody(recommendSizeSchema),
+  async (c) => {
+    const body = c.req.valid("json");
+    const { templateId, slotId, pageSizePreset, modelFamily } = body;
 
-  if (!templateId || !slotId) {
-    return c.json({ error: "templateId and slotId are required" }, 400);
+    const engine = getConfigEngine();
+    const dimensions = engine.getDimensionsForSlot(templateId, slotId, {
+      pageSizePreset,
+      modelFamily: modelFamily as ModelFamily | undefined,
+    });
+
+    return c.json({
+      templateId,
+      slotId,
+      pageSizePreset: pageSizePreset ?? "comic_standard",
+      modelFamily: modelFamily ?? "pony",
+      recommended: dimensions,
+    });
   }
-
-  const engine = getConfigEngine();
-  const dimensions = engine.getDimensionsForSlot(templateId, slotId, {
-    pageSizePreset,
-    modelFamily,
-  });
-
-  return c.json({
-    templateId,
-    slotId,
-    pageSizePreset: pageSizePreset ?? "comic_standard",
-    modelFamily: modelFamily ?? "pony",
-    recommended: dimensions,
-  });
-});
+);
 
 // Get sizes for all slots in a template
-panelRoutes.post("/config/template-sizes", async (c) => {
-  const body = await c.req.json();
-  const { templateId, pageSizePreset, modelFamily } = body;
+panelRoutes.post(
+  "/config/template-sizes",
+  validateBody(templateSizesSchema),
+  async (c) => {
+    const body = c.req.valid("json");
+    const { templateId, pageSizePreset, modelFamily } = body;
 
-  if (!templateId) {
-    return c.json({ error: "templateId is required" }, 400);
+    const engine = getConfigEngine();
+    const sizeMap = engine.getTemplateSizeMap(templateId, {
+      pageSizePreset,
+      modelFamily: modelFamily as ModelFamily | undefined,
+    });
+
+    // Convert Map to object for JSON serialization
+    const slots: Record<string, { width: number; height: number; aspectRatio: number; presetId?: string }> = {};
+    for (const [slotId, dimensions] of sizeMap) {
+      slots[slotId] = dimensions;
+    }
+
+    return c.json({
+      templateId,
+      pageSizePreset: pageSizePreset ?? "comic_standard",
+      modelFamily: modelFamily ?? "pony",
+      slots,
+    });
   }
-
-  const engine = getConfigEngine();
-  const sizeMap = engine.getTemplateSizeMap(templateId, {
-    pageSizePreset,
-    modelFamily,
-  });
-
-  // Convert Map to object for JSON serialization
-  const slots: Record<string, { width: number; height: number; aspectRatio: number; presetId?: string }> = {};
-  for (const [slotId, dimensions] of sizeMap) {
-    slots[slotId] = dimensions;
-  }
-
-  return c.json({
-    templateId,
-    pageSizePreset: pageSizePreset ?? "comic_standard",
-    modelFamily: modelFamily ?? "pony",
-    slots,
-  });
-});
+);
 
 export { panelRoutes };
