@@ -11,7 +11,20 @@ export const compositionPaths: Record<string, any> = {
       summary: "List templates",
       description: "Returns all available page composition templates.",
       responses: {
-        "200": { description: "List of templates", content: { "application/json": { schema: { type: "object", properties: { templates: { type: "array", items: { type: "object" } }, count: { type: "number" } } } } } } },
+        "200": {
+          description: "List of templates",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  templates: { type: "array", items: { type: "object" } },
+                  count: { type: "number" },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
