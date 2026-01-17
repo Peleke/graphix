@@ -1,5 +1,5 @@
 # ============================================================================
-# GRAPHIX MAKEFILE - Easy as diarrhea in the wind 🏴‍☠️💨
+# GRAPHIX MAKEFILE - Development automation for the Graphix monorepo
 # ============================================================================
 
 .PHONY: help install dev dev-web dev-desktop dev-server build test clean nuke
