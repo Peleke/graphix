@@ -8,19 +8,15 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useGenerationTreeStore } from '../store';
 import type { GenerationNode, GenerationStatus, GenerationType } from '../types';
 
+import { DEFAULT_LAYOUT_OPTIONS } from '../types';
+
 // Reset store before each test
 beforeEach(() => {
   useGenerationTreeStore.setState({
     trees: new Map(),
     activeTreeId: null,
     viewMode: 'full',
-    layoutOptions: {
-      nodeSize: 80,
-      nodeSpacingX: 120,
-      nodeSpacingY: 150,
-      direction: 'vertical',
-      compactMode: false,
-    },
+    layoutOptions: { ...DEFAULT_LAYOUT_OPTIONS },
     hoveredNodeId: null,
     contextMenuNodeId: null,
     comparisonNodeIds: [],

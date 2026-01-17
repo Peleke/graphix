@@ -8,6 +8,10 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { enableMapSet } from 'immer';
+
+// Enable Map/Set support in immer
+enableMapSet();
 import type {
   GenerationTree,
   GenerationNode,
@@ -18,9 +22,8 @@ import type {
   TreeLayoutOptions,
   NodeAction,
   TreeStats,
-  DEFAULT_LAYOUT_OPTIONS,
-  DEFAULT_TREE_STATS,
 } from './types';
+import { DEFAULT_LAYOUT_OPTIONS, DEFAULT_TREE_STATS } from './types';
 
 // ============================================================================
 // Store State

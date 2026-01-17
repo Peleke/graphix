@@ -231,6 +231,12 @@ export interface TreeLayoutOptions {
   
   /** Maximum depth to render (performance) */
   maxRenderDepth?: number;
+  
+  /** Layout direction */
+  direction: LayoutDirection;
+  
+  /** Compact mode for dense trees */
+  compactMode: boolean;
 }
 
 // ============================================================================
@@ -267,7 +273,7 @@ export interface GenerationTreeProps {
 // Default Values
 // ============================================================================
 
-export const DEFAULT_LAYOUT_OPTIONS: TreeLayoutOptions = {
+export const DEFAULT_LAYOUT_OPTIONS: TreeLayoutOptions = Object.freeze({
   nodeSpacingX: 120,
   nodeSpacingY: 150,
   nodeSize: 80,
@@ -275,13 +281,17 @@ export const DEFAULT_LAYOUT_OPTIONS: TreeLayoutOptions = {
   showRejected: true,
   showArchived: false,
   maxRenderDepth: 10,
-};
+  direction: 'vertical' as LayoutDirection,
+  compactMode: false,
+});
 
-export const DEFAULT_TREE_STATS: TreeStats = {
+export type LayoutDirection = 'vertical' | 'horizontal';
+
+export const DEFAULT_TREE_STATS: TreeStats = Object.freeze({
   totalNodes: 0,
   completedNodes: 0,
   selectedNodes: 0,
   rejectedNodes: 0,
   maxDepth: 0,
   maxBranches: 0,
-};
+});

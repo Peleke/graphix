@@ -9,6 +9,7 @@ import {
   type GenerationStatus,
   type GenerationType,
   type TreeViewMode,
+  type LayoutDirection,
   type GenerationNode,
   type GenerationTree,
   type NodeAction,

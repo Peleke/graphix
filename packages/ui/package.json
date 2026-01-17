@@ -16,7 +16,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "prepare": "panda codegen"
+    "codegen": "panda codegen"
   },
   "dependencies": {
     "react": "^19.0.0",

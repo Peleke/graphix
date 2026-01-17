@@ -5,7 +5,7 @@
  * Follows React best practices for external library integration.
  */
 
-import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import * as d3 from 'd3';
 import type {
   GenerationTree,
@@ -375,30 +375,32 @@ export function useComparisonMode(
   clear: () => void;
   canAdd: boolean;
 } {
-  const selectedIdsRef = useRef<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   const isSelected = useCallback((id: string) => {
-    return selectedIdsRef.current.includes(id);
-  }, []);
+    return selectedIds.includes(id);
+  }, [selectedIds]);
   
   const toggle = useCallback((id: string) => {
-    const current = selectedIdsRef.current;
-    if (current.includes(id)) {
-      selectedIdsRef.current = current.filter(i => i !== id);
-    } else if (current.length < maxNodes) {
-      selectedIdsRef.current = [...current, id];
-    }
+    setSelectedIds(current => {
+      if (current.includes(id)) {
+        return current.filter(i => i !== id);
+      } else if (current.length < maxNodes) {
+        return [...current, id];
+      }
+      return current;
+    });
   }, [maxNodes]);
   
   const clear = useCallback(() => {
-    selectedIdsRef.current = [];
+    setSelectedIds([]);
   }, []);
   
   return {
-    selectedIds: selectedIdsRef.current,
+    selectedIds,
     isSelected,
     toggle,
     clear,
-    canAdd: selectedIdsRef.current.length < maxNodes,
+    canAdd: selectedIds.length < maxNodes,
   };
 }
