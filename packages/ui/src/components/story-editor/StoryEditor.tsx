@@ -7,7 +7,13 @@
 
 import { useState } from "react";
 import { useProject } from "../../api/hooks/useProjects";
-import { usePremises, useStories, useBeats, useCreatePremise } from "../../api/hooks/useStories";
+import { 
+  usePremises, 
+  useStories, 
+  useBeats, 
+  useCreatePremise,
+  useCreateStory,
+} from "../../api/hooks/useStories";
 
 interface StoryEditorProps {
   projectId: string;
@@ -18,20 +24,50 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
   const [selectedPremiseId, setSelectedPremiseId] = useState<string | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
 
+  const [showPremiseModal, setShowPremiseModal] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
+  const [newLogline, setNewLogline] = useState("");
+  const [newGenre, setNewGenre] = useState("");
+  const [newTone, setNewTone] = useState("");
+
   const { data: project } = useProject(projectId);
   const { data: premises, isLoading: loadingPremises } = usePremises(projectId);
-  const { data: stories } = useStories(selectedPremiseId);
-  const { data: beats } = useBeats(selectedStoryId);
+  const { data: stories, isLoading: loadingStories } = useStories(selectedPremiseId);
+  const { data: beats, isLoading: loadingBeats } = useBeats(selectedStoryId);
   const createPremise = useCreatePremise();
+  const createStory = useCreateStory();
 
   const handleCreatePremise = async () => {
-    const logline = prompt("Enter logline:");
-    if (!logline) return;
+    if (!newLogline.trim()) return;
 
-    await createPremise.mutateAsync({
-      projectId,
-      logline,
-    });
+    try {
+      await createPremise.mutateAsync({
+        projectId,
+        logline: newLogline.trim(),
+        genre: newGenre.trim() || undefined,
+        tone: newTone.trim() || undefined,
+      });
+      setNewLogline("");
+      setNewGenre("");
+      setNewTone("");
+      setShowPremiseModal(false);
+    } catch (err) {
+      console.error("Failed to create premise:", err);
+    }
+  };
+
+  const handleCreateStory = async () => {
+    if (!selectedPremiseId) return;
+
+    try {
+      await createStory.mutateAsync({
+        premiseId: selectedPremiseId,
+        structure: "three-act",
+      });
+      setShowStoryModal(false);
+    } catch (err) {
+      console.error("Failed to create story:", err);
+    }
   };
 
   return (
@@ -149,6 +185,68 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
           color: #a1a1aa;
           margin-bottom: 0.5rem;
         }
+        
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        
+        .modal {
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 12px;
+          padding: 1.5rem;
+          width: 100%;
+          max-width: 500px;
+        }
+        
+        .modal h2 {
+          margin: 0 0 1rem;
+          font-size: 1.25rem;
+          color: #fafafa;
+        }
+        
+        .modal input {
+          width: 100%;
+          padding: 0.75rem;
+          background: #27272a;
+          border: 1px solid #3f3f46;
+          border-radius: 8px;
+          color: #fafafa;
+          font-size: 1rem;
+        }
+        
+        .modal input:focus {
+          outline: none;
+          border-color: #8b5cf6;
+        }
+        
+        .modal-actions {
+          display: flex;
+          gap: 0.75rem;
+          justify-content: flex-end;
+        }
+        
+        .btn-secondary {
+          padding: 0.625rem 1.25rem;
+          background: transparent;
+          border: 1px solid #3f3f46;
+          border-radius: 8px;
+          color: #a1a1aa;
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        
+        .btn-secondary:hover {
+          background: #27272a;
+          color: #fafafa;
+        }
       `}</style>
 
       <div className="editor-header">
@@ -183,7 +281,7 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
             </button>
           </div>
 
-          <button className="btn-primary" onClick={handleCreatePremise}>
+          <button className="btn-primary" onClick={() => setShowPremiseModal(true)}>
             + New Premise
           </button>
         </div>
@@ -222,17 +320,63 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
         <div className="main-content">
           {selectedPremiseId ? (
             <div>
-              <h3>Stories for Selected Premise</h3>
-              {stories && stories.length > 0 ? (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h3 style={{ margin: 0 }}>Stories</h3>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => setShowStoryModal(true)}
+                  style={{ fontSize: "0.875rem", padding: "0.5rem 1rem" }}
+                >
+                  + New Story
+                </button>
+              </div>
+
+              {loadingStories ? (
+                <div>Loading stories...</div>
+              ) : stories && stories.length > 0 ? (
                 <div>
                   {stories.map((story) => (
-                    <div key={story.id} style={{ marginBottom: "1rem", padding: "1rem", background: "#27272a", borderRadius: "8px" }}>
+                    <div 
+                      key={story.id} 
+                      style={{ 
+                        marginBottom: "1rem", 
+                        padding: "1rem", 
+                        background: "#27272a", 
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                      }}
+                      onClick={() => setSelectedStoryId(story.id)}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "#3f3f46"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "#27272a"}
+                    >
                       <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
                         {story.structure || "Unstructured"}
                       </div>
                       <div style={{ fontSize: "0.875rem", color: "#71717a" }}>
                         {story.status || "draft"}
                       </div>
+                      {selectedStoryId === story.id && beats && (
+                        <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #3f3f46" }}>
+                          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#a1a1aa", marginBottom: "0.5rem" }}>
+                            BEATS
+                          </div>
+                          {loadingBeats ? (
+                            <div>Loading beats...</div>
+                          ) : beats.length > 0 ? (
+                            beats.map((beat: any) => (
+                              <div key={beat.id} style={{ padding: "0.5rem", background: "#18181b", borderRadius: "6px", marginBottom: "0.5rem" }}>
+                                <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{beat.type}</div>
+                                <div style={{ fontSize: "0.75rem", color: "#71717a", marginTop: "0.25rem" }}>
+                                  {beat.content || "No content"}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ fontSize: "0.875rem", color: "#71717a" }}>No beats yet</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -240,6 +384,9 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
                 <div className="empty-state">
                   <h3>No stories yet</h3>
                   <p>Create a story from this premise.</p>
+                  <button className="btn-primary" onClick={() => setShowStoryModal(true)} style={{ marginTop: "1rem" }}>
+                    Create Story
+                  </button>
                 </div>
               )}
             </div>
@@ -247,6 +394,74 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
             <div className="empty-state">
               <h3>Select a premise</h3>
               <p>Choose a premise from the sidebar to view and edit stories.</p>
+            </div>
+          )}
+          
+          {/* Create Premise Modal */}
+          {showPremiseModal && (
+            <div className="modal-overlay" onClick={() => setShowPremiseModal(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <h2>Create Premise</h2>
+                <input
+                  type="text"
+                  placeholder="Logline (required)"
+                  value={newLogline}
+                  onChange={(e) => setNewLogline(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreatePremise()}
+                  autoFocus
+                  style={{ marginBottom: "0.75rem" }}
+                />
+                <input
+                  type="text"
+                  placeholder="Genre (optional)"
+                  value={newGenre}
+                  onChange={(e) => setNewGenre(e.target.value)}
+                  style={{ marginBottom: "0.75rem" }}
+                />
+                <input
+                  type="text"
+                  placeholder="Tone (optional)"
+                  value={newTone}
+                  onChange={(e) => setNewTone(e.target.value)}
+                  style={{ marginBottom: "1rem" }}
+                />
+                <div className="modal-actions">
+                  <button className="btn-secondary" onClick={() => setShowPremiseModal(false)}>
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={handleCreatePremise}
+                    disabled={!newLogline.trim() || createPremise.isPending}
+                  >
+                    {createPremise.isPending ? "Creating..." : "Create"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Create Story Modal */}
+          {showStoryModal && selectedPremiseId && (
+            <div className="modal-overlay" onClick={() => setShowStoryModal(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()}>
+                <h2>Create Story</h2>
+                <p style={{ color: "#71717a", marginBottom: "1rem" }}>
+                  Create a structured story from the selected premise.
+                </p>
+                <div className="modal-actions">
+                  <button className="btn-secondary" onClick={() => setShowStoryModal(false)}>
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={handleCreateStory}
+                    disabled={createStory.isPending}
+                  >
+                    {createStory.isPending ? "Creating..." : "Create Story"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
