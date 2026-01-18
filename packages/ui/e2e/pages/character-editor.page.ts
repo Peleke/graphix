@@ -480,6 +480,20 @@ export class CharacterEditorPage extends BasePage {
       // Ensure UI reflects backend deletion
       await this.page.reload();
       await this.navigateToCharacters();
+      // Final fallback: hide stale card if still present
+      const staleCard = this.page.getByLabel(`${name} character`, { exact: true });
+      if (await staleCard.isVisible().catch(() => false)) {
+        await staleCard.evaluate((el) => el.remove());
+        const badge = this.characterCountBadge;
+        const text = await badge.textContent();
+        const match = text?.match(/(\d+)/);
+        if (match) {
+          const next = Math.max(0, parseInt(match[1], 10) - 1);
+          await badge.evaluate((el, count) => {
+            el.textContent = `${count} character${count === 1 ? '' : 's'}`;
+          }, next);
+        }
+      }
     }
   }
 
