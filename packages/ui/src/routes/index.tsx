@@ -3,12 +3,14 @@
  * 
  * The main landing page showing project list.
  * Wired to backend API via TanStack Query.
+ * Includes Chat-to-Start for AI-guided project creation.
  */
 
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useProjects, useCreateProject, useDeleteProject, useDuplicateProject } from "../api/hooks";
 import { useProjectStore } from "../stores/project.store";
 import { ProjectCard } from "../components/dashboard/ProjectCard";
+import { ChatPanel } from "../components/chat";
 import type { Project } from "@graphix/client";
 import { useEffect, useState } from "react";
 
@@ -19,6 +21,7 @@ export const Route = createFileRoute("/")({
 function DashboardPage() {
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   
   // Store state
@@ -43,6 +46,21 @@ function DashboardPage() {
       actions.setProjects(projectsData.data);
     }
   }, [projectsData, actions]);
+
+  // ⌘K / Ctrl+K keyboard shortcut to open chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowChat(true);
+      }
+      if (e.key === 'Escape' && showChat) {
+        setShowChat(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showChat]);
 
   // Handlers
   const handleCreateProject = async () => {
@@ -82,6 +100,11 @@ function DashboardPage() {
     }
   };
 
+  const handleProjectCreatedFromChat = (projectId: string) => {
+    setShowChat(false);
+    navigate({ to: "/projects/$projectId", params: { projectId } });
+  };
+
   const projects = projectsData?.data || [];
   const normalizedSearch = filters.search.trim().toLowerCase();
   const filteredProjects = normalizedSearch
@@ -98,6 +121,7 @@ function DashboardPage() {
           max-width: 1400px;
           margin: 0 auto;
           min-height: 100vh;
+          padding-bottom: 100px;
         }
         
         .dashboard-header {
@@ -360,6 +384,72 @@ function DashboardPage() {
           border-color: #8b5cf6;
           color: #a78bfa;
         }
+
+        /* Chat-to-Start Input Bar */
+        .chat-input-bar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          padding: 1rem 2rem 1.5rem;
+          background: linear-gradient(to top, #09090b 0%, #09090b 60%, transparent 100%);
+          display: flex;
+          justify-content: center;
+          z-index: 100;
+        }
+
+        .chat-trigger {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          width: 100%;
+          max-width: 600px;
+          padding: 0.875rem 1.25rem;
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 12px;
+          color: #71717a;
+          font-size: 0.9375rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .chat-trigger:hover {
+          border-color: #8b5cf6;
+          color: #a1a1aa;
+        }
+
+        .chat-trigger-icon {
+          width: 24px;
+          height: 24px;
+          background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .chat-trigger-text {
+          flex: 1;
+          text-align: left;
+        }
+
+        .chat-trigger-hint {
+          font-size: 0.75rem;
+          color: #52525b;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .kbd {
+          padding: 0.125rem 0.375rem;
+          background: #27272a;
+          border-radius: 4px;
+          font-family: monospace;
+          font-size: 0.6875rem;
+        }
       `}</style>
       
       <div className="dashboard-header">
@@ -438,11 +528,11 @@ function DashboardPage() {
         <div className="empty-state">
           <h2>No projects yet</h2>
           <p>Create your first graphic novel or comic project to get started.</p>
-          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 2V14M2 8H14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <button className="btn-primary" onClick={() => setShowChat(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            Create Project
+            Start with AI
           </button>
         </div>
       )}
@@ -476,6 +566,22 @@ function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Chat-to-Start Input Bar (always visible at bottom) */}
+      <div className="chat-input-bar">
+        <button className="chat-trigger" onClick={() => setShowChat(true)}>
+          <div className="chat-trigger-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <span className="chat-trigger-text">Describe your story idea to start...</span>
+          <span className="chat-trigger-hint">
+            <span className="kbd">⌘</span>
+            <span className="kbd">K</span>
+          </span>
+        </button>
+      </div>
       
       {/* Create Project Modal */}
       {showCreateModal && (
@@ -508,6 +614,13 @@ function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Chat Panel */}
+      <ChatPanel
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        onProjectCreated={handleProjectCreatedFromChat}
+      />
     </div>
   );
 }
