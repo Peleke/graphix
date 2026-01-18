@@ -158,14 +158,9 @@ export class DashboardPage extends BasePage {
     await this.page.waitForLoadState('domcontentloaded');
     // Wait for dashboard container
     await expect(this.dashboardContainer).toBeVisible({ timeout: 10000 });
-    // Wait for TanStack Query to finish fetching (loading disappears OR projects/empty appear)
-    await Promise.race([
-      this.loadingState.waitFor({ state: 'hidden', timeout: 15000 }),
-      this.projectCards.first().waitFor({ state: 'visible', timeout: 15000 }),
-      this.emptyState.waitFor({ state: 'visible', timeout: 15000 }),
-    ]).catch(() => {});
-    // Extra buffer for any React re-renders
-    await this.page.waitForTimeout(300);
+    // Wait for data to load: either projects appear OR empty state appears
+    // This is the reliable indicator that TanStack Query finished
+    await this.projectCards.first().or(this.emptyState).waitFor({ state: 'visible', timeout: 15000 });
   }
 
   async isDisplayed(): Promise<boolean> {
