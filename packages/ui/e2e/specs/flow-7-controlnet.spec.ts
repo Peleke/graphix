@@ -69,7 +69,7 @@ test.describe('Flow 7: ControlNet Configuration', () => {
 
     await expect(page.getByTestId('preprocessor-preview')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Generate' }).click();
+    await page.getByRole('button', { name: 'Generate Single' }).click();
     const request = await generateRequestPromise;
     const payload = request.postDataJSON();
     expect(payload.controlNet?.length).toBeGreaterThan(0);
