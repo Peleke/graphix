@@ -63,7 +63,6 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
   const exportPage = useExportPage();
 
   const [format, setFormat] = useState<ExportFormat>("png-single");
-  const [includeMetadata, setIncludeMetadata] = useState(true);
   const [dpi, setDpi] = useState(300);
   const [status, setStatus] = useState<"idle" | "exporting" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -172,12 +171,10 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
 
       <div className={styles.section}>
         <label>
-          <input
-            type="checkbox"
-            checked={includeMetadata}
-            onChange={() => setIncludeMetadata((prev) => !prev)}
-          />
-          <span className={css({ marginLeft: "0.5rem" })}>Include metadata</span>
+          <input type="checkbox" checked disabled />
+          <span className={css({ marginLeft: "0.5rem" })}>
+            Metadata always included
+          </span>
         </label>
       </div>
 

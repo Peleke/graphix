@@ -6,8 +6,9 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { getCompositionService } from "@graphix/core";
+import { getCompositionService, getConfig } from "@graphix/core";
 import { errors } from "../errors/index.js";
+import { ErrorCodes } from "../errors/types.js";
 import {
   validateBody,
   validateId,
@@ -158,10 +159,22 @@ compositionRoutes.post("/contact-sheet", validateBody(contactSheetSchema), async
 compositionRoutes.post("/export", validateBody(exportPageSchema), async (c) => {
   const service = getCompositionService();
   const body = c.req.valid("json");
+  const { resolve, sep } = await import("path");
+  const config = getConfig();
+
+  const outputRoot = resolve(config.storage.outputDir);
+  const outputRootPrefix = outputRoot.endsWith(sep) ? outputRoot : outputRoot + sep;
+  const resolveWithinOutput = (value: string) => resolve(outputRoot, value);
+  const inputPath = resolveWithinOutput(body.inputPath);
+  const outputPath = resolveWithinOutput(body.outputPath);
+
+  if (!inputPath.startsWith(outputRootPrefix) || !outputPath.startsWith(outputRootPrefix)) {
+    return errors.badRequest(c, "Invalid file path", ErrorCodes.PATH_TRAVERSAL);
+  }
 
   const result = await service.exportPage({
-    inputPath: body.inputPath,
-    outputPath: body.outputPath,
+    inputPath,
+    outputPath,
     format: body.format,
     quality: body.quality,
     dpi: body.dpi,

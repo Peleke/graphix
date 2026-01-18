@@ -188,5 +188,19 @@ describe("REST /api/composition", () => {
 
       expect(res.status).toBe(400);
     });
+
+    it("returns 400 for path traversal attempts", async () => {
+      const res = await app.request("/api/composition/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputPath: "../etc/passwd",
+          outputPath: "../tmp/out.pdf",
+          format: "pdf",
+        }),
+      });
+
+      expect(res.status).toBe(400);
+    });
   });
 });
