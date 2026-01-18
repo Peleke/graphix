@@ -9,4 +9,6 @@ export * from "./useCharacters";
 export * from "./useStories";
 export * from "./useGenerations";
 export * from "./usePanels";
+export * from "./useCaptions";
+export * from "./useGeneratedTexts";
 export * from "./useComposition";

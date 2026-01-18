@@ -6,7 +6,7 @@
 
 import { useEffect } from "react";
 import { useGenerationsByPanel } from "../../api/hooks/useGenerations";
-import { useGenerationTree } from "./store";
+import { useTreeActions } from "./store";
 import { buildGenerationTree } from "./api-adapter";
 
 interface UseGenerationTreeDataProps {
@@ -18,18 +18,29 @@ interface UseGenerationTreeDataProps {
  */
 export function useGenerationTreeData({ panelId }: UseGenerationTreeDataProps) {
   const { data: generations, isLoading, error } = useGenerationsByPanel(panelId);
-  const { loadTree, setActiveTree } = useGenerationTree();
+  const actions = useTreeActions();
 
   useEffect(() => {
-    if (!panelId || !generations) return;
-
-    // Convert API generations to tree nodes
-    const nodes = buildGenerationTree(generations);
+    if (!panelId) return;
     
-    // Load into store
-    loadTree(panelId, nodes);
-    setActiveTree(panelId);
-  }, [panelId, generations, loadTree, setActiveTree]);
+    // If no generations yet, initialize empty tree
+    if (!generations || generations.length === 0) {
+      // Don't create empty tree - let component handle empty state
+      return;
+    }
+
+    try {
+      // Convert API generations to tree nodes
+      const nodes = buildGenerationTree(generations);
+      
+      // Load into store
+      actions.loadTree(panelId, nodes);
+      actions.setActiveTree(panelId);
+    } catch (error) {
+      console.error("Failed to build generation tree:", error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelId, generations]);
 
   return {
     isLoading,

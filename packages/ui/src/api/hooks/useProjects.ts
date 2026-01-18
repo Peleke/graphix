@@ -77,6 +77,8 @@ export function useProjects(params: ProjectListParams = {}) {
       };
     },
     staleTime: 1000 * 60, // 1 minute
+    retry: 1, // Only retry once
+    retryDelay: 1000, // Wait 1 second between retries
   });
 }
 

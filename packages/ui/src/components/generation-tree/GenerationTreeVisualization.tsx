@@ -305,6 +305,18 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
   const layoutOptions = useTreeLayoutOptions();
   const hoveredNodeId = useHoveredNode();
   
+  // Early return if no tree data
+  if (!tree || !tree.rootId) {
+    return (
+      <div style={{ padding: "2rem", textAlign: "center", color: "#71717a" }}>
+        <p>No generation tree data available.</p>
+        <p style={{ fontSize: "0.875rem", marginTop: "0.5rem" }}>
+          Generate some images to see the tree visualization.
+        </p>
+      </div>
+    );
+  }
+  
   // Convert tree to D3 hierarchy
   const hierarchy = useMemo(() => {
     if (!tree) return null;

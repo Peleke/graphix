@@ -87,6 +87,9 @@ export default defineConfig({
       "@canvas": resolve(__dirname, "./src/canvas"),
       "@lib": resolve(__dirname, "./src/lib"),
       "styled-system": resolve(__dirname, "./styled-system"),
+      // Stub Node.js modules for browser (used by @graphix/core security utils)
+      path: resolve(__dirname, "./src/lib/stubs/path.ts"),
+      fs: resolve(__dirname, "./src/lib/stubs/fs.ts"),
     },
   },
 

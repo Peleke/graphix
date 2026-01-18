@@ -10,7 +10,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { css } from '../../../styled-system/css';
 import { LoraConfig } from './types';
-import { LORA_CATALOG, getLora, listLorasByCategory, type LoraEntry } from '@graphix/core/src/generation/models/lora-catalog';
+import { LORA_CATALOG, getLora, listLorasByCategory, type LoraEntry } from '@graphix/core/generation/models';
 
 // ============================================================================
 // Types

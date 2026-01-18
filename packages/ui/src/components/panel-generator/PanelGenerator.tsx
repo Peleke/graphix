@@ -8,12 +8,26 @@
 
 import { useState } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
-import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput } from "../../api/hooks/usePanels";
+import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
 import { useGenerationsByPanel } from "../../api/hooks/useGenerations";
+import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
+import { useGeneratedTextsByPanel, useActiveGeneratedText, type GeneratedTextType } from "../../api/hooks/useGeneratedTexts";
+import { GenerationTreeVisualization } from "../generation-tree";
+import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
 
 interface PanelGeneratorProps {
   panelId: string;
   storyboardId: string;
+}
+
+// Helper component to load tree data
+function GenerationTreeDataLoader({ panelId }: { panelId: string }) {
+  const { isLoading, error } = useGenerationTreeData({ panelId });
+  // Silently handle loading/errors - visualization will show empty state
+  if (error) {
+    console.warn("Failed to load generation tree data:", error);
+  }
+  return null;
 }
 
 export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
@@ -23,12 +37,31 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [variantCount, setVariantCount] = useState(4);
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"generate" | "versions" | "text" | "captions">("generate");
 
+  // Panel data
+  const { data: panelFull, isLoading: loadingPanel } = usePanelFull(panelId);
+  
+  // Characters
   const { data: characters } = useCharacters(storyboardId); // Note: might need projectId
+  
+  // Generations (versioning)
   const { data: generations, isLoading: loadingGenerations } = useGenerationsByPanel(panelId);
+  
+  // Generated text (narratives, descriptions)
+  const { data: generatedTexts } = useGeneratedTextsByPanel(panelId);
+  const { data: panelDescription } = useActiveGeneratedText(panelId, "panel_description");
+  const { data: dialogue } = useActiveGeneratedText(panelId, "dialogue");
+  const { data: narration } = useActiveGeneratedText(panelId, "narration");
+  
+  // Captions
+  const { data: captions } = useCaptionsByPanel(panelId);
+  
+  // Mutations
   const generatePanel = useGeneratePanel();
   const generateVariants = useGeneratePanelVariants();
   const selectOutput = useSelectPanelOutput();
+  const generateCaptions = useGenerateCaptions();
 
   const handleGenerate = async () => {
     try {
@@ -261,6 +294,98 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           font-size: 0.75rem;
           color: #71717a;
         }
+        
+        .tab-bar {
+          display: flex;
+          gap: 0.5rem;
+          border-bottom: 1px solid #27272a;
+          margin-bottom: 1rem;
+        }
+        
+        .tab-button {
+          padding: 0.75rem 1.5rem;
+          background: transparent;
+          border: none;
+          border-bottom: 2px solid transparent;
+          color: #71717a;
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        
+        .tab-button:hover {
+          color: #a1a1aa;
+        }
+        
+        .tab-button.active {
+          color: #8b5cf6;
+          border-bottom-color: #8b5cf6;
+        }
+        
+        .text-section {
+          margin-bottom: 2rem;
+        }
+        
+        .text-section-title {
+          font-size: 0.875rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #71717a;
+          margin-bottom: 0.75rem;
+        }
+        
+        .text-content {
+          padding: 1rem;
+          background: #27272a;
+          border-radius: 8px;
+          color: #fafafa;
+          line-height: 1.6;
+          white-space: pre-wrap;
+        }
+        
+        .text-empty {
+          padding: 1rem;
+          background: #27272a;
+          border-radius: 8px;
+          color: #71717a;
+          font-style: italic;
+        }
+        
+        .caption-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        
+        .caption-item {
+          padding: 1rem;
+          background: #27272a;
+          border-radius: 8px;
+          border-left: 3px solid #8b5cf6;
+        }
+        
+        .caption-type {
+          display: inline-block;
+          padding: 0.25rem 0.5rem;
+          background: #8b5cf6;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          margin-bottom: 0.5rem;
+        }
+        
+        .caption-text {
+          color: #fafafa;
+          margin-bottom: 0.5rem;
+        }
+        
+        .caption-meta {
+          font-size: 0.75rem;
+          color: #71717a;
+        }
       `}</style>
 
       <div className="generator-header">
@@ -270,7 +395,37 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         </p>
       </div>
 
+      {/* Tab Bar */}
+      <div className="tab-bar">
+        <button
+          className={`tab-button ${activeTab === "generate" ? "active" : ""}`}
+          onClick={() => setActiveTab("generate")}
+        >
+          Generate
+        </button>
+        <button
+          className={`tab-button ${activeTab === "versions" ? "active" : ""}`}
+          onClick={() => setActiveTab("versions")}
+        >
+          Versions ({generations?.length || 0})
+        </button>
+        <button
+          className={`tab-button ${activeTab === "text" ? "active" : ""}`}
+          onClick={() => setActiveTab("text")}
+        >
+          Text ({generatedTexts?.length || 0})
+        </button>
+        <button
+          className={`tab-button ${activeTab === "captions" ? "active" : ""}`}
+          onClick={() => setActiveTab("captions")}
+        >
+          Captions ({captions?.length || 0})
+        </button>
+      </div>
+
       <div className="generator-content">
+        {activeTab === "generate" && (
+        <>
         <div className="control-panel">
           {/* Character Selection */}
           <div className="section">
@@ -441,6 +596,100 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
             </div>
           )}
         </div>
+        </>
+        )}
+        
+        {activeTab === "versions" && panelId && (
+          <div className="preview-panel" style={{ width: "100%" }}>
+            <h3 style={{ marginBottom: "1rem" }}>Generation Tree</h3>
+            <GenerationTreeDataLoader panelId={panelId} />
+            <GenerationTreeVisualization panelId={panelId} width={800} height={600} />
+          </div>
+        )}
+        
+        {activeTab === "text" && (
+          <div className="preview-panel" style={{ width: "100%" }}>
+            <h3 style={{ marginBottom: "1rem" }}>Generated Text</h3>
+            
+            <div className="text-section">
+              <div className="text-section-title">Panel Description</div>
+              {panelDescription ? (
+                <div className="text-content">{panelDescription.text}</div>
+              ) : (
+                <div className="text-empty">No description generated yet</div>
+              )}
+            </div>
+            
+            <div className="text-section">
+              <div className="text-section-title">Dialogue</div>
+              {dialogue ? (
+                <div className="text-content">{dialogue.text}</div>
+              ) : (
+                <div className="text-empty">No dialogue generated yet</div>
+              )}
+            </div>
+            
+            <div className="text-section">
+              <div className="text-section-title">Narration</div>
+              {narration ? (
+                <div className="text-content">{narration.text}</div>
+              ) : (
+                <div className="text-empty">No narration generated yet</div>
+              )}
+            </div>
+            
+            {generatedTexts && generatedTexts.length > 0 && (
+              <div className="text-section">
+                <div className="text-section-title">All Generated Texts</div>
+                {generatedTexts.map((text: any) => (
+                  <div key={text.id} className="text-content" style={{ marginBottom: "1rem" }}>
+                    <div style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: "0.5rem" }}>
+                      {text.textType} • {text.provider}/{text.model}
+                    </div>
+                    <div>{text.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {activeTab === "captions" && (
+          <div className="preview-panel" style={{ width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 style={{ margin: 0 }}>Captions</h3>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  if (panelId) {
+                    generateCaptions.mutate({ panelId });
+                  }
+                }}
+                disabled={generateCaptions.isPending}
+                style={{ width: "auto", padding: "0.5rem 1rem" }}
+              >
+                {generateCaptions.isPending ? "Generating..." : "Generate from Beat"}
+              </button>
+            </div>
+            
+            {captions && captions.length > 0 ? (
+              <div className="caption-list">
+                {captions.map((caption: any) => (
+                  <div key={caption.id} className="caption-item">
+                    <span className="caption-type">{caption.type}</span>
+                    <div className="caption-text">{caption.text}</div>
+                    <div className="caption-meta">
+                      Position: ({caption.position?.x}%, {caption.position?.y}%)
+                      {caption.characterId && ` • Character: ${caption.characterId}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-empty">No captions yet. Generate from beat or create manually.</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
