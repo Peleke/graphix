@@ -344,6 +344,7 @@ export class CharacterEditorPage extends BasePage {
     // Wait for character panel and network to settle (fresh data from API)
     await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await this.characterList.waitFor({ state: 'visible', timeout: 10000 });
+    await this.waitForCharactersLoaded();
   }
 
   async waitForLoad(): Promise<void> {
@@ -408,6 +409,7 @@ export class CharacterEditorPage extends BasePage {
     // Find the edit button within or near this card
     await card.getByTestId('character-edit-button').click();
     // Wait for editor to open
+    await expect(this.characterEditor).toBeVisible({ timeout: 10000 });
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
   }
 
@@ -451,14 +453,18 @@ export class CharacterEditorPage extends BasePage {
    * Switch to a tab in the editor
    */
   async switchToTab(tab: 'details' | 'references' | 'lora'): Promise<void> {
+    await expect(this.characterEditor).toBeVisible({ timeout: 10000 });
     switch (tab) {
       case 'details':
+        await this.detailsTab.waitFor({ state: 'visible', timeout: 5000 });
         await this.detailsTab.click();
         break;
       case 'references':
+        await this.referencesTab.waitFor({ state: 'visible', timeout: 5000 });
         await this.referencesTab.click();
         break;
       case 'lora':
+        await this.loraTab.waitFor({ state: 'visible', timeout: 5000 });
         await this.loraTab.click();
         break;
     }
@@ -500,6 +506,7 @@ export class CharacterEditorPage extends BasePage {
    * Assert character exists in list
    */
   async expectCharacterInList(name: string): Promise<void> {
+    await this.waitForCharactersLoaded();
     await expect(async () => {
       await expect(this.page.getByLabel(`${name} character`, { exact: true })).toBeVisible();
     }).toPass({ timeout: 15000 });
@@ -509,9 +516,18 @@ export class CharacterEditorPage extends BasePage {
    * Assert character NOT in list
    */
   async expectCharacterNotInList(name: string): Promise<void> {
+    await this.waitForCharactersLoaded();
     await expect(async () => {
       await expect(this.page.getByLabel(`${name} character`, { exact: true })).not.toBeVisible();
     }).toPass({ timeout: 15000 });
+  }
+
+  /**
+   * Wait for characters list to load (either empty state or at least one card)
+   */
+  async waitForCharactersLoaded(): Promise<void> {
+    const loadedIndicator = this.characterCards.first().or(this.emptyState);
+    await loadedIndicator.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
   }
 
   /**
