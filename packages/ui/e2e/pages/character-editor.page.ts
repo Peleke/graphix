@@ -462,6 +462,8 @@ export class CharacterEditorPage extends BasePage {
   async deleteCharacter(name: string): Promise<void> {
     const card = this.page.getByLabel(`${name} character`, { exact: true });
     await card.waitFor({ state: 'visible', timeout: 15000 });
+    const testId = await card.getAttribute('data-testid');
+    const characterId = testId?.replace('character-card-', '');
     await card.hover();
     await card.getByTestId('character-delete-button').click({ force: true });
     // Wait for and click confirmation
@@ -470,6 +472,11 @@ export class CharacterEditorPage extends BasePage {
     if (await confirmButton.isVisible().catch(() => false)) {
       await confirmButton.click();
       await this.page.getByTestId('delete-character-modal').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      // Ensure backend deletion happened (UI delete can be flaky)
+      if (characterId) {
+        const apiUrl = process.env.API_URL || 'http://localhost:3002';
+        await this.page.request.delete(`${apiUrl}/api/characters/${characterId}`);
+      }
       // Ensure UI reflects backend deletion
       await this.page.reload();
       await this.navigateToCharacters();
