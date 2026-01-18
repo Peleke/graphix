@@ -33,6 +33,38 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // Character CRUD Hooks
 // ============================================================================
 
+function normalizeReferenceImages(referenceImages: unknown): ReferenceImage[] {
+  if (!Array.isArray(referenceImages)) return [];
+  if (referenceImages.length === 0) return [];
+  if (typeof referenceImages[0] === 'string') {
+    return (referenceImages as string[]).map((path, index) => ({
+      id: `${index}-${path}`,
+      imagePath: path,
+      thumbnailPath: undefined,
+      type: 'full_body',
+      createdAt: new Date(),
+    }));
+  }
+  return referenceImages as ReferenceImage[];
+}
+
+function normalizePromptFragments(promptFragments: unknown): string[] {
+  if (Array.isArray(promptFragments)) return promptFragments as string[];
+  if (promptFragments && typeof promptFragments === 'object') {
+    const triggers = (promptFragments as { triggers?: string[] }).triggers;
+    return Array.isArray(triggers) ? triggers : [];
+  }
+  return [];
+}
+
+function normalizeCharacter(character: Character): Character {
+  return {
+    ...character,
+    referenceImages: normalizeReferenceImages(character.referenceImages),
+    promptFragments: normalizePromptFragments(character.promptFragments),
+  };
+}
+
 /**
  * Hook for fetching characters for a project
  */
@@ -56,7 +88,8 @@ export function useFetchCharacters(projectId: string) {
       }
       
       const data = await response.json();
-      actions.setCharacters(data.characters || []);
+      const normalized = (data.characters || []).map((char: Character) => normalizeCharacter(char));
+      actions.setCharacters(normalized);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch characters';
       setError(message);
@@ -95,7 +128,7 @@ export function useCreateCharacter() {
         throw new Error(`Failed to create character: ${response.statusText}`);
       }
       
-      const character = await response.json();
+      const character = normalizeCharacter(await response.json());
       actions.addCharacter(character);
       return character;
     } catch (err) {
@@ -138,7 +171,7 @@ export function useUpdateCharacter() {
         throw new Error(`Failed to update character: ${response.statusText}`);
       }
       
-      const character = await response.json();
+      const character = normalizeCharacter(await response.json());
       actions.updateCharacter(id, character);
       return character;
     } catch (err) {
