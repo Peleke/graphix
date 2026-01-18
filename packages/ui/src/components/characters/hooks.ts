@@ -27,7 +27,7 @@ import { LORA_CATEGORIES, MODEL_FAMILIES } from './types';
 // API Base URL
 // ============================================================================
 
-const API_BASE = 'http://localhost:3002';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // ============================================================================
 // Character CRUD Hooks
