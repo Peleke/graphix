@@ -379,6 +379,17 @@ export class StoryboardPage extends BasePage {
    * Add a new page/storyboard
    */
   async addPage(): Promise<void> {
+    // Close any open modal overlay that could block clicks
+    const modalOverlay = this.page.locator('.modal-overlay');
+    if (await modalOverlay.isVisible({ timeout: 500 }).catch(() => false)) {
+      // Try ESC first (preferred)
+      await this.page.keyboard.press('Escape').catch(() => {});
+      // If still visible, click overlay to dismiss
+      if (await modalOverlay.isVisible({ timeout: 500 }).catch(() => false)) {
+        await modalOverlay.click({ position: { x: 10, y: 10 } }).catch(() => {});
+      }
+    }
+
     await this.addPageButton.click();
     // Handle modal if it appears
     const modal = this.page.locator('.modal');
