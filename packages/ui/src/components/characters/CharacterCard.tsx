@@ -311,13 +311,28 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
       
       {/* Actions */}
       {!compact && (
-        <div className={actionsClasses}>
+        <div
+          className={actionsClasses}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            opacity: 1,
+            visibility: 'visible',
+            pointerEvents: 'auto',
+          }}
+        >
           <button
             className={cardStyles.actionButton}
             onClick={handleEdit}
             aria-label="Edit character"
             title="Edit"
             data-testid="character-edit-button"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
             <EditIcon />
           </button>
