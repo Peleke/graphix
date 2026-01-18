@@ -61,6 +61,9 @@ export function CharacterEditor({
   const character = useCharacterStore((state) =>
     characterId ? state.characters.get(characterId) : null
   );
+  const safePromptFragments = Array.isArray(character?.promptFragments)
+    ? character.promptFragments
+    : [];
   const { createCharacter } = useCreateCharacter();
   const { updateCharacter } = useUpdateCharacter();
 
@@ -647,7 +650,7 @@ export function CharacterEditor({
                 <div className={css({ marginBottom: '16px' })}>
                   <div className={css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' })}>
                     <label className={css({ color: '#888' })}>
-                      Prompt Fragments ({character.promptFragments.length}/{MAX_PROMPT_FRAGMENTS})
+                      Prompt Fragments ({safePromptFragments.length}/{MAX_PROMPT_FRAGMENTS})
                     </label>
                     <button
                       onClick={handleGenerateFragments}
@@ -667,7 +670,7 @@ export function CharacterEditor({
                     </button>
                   </div>
                   <div className={css({ display: 'flex', flexWrap: 'wrap', gap: '8px' })}>
-                    {character.promptFragments.map((fragment, index) => (
+                    {safePromptFragments.map((fragment, index) => (
                       <span
                         key={index}
                         className={css({
