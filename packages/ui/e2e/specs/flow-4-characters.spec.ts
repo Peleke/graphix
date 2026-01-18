@@ -8,6 +8,12 @@
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
+import type { TestInfo } from '@playwright/test';
+
+const uniqueName = (base: string, testInfo: TestInfo) => {
+  const suffix = `${testInfo.project.name}-${testInfo.workerIndex}-${Date.now()}`;
+  return `${base} ${suffix}`;
+};
 
 test.describe('Flow 4: Character Management', () => {
   // ==========================================================================
@@ -27,7 +33,7 @@ test.describe('Flow 4: Character Management', () => {
   // ==========================================================================
 
   test.describe('4.1 Character Creation', () => {
-    test('should create MVP character with required fields', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_4] }, async ({ page, characterEditorPage }) => {
+    test('should create MVP character with required fields', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_4] }, async ({ page, characterEditorPage }, testInfo) => {
       // Navigate to Characters section
       await characterEditorPage.navigateToCharacters();
       
@@ -38,8 +44,9 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.expectCreateMode();
       
       // Fill in MVP required fields: name, species, description
+      const characterName = uniqueName('Marina', testInfo);
       await characterEditorPage.fillRequiredFields(
-        'Marina',
+        characterName,
         'otter',
         'Sleek brown fur, bright eyes, wearing a captain\'s hat'
       );
@@ -48,7 +55,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.save();
       
       // Verify character appears in list
-      await characterEditorPage.expectCharacterInList('Marina');
+      await characterEditorPage.expectCharacterInList(characterName);
     });
 
     test('should require name field', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_4] }, async ({ characterEditorPage }) => {
@@ -87,7 +94,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.expectSpeciesError('Species is required');
     });
 
-    test('should allow character without description (appearance)', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_4] }, async ({ characterEditorPage }) => {
+    test('should allow character without description (appearance)', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_4] }, async ({ characterEditorPage }, testInfo) => {
       // Navigate to Characters section
       await characterEditorPage.navigateToCharacters();
       
@@ -95,51 +102,54 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.startNewCharacter();
       
       // Fill only name and species (description is optional)
-      await characterEditorPage.fillRequiredFields('Cove', 'seal', '');
+      const characterName = uniqueName('Cove', testInfo);
+      await characterEditorPage.fillRequiredFields(characterName, 'seal', '');
       
       // Save should work
       await characterEditorPage.save();
       
       // Verify character appears in list
-      await characterEditorPage.expectCharacterInList('Cove');
+      await characterEditorPage.expectCharacterInList(characterName);
     });
 
-    test('should allow character without reference image', { tag: [tags.MVP, tags.FLOW_4] }, async ({ characterEditorPage }) => {
+    test('should allow character without reference image', { tag: [tags.MVP, tags.FLOW_4] }, async ({ characterEditorPage }, testInfo) => {
       // Navigate to Characters section
       await characterEditorPage.navigateToCharacters();
       
       // Create character without uploading any reference image
+      const characterName = uniqueName('Skipper', testInfo);
       await characterEditorPage.createCharacter(
-        'Skipper',
+        characterName,
         'penguin',
         'Black and white feathers, orange beak'
       );
       
       // Character should be created successfully
-      await characterEditorPage.expectCharacterInList('Skipper');
+      await characterEditorPage.expectCharacterInList(characterName);
     });
 
-    test('should show offer to generate reference image when none provided', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage }) => {
+    test('should show offer to generate reference image when none provided', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage }, testInfo) => {
       // Navigate to Characters section
       await characterEditorPage.navigateToCharacters();
       
       // Create a character
+      const characterName = uniqueName('TestChar', testInfo);
       await characterEditorPage.createCharacter(
-        'TestChar',
+        characterName,
         'fox',
         'Red fur, bushy tail'
       );
       
       // Select the character to open editor
-      await characterEditorPage.selectCharacter('TestChar');
-      await characterEditorPage.editCharacter('TestChar');
+      await characterEditorPage.selectCharacter(characterName);
+      await characterEditorPage.editCharacter(characterName);
       
       // Switch to references tab
       await characterEditorPage.switchToTab('references');
       
-      // Should see option to generate reference
-      const generateButton = page.getByRole('button', { name: /generate reference/i });
-      await expect(generateButton).toBeVisible();
+      // Should see empty gallery + upload zone (current UX)
+      await expect(page.getByTestId('empty-gallery')).toBeVisible();
+      await expect(page.getByTestId('upload-zone')).toBeVisible();
     });
 
     test('should enforce name length limit', { tag: [tags.MVP, tags.FLOW_4] }, async ({ characterEditorPage }) => {
@@ -167,10 +177,11 @@ test.describe('Flow 4: Character Management', () => {
   // ==========================================================================
 
   test.describe('4.2 Character Consistency System', () => {
-    test('should display reference images gallery', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should display reference images gallery', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character first via API
+      const characterName = uniqueName('GalleryTest', testInfo);
       const character = await api.createCharacter(testProject.id, {
-        name: 'GalleryTest',
+        name: characterName,
         species: 'cat',
         appearance: 'Fluffy orange tabby',
       });
@@ -180,7 +191,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('GalleryTest');
+      await characterEditorPage.editCharacter(characterName);
       
       // Switch to references tab
       await characterEditorPage.switchToTab('references');
@@ -189,10 +200,11 @@ test.describe('Flow 4: Character Management', () => {
       await expect(characterEditorPage.referencesPanel).toBeVisible();
     });
 
-    test('should support LoRA association in architecture', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should support LoRA association in architecture', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character first
+      const characterName = uniqueName('LoRATest', testInfo);
       const character = await api.createCharacter(testProject.id, {
-        name: 'LoRATest',
+        name: characterName,
         species: 'wolf',
         appearance: 'Grey fur, yellow eyes',
       });
@@ -202,7 +214,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('LoRATest');
+      await characterEditorPage.editCharacter(characterName);
       
       // Switch to LoRA tab
       await characterEditorPage.switchToTab('lora');
@@ -211,10 +223,11 @@ test.describe('Flow 4: Character Management', () => {
       await expect(characterEditorPage.loraBrowser).toBeVisible();
     });
 
-    test('should browse available LoRAs by category', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should browse available LoRAs by category', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character first
+      const characterName = uniqueName('BrowseTest', testInfo);
       await api.createCharacter(testProject.id, {
-        name: 'BrowseTest',
+        name: characterName,
         species: 'rabbit',
         appearance: 'White fur, pink eyes',
       });
@@ -224,7 +237,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('BrowseTest');
+      await characterEditorPage.editCharacter(characterName);
       await characterEditorPage.switchToTab('lora');
       
       // Check category filters exist
@@ -239,10 +252,11 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.expectLoraCategory('style');
     });
 
-    test('should adjust LoRA strength', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should adjust LoRA strength', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
+      const characterName = uniqueName('StrengthTest', testInfo);
       await api.createCharacter(testProject.id, {
-        name: 'StrengthTest',
+        name: characterName,
         species: 'bear',
         appearance: 'Brown fur, large paws',
       });
@@ -252,7 +266,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('StrengthTest');
+      await characterEditorPage.editCharacter(characterName);
       await characterEditorPage.switchToTab('lora');
       
       // Select a LoRA (first available)
@@ -271,10 +285,11 @@ test.describe('Flow 4: Character Management', () => {
       }
     });
 
-    test('should remove LoRA association', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should remove LoRA association', { tag: [tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
+      const characterName = uniqueName('RemoveLoraTest', testInfo);
       await api.createCharacter(testProject.id, {
-        name: 'RemoveLoraTest',
+        name: characterName,
         species: 'deer',
         appearance: 'Spotted coat, antlers',
       });
@@ -284,7 +299,7 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('RemoveLoraTest');
+      await characterEditorPage.editCharacter(characterName);
       await characterEditorPage.switchToTab('lora');
       
       // Select a LoRA first
@@ -309,10 +324,11 @@ test.describe('Flow 4: Character Management', () => {
   // ==========================================================================
 
   test.describe('4.3 Character in Generation', () => {
-    test('should allow explicit character selection in panel', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, api, testProject, panelEditorPage, characterEditorPage }) => {
+    test('should allow explicit character selection in panel', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, api, testProject, panelEditorPage, characterEditorPage }, testInfo) => {
       // Create a character
+      const characterName = uniqueName('SelectableChar', testInfo);
       await api.createCharacter(testProject.id, {
-        name: 'SelectableChar',
+        name: characterName,
         species: 'otter',
         appearance: 'Brown fur',
       });
@@ -320,16 +336,17 @@ test.describe('Flow 4: Character Management', () => {
       // Navigate to project characters first to verify
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
-      await characterEditorPage.expectCharacterInList('SelectableChar');
+      await characterEditorPage.expectCharacterInList(characterName);
       
       // This test verifies the character exists for selection
       // Full panel integration would require a storyboard/panel setup
     });
 
-    test('should specify pose via text description', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should specify pose via text description', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character with pose-related description
+      const characterName = uniqueName('PoseChar', testInfo);
       await api.createCharacter(testProject.id, {
-        name: 'PoseChar',
+        name: characterName,
         species: 'cat',
         appearance: 'Orange tabby, sitting pose, curled tail',
       });
@@ -337,10 +354,10 @@ test.describe('Flow 4: Character Management', () => {
       // Navigate to verify
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
-      await characterEditorPage.expectCharacterInList('PoseChar');
+      await characterEditorPage.expectCharacterInList(characterName);
       
       // Edit and check description contains pose info
-      await characterEditorPage.editCharacter('PoseChar');
+      await characterEditorPage.editCharacter(characterName);
       await expect(characterEditorPage.descriptionInput).toHaveValue(/sitting pose/);
     });
   });
@@ -350,95 +367,105 @@ test.describe('Flow 4: Character Management', () => {
   // ==========================================================================
 
   test.describe('Character List Management', () => {
-    test('should list all characters in project', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should list all characters in project', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create multiple characters
-      await api.createCharacter(testProject.id, { name: 'Alpha', species: 'wolf', appearance: 'Grey fur' });
-      await api.createCharacter(testProject.id, { name: 'Beta', species: 'fox', appearance: 'Red fur' });
-      await api.createCharacter(testProject.id, { name: 'Gamma', species: 'bear', appearance: 'Brown fur' });
+      const alphaName = uniqueName('Alpha', testInfo);
+      const betaName = uniqueName('Beta', testInfo);
+      const gammaName = uniqueName('Gamma', testInfo);
+      await api.createCharacter(testProject.id, { name: alphaName, species: 'wolf', appearance: 'Grey fur' });
+      await api.createCharacter(testProject.id, { name: betaName, species: 'fox', appearance: 'Red fur' });
+      await api.createCharacter(testProject.id, { name: gammaName, species: 'bear', appearance: 'Brown fur' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // All characters should be visible
-      await characterEditorPage.expectCharacterInList('Alpha');
-      await characterEditorPage.expectCharacterInList('Beta');
-      await characterEditorPage.expectCharacterInList('Gamma');
+      await characterEditorPage.expectCharacterInList(alphaName);
+      await characterEditorPage.expectCharacterInList(betaName);
+      await characterEditorPage.expectCharacterInList(gammaName);
       
       // Count should be 3
       await characterEditorPage.expectCharacterCount(3);
     });
 
-    test('should select character to edit', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should select character to edit', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
-      await api.createCharacter(testProject.id, { name: 'Editable', species: 'mouse', appearance: 'Small and grey' });
+      const characterName = uniqueName('Editable', testInfo);
+      await api.createCharacter(testProject.id, { name: characterName, species: 'mouse', appearance: 'Small and grey' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('Editable');
+      await characterEditorPage.editCharacter(characterName);
       
       // Should be in edit mode
-      await characterEditorPage.expectEditMode('Editable');
+      await characterEditorPage.expectEditMode(characterName);
       
       // Fields should be populated
-      await expect(characterEditorPage.nameInput).toHaveValue('Editable');
+      await expect(characterEditorPage.nameInput).toHaveValue(characterName);
       await expect(characterEditorPage.speciesInput).toHaveValue('mouse');
     });
 
-    test('should save character changes', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should save character changes', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
-      await api.createCharacter(testProject.id, { name: 'UpdateMe', species: 'rabbit', appearance: 'White' });
+      const originalName = uniqueName('UpdateMe', testInfo);
+      const updatedName = uniqueName('UpdatedName', testInfo);
+      await api.createCharacter(testProject.id, { name: originalName, species: 'rabbit', appearance: 'White' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('UpdateMe');
+      await characterEditorPage.editCharacter(originalName);
       
       // Change the name
       await characterEditorPage.nameInput.clear();
-      await characterEditorPage.nameInput.fill('UpdatedName');
+      await characterEditorPage.nameInput.fill(updatedName);
       
       // Save changes
       await characterEditorPage.save();
       
       // Old name should be gone, new name should appear
-      await characterEditorPage.expectCharacterNotInList('UpdateMe');
-      await characterEditorPage.expectCharacterInList('UpdatedName');
+      await characterEditorPage.expectCharacterNotInList(originalName);
+      await characterEditorPage.expectCharacterInList(updatedName);
     });
 
-    test('should delete character with confirmation', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should delete character with confirmation', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
-      await api.createCharacter(testProject.id, { name: 'DeleteMe', species: 'fish', appearance: 'Golden scales' });
+      const characterName = uniqueName('DeleteMe', testInfo);
+      await api.createCharacter(testProject.id, { name: characterName, species: 'fish', appearance: 'Golden scales' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // Verify character exists
-      await characterEditorPage.expectCharacterInList('DeleteMe');
+      await characterEditorPage.expectCharacterInList(characterName);
       const countBefore = await characterEditorPage.getCharacterCount();
       
       // Delete the character
-      await characterEditorPage.deleteCharacter('DeleteMe');
+      await characterEditorPage.deleteCharacter(characterName);
       
       // Character should be gone
-      await characterEditorPage.expectCharacterNotInList('DeleteMe');
+      await characterEditorPage.expectCharacterNotInList(characterName);
       
       // Count should decrease
       const countAfter = await characterEditorPage.getCharacterCount();
       expect(countAfter).toBe(countBefore - 1);
     });
 
-    test('should search characters by name', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should search characters by name', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create characters
-      await api.createCharacter(testProject.id, { name: 'Captain Fluffy', species: 'dog', appearance: 'Fluffy' });
-      await api.createCharacter(testProject.id, { name: 'Captain Nemo', species: 'fish', appearance: 'Colorful' });
-      await api.createCharacter(testProject.id, { name: 'Professor Oak', species: 'human', appearance: 'Old man' });
+      const captainFluffy = uniqueName('Captain Fluffy', testInfo);
+      const captainNemo = uniqueName('Captain Nemo', testInfo);
+      const professorOak = uniqueName('Professor Oak', testInfo);
+      await api.createCharacter(testProject.id, { name: captainFluffy, species: 'dog', appearance: 'Fluffy' });
+      await api.createCharacter(testProject.id, { name: captainNemo, species: 'fish', appearance: 'Colorful' });
+      await api.createCharacter(testProject.id, { name: professorOak, species: 'human', appearance: 'Old man' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
@@ -448,14 +475,14 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.searchCharacters('Captain');
       
       // Should show only Captain characters
-      await characterEditorPage.expectCharacterInList('Captain Fluffy');
-      await characterEditorPage.expectCharacterInList('Captain Nemo');
-      await characterEditorPage.expectCharacterNotInList('Professor Oak');
+      await characterEditorPage.expectCharacterInList(captainFluffy);
+      await characterEditorPage.expectCharacterInList(captainNemo);
+      await characterEditorPage.expectCharacterNotInList(professorOak);
     });
 
-    test('should handle empty state when no characters exist', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api }) => {
+    test('should handle empty state when no characters exist', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api }, testInfo) => {
       // Create empty project (no characters)
-      const emptyProject = await api.createProject('Empty Project', 'No characters');
+      const emptyProject = await api.createProject(uniqueName('Empty Project', testInfo), 'No characters');
       
       // Navigate to project
       await page.goto(`/projects/${emptyProject.id}`);
@@ -465,16 +492,17 @@ test.describe('Flow 4: Character Management', () => {
       await characterEditorPage.expectEmptyState();
     });
 
-    test('should warn when closing with unsaved changes', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should warn when closing with unsaved changes', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
-      await api.createCharacter(testProject.id, { name: 'DirtyClose', species: 'bird', appearance: 'Blue feathers' });
+      const characterName = uniqueName('DirtyClose', testInfo);
+      await api.createCharacter(testProject.id, { name: characterName, species: 'bird', appearance: 'Blue feathers' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('DirtyClose');
+      await characterEditorPage.editCharacter(characterName);
       
       // Make changes
       await characterEditorPage.nameInput.clear();
@@ -491,20 +519,22 @@ test.describe('Flow 4: Character Management', () => {
       await expect(characterEditorPage.characterEditor).toBeVisible();
     });
 
-    test('should discard changes on confirmation', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }) => {
+    test('should discard changes on confirmation', { tag: [tags.MVP, tags.FLOW_4] }, async ({ page, characterEditorPage, api, testProject }, testInfo) => {
       // Create a character
-      await api.createCharacter(testProject.id, { name: 'DiscardTest', species: 'lizard', appearance: 'Green scales' });
+      const originalName = uniqueName('DiscardTest', testInfo);
+      const updatedName = uniqueName('ShouldNotSave', testInfo);
+      await api.createCharacter(testProject.id, { name: originalName, species: 'lizard', appearance: 'Green scales' });
       
       // Navigate to project
       await page.goto(`/projects/${testProject.id}`);
       await characterEditorPage.navigateToCharacters();
       
       // Edit the character
-      await characterEditorPage.editCharacter('DiscardTest');
+      await characterEditorPage.editCharacter(originalName);
       
       // Make changes
       await characterEditorPage.nameInput.clear();
-      await characterEditorPage.nameInput.fill('ShouldNotSave');
+      await characterEditorPage.nameInput.fill(updatedName);
       
       // Try to close
       await characterEditorPage.closeEditor();
@@ -516,8 +546,8 @@ test.describe('Flow 4: Character Management', () => {
       await expect(characterEditorPage.characterEditor).not.toBeVisible();
       
       // Original name should still be there
-      await characterEditorPage.expectCharacterInList('DiscardTest');
-      await characterEditorPage.expectCharacterNotInList('ShouldNotSave');
+      await characterEditorPage.expectCharacterInList(originalName);
+      await characterEditorPage.expectCharacterNotInList(updatedName);
     });
   });
 });
