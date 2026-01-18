@@ -13,3 +13,4 @@ export * from "./useCaptions";
 export * from "./useGeneratedTexts";
 export * from "./useComposition";
 export * from "./useControlNet";
+export * from "./useUploads";

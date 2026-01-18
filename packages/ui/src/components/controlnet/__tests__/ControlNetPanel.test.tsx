@@ -15,6 +15,10 @@ vi.mock("../../../api/hooks/useControlNet", () => ({
   buildControlNetFromPreset: (_preset: any, _image: string) => [],
 }));
 
+vi.mock("../../../api/hooks/useUploads", () => ({
+  useUploadImage: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 const mockReferenceImages = [
   { id: "gen-1", label: "Seed 123", path: "/output/ref.png" },
 ];

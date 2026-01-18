@@ -74,4 +74,32 @@ test.describe('Flow 7: ControlNet Configuration', () => {
     const payload = request.postDataJSON();
     expect(payload.controlNet?.length).toBeGreaterThan(0);
   });
+
+  test('should upload a reference image and use it', { tag: [tags.MVP, tags.FLOW_7] }, async ({ page, api }) => {
+    await setupPanelGenerator(api, page);
+
+    await page.route('**/api/uploads/image', async (route: any) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          filename: 'upload-ref.png',
+          mimeType: 'image/png',
+          path: '/output/uploads/upload-ref.png',
+        }),
+      });
+    });
+
+    const uploadInput = page.getByTestId('upload-reference-input');
+    await uploadInput.setInputFiles('src-tauri/icons/32x32.png');
+
+    await page.getByTestId('control-card-openpose').getByRole('switch').click();
+    const generateRequestPromise = page.waitForRequest('**/api/panels/*/generate');
+    await page.getByRole('button', { name: 'Generate Single' }).click();
+
+    const request = await generateRequestPromise;
+    const payload = request.postDataJSON();
+    expect(payload.controlNet?.[0]?.image).toContain('/output/uploads');
+  });
 });

@@ -17,6 +17,7 @@ import { storyPaths } from "./story.js";
 import { narrativePaths } from "./narrative.js";
 import { reviewPaths } from "./review.js";
 import { textPaths } from "./text.js";
+import { uploadPaths } from "./uploads.js";
 
 export const allPaths = {
   ...projectPaths,
@@ -32,4 +33,5 @@ export const allPaths = {
   ...narrativePaths,
   ...reviewPaths,
   ...textPaths,
+  ...uploadPaths,
 };

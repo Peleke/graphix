@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { css } from "../../../styled-system/css";
 import type { ControlNetCondition, ControlNetType } from "../../types/controlnet";
 import { useControlNetPreview, useControlNetPresets, useControlNetTypes, buildControlNetFromPreset } from "../../api/hooks/useControlNet";
+import { useUploadImage } from "../../api/hooks/useUploads";
 import { useControlNetSettings } from "./useControlNetSettings";
 
 interface ReferenceImage {
@@ -115,14 +116,20 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
   const { data: presets } = useControlNetPresets();
   const { data: types } = useControlNetTypes();
   const previewMutation = useControlNetPreview();
+  const uploadMutation = useUploadImage();
 
   const [activeView, setActiveView] = useState<"visual" | "full">("visual");
   const [activeControlId, setActiveControlId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<string>("");
   const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
+  const [uploadedReferences, setUploadedReferences] = useState<ReferenceImage[]>([]);
 
   const controls = settings.controls;
+  const allReferences = useMemo(
+    () => [...uploadedReferences, ...referenceImages],
+    [uploadedReferences, referenceImages]
+  );
 
   useEffect(() => {
     onChange(controls, settings.level);
@@ -210,7 +217,7 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
 
       <div className={css({ marginBottom: "0.75rem" })}>
         <label className={styles.subTitle}>Reference history</label>
-        {referenceImages.length === 0 ? (
+        {allReferences.length === 0 ? (
           <div className={styles.subTitle}>No generations available yet.</div>
         ) : (
           <div
@@ -221,7 +228,7 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
               marginTop: "0.5rem",
             })}
           >
-            {referenceImages.map((img) => {
+            {allReferences.map((img) => {
               const isSelected = selectedReferenceId === img.id;
               return (
                 <button
@@ -229,7 +236,7 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
                   type="button"
                   data-testid={`history-card-${img.id}`}
                   data-selected={isSelected}
-                  onClick={() => {
+                      onClick={() => {
                     setSelectedReferenceId(img.id);
                     setReferenceImage(img.path);
                     setSettings({
@@ -286,6 +293,42 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
             })}
           </div>
         )}
+      </div>
+
+      <div className={css({ marginBottom: "1rem" })}>
+        <label className={styles.subTitle}>Upload reference</label>
+        <div className={css({ display: "flex", gap: "0.5rem", marginTop: "0.5rem" })}>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            data-testid="upload-reference-input"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                const response = await uploadMutation.mutateAsync(file);
+                const preview = URL.createObjectURL(file);
+                const uploaded: ReferenceImage = {
+                  id: `upload-${response.filename}`,
+                  label: file.name,
+                  path: response.path,
+                  previewUrl: preview,
+                };
+                setUploadedReferences((prev) => [uploaded, ...prev]);
+                setSelectedReferenceId(uploaded.id);
+                setReferenceImage(uploaded.path);
+              } catch {
+                // Silent for now; UI can surface toast later
+              } finally {
+                event.target.value = "";
+              }
+            }}
+            className={styles.input}
+          />
+          <button className={styles.button} disabled={uploadMutation.isPending}>
+            {uploadMutation.isPending ? "Uploading..." : "Upload"}
+          </button>
+        </div>
       </div>
 
       {activeView === "visual" && (
