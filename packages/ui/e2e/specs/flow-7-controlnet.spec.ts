@@ -62,8 +62,8 @@ test.describe('Flow 7: ControlNet Configuration', () => {
 
     const generateRequestPromise = page.waitForRequest('**/api/panels/*/generate');
 
+    await page.getByTestId('history-card-gen-controlnet-1').click();
     await page.getByTestId('control-card-openpose').getByRole('switch').click();
-    await page.getByTestId('reference-image-select').selectOption({ index: 1 });
     await page.getByRole('button', { name: /Full Control/i }).click();
     await page.getByTestId('controlnet-preview-button').first().click();
 

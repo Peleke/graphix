@@ -67,9 +67,7 @@ describe("ControlNetPanel", () => {
       { wrapper: createWrapper() }
     );
 
-    fireEvent.change(screen.getByTestId("reference-image-select"), {
-      target: { value: "/output/ref.png" },
-    });
+    fireEvent.click(screen.getByTestId("history-card-gen-1"));
     fireEvent.click(screen.getByTestId("control-card-openpose").querySelector('[role="switch"]') as HTMLElement);
 
     expect(onChange).toHaveBeenCalled();

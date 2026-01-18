@@ -70,11 +70,16 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const rateGeneration = useRateGeneration();
 
   const referenceImages = (generations || [])
-    .map((gen: any) => ({
-      id: gen.id,
-      label: `Seed ${gen.seed ?? "?"}`,
-      path: gen.localPath || gen.cloudUrl || "",
-    }))
+    .map((gen: any) => {
+      const path = gen.localPath || gen.cloudUrl || "";
+      return {
+        id: gen.id,
+        label: `Seed ${gen.seed ?? "?"}`,
+        path,
+        previewUrl: gen.id ? `/api/generations/${gen.id}/thumbnail` : undefined,
+        metadata: gen.width && gen.height ? `${gen.width}×${gen.height}` : undefined,
+      };
+    })
     .filter((img: { path: string }) => img.path);
 
   // Track generation errors for display

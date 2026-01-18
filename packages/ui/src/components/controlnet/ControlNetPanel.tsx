@@ -4,10 +4,18 @@ import type { ControlNetCondition, ControlNetType } from "../../types/controlnet
 import { useControlNetPreview, useControlNetPresets, useControlNetTypes, buildControlNetFromPreset } from "../../api/hooks/useControlNet";
 import { useControlNetSettings } from "./useControlNetSettings";
 
+interface ReferenceImage {
+  id: string;
+  label: string;
+  path: string;
+  previewUrl?: string;
+  metadata?: string;
+}
+
 interface ControlNetPanelProps {
   panelId: string;
   projectId?: string | null;
-  referenceImages: Array<{ id: string; label: string; path: string }>;
+  referenceImages: ReferenceImage[];
   level?: 0 | 1 | 2 | 3 | 4;
   onChange: (controls: ControlNetCondition[], level: 0 | 1 | 2 | 3 | 4) => void;
 }
@@ -112,6 +120,7 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
   const [activeControlId, setActiveControlId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [referenceImage, setReferenceImage] = useState<string>("");
+  const [selectedReferenceId, setSelectedReferenceId] = useState<string | null>(null);
 
   const controls = settings.controls;
 
@@ -200,29 +209,83 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, level, on
       </header>
 
       <div className={css({ marginBottom: "0.75rem" })}>
-        <label className={styles.subTitle}>Reference image</label>
-        <select
-          className={styles.input}
-          data-testid="reference-image-select"
-          value={referenceImage}
-          onChange={(event) => {
-            setReferenceImage(event.target.value);
-            setSettings({
-              ...settings,
-              controls: settings.controls.map((control) => ({
-                ...control,
-                image: event.target.value,
-              })),
-            });
-          }}
-        >
-          <option value="">Select reference (generation history)</option>
-          {referenceImages.map((img) => (
-            <option key={img.id} value={img.path}>
-              {img.label}
-            </option>
-          ))}
-        </select>
+        <label className={styles.subTitle}>Reference history</label>
+        {referenceImages.length === 0 ? (
+          <div className={styles.subTitle}>No generations available yet.</div>
+        ) : (
+          <div
+            className={css({
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: "0.75rem",
+              marginTop: "0.5rem",
+            })}
+          >
+            {referenceImages.map((img) => {
+              const isSelected = selectedReferenceId === img.id;
+              return (
+                <button
+                  key={img.id}
+                  type="button"
+                  data-testid={`history-card-${img.id}`}
+                  data-selected={isSelected}
+                  onClick={() => {
+                    setSelectedReferenceId(img.id);
+                    setReferenceImage(img.path);
+                    setSettings({
+                      ...settings,
+                      controls: settings.controls.map((control) => ({
+                        ...control,
+                        image: img.path,
+                      })),
+                    });
+                  }}
+                  className={css({
+                    border: "1px solid",
+                    borderColor: isSelected ? "#8b5cf6" : "#3f3f46",
+                    background: isSelected ? "rgba(139,92,246,0.15)" : "#1f1f23",
+                    borderRadius: "12px",
+                    padding: "0.5rem",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  })}
+                >
+                  <div
+                    className={css({
+                      height: "90px",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "1px solid #27272a",
+                      background: "#0f0f12",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#71717a",
+                      fontSize: "0.75rem",
+                    })}
+                  >
+                    {img.previewUrl ? (
+                      <img
+                        src={img.previewUrl}
+                        alt={img.label}
+                        className={css({ width: "100%", height: "100%", objectFit: "cover" })}
+                      />
+                    ) : (
+                      "Preview"
+                    )}
+                  </div>
+                  <div className={css({ fontSize: "0.8rem", color: "#e4e4e7" })}>{img.label}</div>
+                  {img.metadata && (
+                    <div className={styles.subTitle}>{img.metadata}</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {activeView === "visual" && (
