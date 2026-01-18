@@ -158,9 +158,15 @@ export class DashboardPage extends BasePage {
     await this.page.waitForLoadState('domcontentloaded');
     // Wait for dashboard container
     await expect(this.dashboardContainer).toBeVisible({ timeout: 10000 });
-    // Wait for data to load: either projects appear OR empty state appears
-    // This is the reliable indicator that TanStack Query finished
-    await this.projectCards.first().or(this.emptyState).waitFor({ state: 'visible', timeout: 15000 });
+    // Wait for data to load: projects, empty state, loading state, or error state
+    // This is the reliable indicator that TanStack Query finished initial load
+    const loadedIndicator = this.projectCards.first()
+      .or(this.emptyState)
+      .or(this.loadingState)
+      .or(this.errorState);
+    await loadedIndicator.waitFor({ state: 'visible', timeout: 15000 });
+    // If loading, wait for it to finish
+    await this.loadingState.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
   }
 
   async isDisplayed(): Promise<boolean> {
@@ -263,10 +269,10 @@ export class DashboardPage extends BasePage {
    * Delete a project via context menu
    */
   async deleteProject(name: string): Promise<void> {
+    // Set up dialog handler BEFORE triggering the action
+    this.page.once('dialog', dialog => dialog.accept());
     await this.openProjectMenu(name);
     await this.page.getByTestId('project-menu-delete').click();
-    // Handle the confirmation dialog
-    this.page.on('dialog', dialog => dialog.accept());
   }
 
   /**

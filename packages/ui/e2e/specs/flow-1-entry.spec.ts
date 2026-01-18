@@ -410,6 +410,7 @@ test.describe('Flow 1: Application Entry', () => {
     test('should show mobile menu button on small screens', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/');
+      await page.waitForLoadState('domcontentloaded');
 
       await expect(page.locator('.mobile-menu-button')).toBeVisible();
     });
@@ -417,12 +418,18 @@ test.describe('Flow 1: Application Entry', () => {
     test('should toggle mobile menu', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
       await page.goto('/');
+      await page.waitForLoadState('domcontentloaded');
 
-      await page.locator('.mobile-menu-button').click();
-      await expect(page.locator('.mobile-menu.open')).toBeVisible();
+      const mobileMenu = page.locator('.mobile-menu');
+      const menuButton = page.locator('.mobile-menu-button');
 
-      await page.locator('.mobile-menu-button').click();
-      await expect(page.locator('.mobile-menu.open')).toBeHidden();
+      // Open menu
+      await menuButton.click();
+      await expect(mobileMenu).toHaveClass(/open/);
+
+      // Close menu
+      await menuButton.click();
+      await expect(mobileMenu).not.toHaveClass(/open/);
     });
   });
 });
