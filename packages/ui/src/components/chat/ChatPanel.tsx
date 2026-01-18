@@ -59,6 +59,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [showThreadModal, setShowThreadModal] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
@@ -160,8 +161,9 @@ export function ChatPanel({
   }, [sendMessage, createProject, createSession, reset, onProjectCreated, onClose]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
-    handleSend(suggestion);
-  }, [handleSend]);
+    // Prepopulate input instead of sending directly
+    setInputValue(suggestion);
+  }, []);
 
   const handleRetry = useCallback(() => {
     setLocalError(null);
@@ -430,10 +432,15 @@ export function ChatPanel({
         )}
 
         <ChatInput
-          onSend={handleSend}
+          onSend={(content) => {
+            handleSend(content);
+            setInputValue(''); // Clear after send
+          }}
           disabled={isStreaming || !session}
           maxLength={MAX_MESSAGE_LENGTH}
           autoFocus
+          value={inputValue}
+          onValueChange={setInputValue}
         />
       </div>
 

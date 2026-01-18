@@ -196,7 +196,7 @@ describe('ChatPanel', () => {
       });
     });
 
-    it('sends message when suggestion chip is clicked', async () => {
+    it('prepopulates input when suggestion chip is clicked', async () => {
       const user = userEvent.setup();
       render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
@@ -206,8 +206,10 @@ describe('ChatPanel', () => {
       
       await user.click(screen.getByText('A romance between two otters'));
       
+      // Should prepopulate the input, not send directly
       await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith('A romance between two otters');
+        const input = screen.getByRole('textbox');
+        expect(input).toHaveValue('A romance between two otters');
       });
     });
   });

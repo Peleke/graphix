@@ -13,6 +13,10 @@ interface ChatInputProps {
   placeholder?: string;
   autoFocus?: boolean;
   maxLength?: number;
+  /** Controlled value (optional) */
+  value?: string;
+  /** Called when value changes (for controlled mode) */
+  onValueChange?: (value: string) => void;
 }
 
 export const DEFAULT_MAX_LENGTH = 4000;
@@ -22,10 +26,22 @@ export function ChatInput({
   disabled = false, 
   placeholder = "Describe your story idea...",
   autoFocus = false,
-  maxLength = DEFAULT_MAX_LENGTH
+  maxLength = DEFAULT_MAX_LENGTH,
+  value: controlledValue,
+  onValueChange,
 }: ChatInputProps) {
-  const [value, setValue] = useState('');
+  const [internalValue, setInternalValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Use controlled value if provided, otherwise internal state
+  const value = controlledValue !== undefined ? controlledValue : internalValue;
+  const setValue = (newValue: string) => {
+    if (onValueChange) {
+      onValueChange(newValue);
+    } else {
+      setInternalValue(newValue);
+    }
+  };
 
   // Auto-resize textarea
   useEffect(() => {

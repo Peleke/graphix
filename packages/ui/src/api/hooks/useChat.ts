@@ -234,7 +234,10 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
               eventType = line.slice(6).trim();
               currentEvent = eventType;
             } else if (line.startsWith('data:')) {
-              eventData = line.slice(5); // Don't trim - preserve spaces in content
+              // SSE format is "data: content" - slice past "data:" (5 chars)
+              // The content starts after the space, so slice(6) for "data: " or handle both
+              const dataContent = line.slice(5);
+              eventData = dataContent.startsWith(' ') ? dataContent.slice(1) : dataContent;
             }
           }
           
