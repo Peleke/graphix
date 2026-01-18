@@ -120,32 +120,39 @@ const panelStyles = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px 20px',
+    padding: '32px 24px',
     textAlign: 'center',
-    color: 'slate.500',
+    color: 'slate.300',
+    border: '1px dashed',
+    borderColor: 'slate.700',
+    borderRadius: '12px',
+    backgroundColor: 'slate.900',
   }),
   
   emptyIcon: css({
-    fontSize: '48px',
-    marginBottom: '16px',
+    fontSize: '44px',
+    marginBottom: '12px',
+    color: 'slate.400',
   }),
   
   emptyText: css({
-    fontSize: '13px',
-    marginBottom: '4px',
+    fontSize: '14px',
+    fontWeight: '600',
+    marginBottom: '6px',
+    color: 'slate.200',
   }),
   
   emptySubtext: css({
     fontSize: '12px',
-    color: 'slate.600',
-    marginBottom: '16px',
+    color: 'slate.500',
+    marginBottom: '18px',
   }),
   
   emptyCreateButton: css({
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '10px 16px',
+    padding: '10px 18px',
     fontSize: '13px',
     fontWeight: '600',
     backgroundColor: 'violet.600',
@@ -173,17 +180,18 @@ const panelStyles = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    padding: '8px 14px',
+    padding: '7px 12px',
     fontSize: '13px',
     fontWeight: '500',
-    backgroundColor: 'violet.600',
-    border: 'none',
+    backgroundColor: 'transparent',
+    border: '1px solid',
+    borderColor: 'slate.600',
     borderRadius: '6px',
-    color: 'white',
+    color: 'slate.200',
     cursor: 'pointer',
     transition: 'all 0.15s ease',
     _hover: {
-      backgroundColor: 'violet.500',
+      backgroundColor: 'slate.700',
     },
     _active: {
       transform: 'scale(0.98)',
@@ -192,7 +200,7 @@ const panelStyles = {
   
   countBadge: css({
     fontSize: '12px',
-    color: 'slate.500',
+    color: 'slate.400',
   }),
 };
 
@@ -419,14 +427,16 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
         <span className={panelStyles.countBadge} data-testid="character-count">
           {characters.length} character{characters.length !== 1 ? 's' : ''}
         </span>
-        <button 
-          className={panelStyles.addButton}
-          onClick={handleCreateCharacter}
-          data-testid="character-add-button"
-        >
-          <PlusIcon />
-          Add Character
-        </button>
+        {(characters.length > 0 || hasValue) && (
+          <button 
+            className={panelStyles.addButton}
+            onClick={handleCreateCharacter}
+            data-testid="character-add-button"
+          >
+            <PlusIcon />
+            Add Character
+          </button>
+        )}
       </div>
       
       {/* Character Editor Modal */}

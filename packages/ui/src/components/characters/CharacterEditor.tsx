@@ -407,6 +407,7 @@ export function CharacterEditor({
             flex: 1,
             overflow: 'auto',
             padding: '24px',
+            backgroundColor: '#0f172a',
           })}
         >
           {/* Details Panel */}
@@ -417,11 +418,19 @@ export function CharacterEditor({
               aria-labelledby="tab-details"
               data-testid="panel-details"
             >
+              <div
+                className={css({
+                  backgroundColor: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '12px',
+                  padding: '20px',
+                })}
+              >
               {/* Name Field */}
               <div className={css({ marginBottom: '16px' })}>
                 <label
                   htmlFor="character-name"
-                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                  className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
                 >
                   Name *
                 </label>
@@ -433,12 +442,12 @@ export function CharacterEditor({
                   className={css({
                     width: '100%',
                     padding: '12px',
-                    backgroundColor: '#0f0f1a',
-                    border: errors.name ? '1px solid #ef4444' : '1px solid #333',
+                    backgroundColor: '#0b1020',
+                    border: errors.name ? '1px solid #ef4444' : '1px solid #1f2937',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '1rem',
-                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                    _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
                   aria-invalid={!!errors.name}
                   aria-describedby={errors.name ? 'name-error' : undefined}
@@ -455,7 +464,7 @@ export function CharacterEditor({
               <div className={css({ marginBottom: '16px' })}>
                 <label
                   htmlFor="character-species"
-                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                  className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
                 >
                   Species *
                 </label>
@@ -467,12 +476,12 @@ export function CharacterEditor({
                   className={css({
                     width: '100%',
                     padding: '12px',
-                    backgroundColor: '#0f0f1a',
-                    border: errors.species ? '1px solid #ef4444' : '1px solid #333',
+                    backgroundColor: '#0b1020',
+                    border: errors.species ? '1px solid #ef4444' : '1px solid #1f2937',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '1rem',
-                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                    _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
                   aria-invalid={!!errors.species}
                   aria-describedby={errors.species ? 'species-error' : undefined}
@@ -489,7 +498,7 @@ export function CharacterEditor({
               <div className={css({ marginBottom: '16px' })}>
                 <label
                   htmlFor="character-description"
-                  className={css({ display: 'block', color: '#888', marginBottom: '8px' })}
+                  className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
                 >
                   Description
                 </label>
@@ -501,19 +510,19 @@ export function CharacterEditor({
                   className={css({
                     width: '100%',
                     padding: '12px',
-                    backgroundColor: '#0f0f1a',
-                    border: errors.description ? '1px solid #ef4444' : '1px solid #333',
+                    backgroundColor: '#0b1020',
+                    border: errors.description ? '1px solid #ef4444' : '1px solid #1f2937',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '1rem',
                     resize: 'vertical',
-                    _focus: { outline: 'none', borderColor: '#6366f1' },
+                    _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
                   aria-invalid={!!errors.description}
                   aria-describedby={errors.description ? 'description-error' : 'description-hint'}
                   data-testid="character-description-input"
                 />
-                <p id="description-hint" className={css({ color: '#666', fontSize: '0.75rem', marginTop: '4px' })}>
+                <p id="description-hint" className={css({ color: '#64748b', fontSize: '0.75rem', marginTop: '6px' })}>
                   {formData.description.length}/{MAX_DESCRIPTION_LENGTH} characters
                 </p>
                 {errors.description && (
@@ -521,6 +530,7 @@ export function CharacterEditor({
                     {errors.description}
                   </p>
                 )}
+              </div>
               </div>
 
               {/* Color Palette (only in edit mode) */}
@@ -640,18 +650,19 @@ export function CharacterEditor({
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '12px',
+            backgroundColor: '#0b1020',
           })}
         >
           <button
             onClick={handleCancel}
             className={css({
-              padding: '10px 20px',
+              padding: '10px 18px',
               backgroundColor: 'transparent',
-              border: '1px solid #333',
+              border: '1px solid #334155',
               borderRadius: '8px',
-              color: '#888',
+              color: '#cbd5e1',
               cursor: 'pointer',
-              _hover: { backgroundColor: '#1a1a2e', color: '#fff' },
+              _hover: { backgroundColor: '#0f172a', color: '#fff' },
             })}
             data-testid="cancel-button"
           >
@@ -662,12 +673,12 @@ export function CharacterEditor({
             disabled={isSaving || (!isDirty && !isCreateMode)}
             className={css({
               padding: '10px 20px',
-              backgroundColor: '#4f46e5',
+              backgroundColor: '#7c3aed',
               border: 'none',
               borderRadius: '8px',
               color: '#fff',
               cursor: 'pointer',
-              _hover: { backgroundColor: '#6366f1' },
+              _hover: { backgroundColor: '#8b5cf6' },
               _disabled: { opacity: 0.5, cursor: 'not-allowed' },
             })}
             data-testid="save-button"
