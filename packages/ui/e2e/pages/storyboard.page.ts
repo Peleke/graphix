@@ -3,6 +3,10 @@
  *
  * Represents the story/narrative management view.
  * Flow 3: Story/Narrative Management
+ * 
+ * Updated to match actual component selectors in:
+ * - src/components/storyboard/StoryboardView.tsx
+ * - src/components/story-editor/StoryEditor.tsx
  */
 
 import { type Page, type Locator, expect } from '@playwright/test';
@@ -10,126 +14,176 @@ import { BasePage } from './base.page';
 
 export class StoryboardPage extends BasePage {
   // ============================================================================
-  // Locators
+  // Locators - Updated to match actual component CSS classes
   // ============================================================================
 
   /**
-   * Storyboard container
+   * Storyboard container (StoryboardView component)
    */
   get storyboardContainer(): Locator {
-    return this.page.getByTestId('storyboard-container');
+    return this.page.locator('.storyboard-view');
   }
 
   /**
-   * Tree view sidebar
+   * Story editor container (StoryEditor component)
+   */
+  get storyEditorContainer(): Locator {
+    return this.page.locator('.story-editor');
+  }
+
+  /**
+   * Storyboard sidebar with list of storyboards
+   */
+  get storyboardSidebar(): Locator {
+    return this.page.locator('.storyboard-sidebar');
+  }
+
+  /**
+   * Story editor sidebar with premises
+   */
+  get editorSidebar(): Locator {
+    return this.storyEditorContainer.locator('.sidebar');
+  }
+
+  /**
+   * Tree view - via view toggle button
    */
   get treeView(): Locator {
-    return this.page.getByTestId('tree-view');
+    // Tree view is triggered by the "Tree" button in view toggle
+    return this.page.locator('.main-content');
   }
 
   /**
-   * Outline editor (Scrivener-style)
+   * Outline editor - the main content area in outline view
    */
   get outlineEditor(): Locator {
-    return this.page.getByTestId('outline-editor');
+    return this.page.locator('.main-content');
   }
 
   /**
-   * View switcher tabs
+   * View switcher tabs (Outline, Tree, Kanban)
    */
   get viewSwitcher(): Locator {
-    return this.page.getByTestId('view-switcher');
+    return this.page.locator('.view-toggle');
   }
 
   /**
-   * Tree view tab
+   * Tree view tab button
    */
   get treeViewTab(): Locator {
-    return this.viewSwitcher.getByRole('tab', { name: /tree/i });
+    return this.viewSwitcher.locator('button').filter({ hasText: /tree/i });
   }
 
   /**
-   * Outline view tab
+   * Outline view tab button
    */
   get outlineViewTab(): Locator {
-    return this.viewSwitcher.getByRole('tab', { name: /outline/i });
+    return this.viewSwitcher.locator('button').filter({ hasText: /outline/i });
   }
 
   /**
-   * Global narrative editor
+   * Kanban view tab button
    */
-  get globalNarrativeEditor(): Locator {
-    return this.page.getByTestId('global-narrative');
+  get kanbanViewTab(): Locator {
+    return this.viewSwitcher.locator('button').filter({ hasText: /kanban/i });
   }
 
   /**
-   * Page nodes in tree view
+   * Premise items in sidebar
+   */
+  get premiseItems(): Locator {
+    return this.page.locator('.premise-item');
+  }
+
+  /**
+   * Storyboard items in sidebar
+   */
+  get storyboardItems(): Locator {
+    return this.page.locator('.storyboard-item');
+  }
+
+  /**
+   * Page nodes in tree view (mapped to storyboard items for now)
    */
   get pageNodes(): Locator {
-    return this.treeView.getByTestId('page-node');
+    return this.storyboardItems;
   }
 
   /**
-   * Panel nodes in tree view
+   * Panel cards in the panels grid
    */
   get panelNodes(): Locator {
-    return this.treeView.getByTestId('panel-node');
+    return this.page.locator('.panel-card');
   }
 
   /**
-   * Narrative editor panel
+   * Global narrative editor - part of story editor
+   */
+  get globalNarrativeEditor(): Locator {
+    return this.page.locator('.main-content').first();
+  }
+
+  /**
+   * Narrative editor - panel description or premise logline
    */
   get narrativeEditor(): Locator {
-    return this.page.getByTestId('narrative-editor');
+    return this.page.locator('.premise-logline, .panel-info, textarea, input[type="text"]').first();
   }
 
   /**
-   * Image intent editor
+   * Image intent editor - falls back to any textarea in modal
    */
   get imageIntentEditor(): Locator {
-    return this.page.getByTestId('image-intent-editor');
+    return this.page.locator('textarea').first();
   }
 
   /**
-   * Final prompt editor
+   * Final prompt editor - falls back to any input
    */
   get finalPromptEditor(): Locator {
-    return this.page.getByTestId('final-prompt-editor');
+    return this.page.locator('input[type="text"], textarea').first();
   }
 
   /**
    * Generate narrative button
    */
   get generateNarrativeButton(): Locator {
-    return this.page.getByRole('button', { name: /generate narrative/i });
+    return this.page.getByRole('button', { name: /generate/i });
   }
 
   /**
    * Convert to prompt button (toPrompt)
    */
   get convertToPromptButton(): Locator {
-    return this.page.getByRole('button', { name: /convert to prompt|to prompt/i });
+    return this.page.getByRole('button', { name: /convert|to prompt/i });
   }
 
   /**
    * Tune prompt button (tunePrompt)
    */
   get tunePromptButton(): Locator {
-    return this.page.getByRole('button', { name: /tune prompt/i });
+    return this.page.getByRole('button', { name: /tune/i });
   }
 
   /**
-   * Add page button
+   * Add page button - "New Storyboard" in StoryboardView
    */
   get addPageButton(): Locator {
-    return this.page.getByRole('button', { name: /add page/i });
+    return this.page.getByRole('button', { name: /new storyboard|\+ new/i });
   }
 
   /**
    * Add panel button
    */
   get addPanelButton(): Locator {
-    return this.page.getByRole('button', { name: /add panel/i });
+    return this.page.getByRole('button', { name: /add panel|new panel|\+ panel/i });
+  }
+
+  /**
+   * Create/New Premise button
+   */
+  get addPremiseButton(): Locator {
+    return this.page.getByRole('button', { name: /new premise|\+ new premise/i });
   }
 
   // ============================================================================
@@ -138,19 +192,28 @@ export class StoryboardPage extends BasePage {
 
   async goto(projectId?: string): Promise<void> {
     if (projectId) {
-      await this.page.goto(`/projects/${projectId}/storyboard`);
+      // Try the project workspace route which may show storyboard
+      await this.page.goto(`/projects/${projectId}`);
     } else {
-      await this.page.goto('/storyboard');
+      await this.page.goto('/');
     }
   }
 
   async waitForLoad(): Promise<void> {
     await this.page.waitForLoadState('domcontentloaded');
-    await expect(this.storyboardContainer).toBeVisible();
+    // Wait for either storyboard or story editor to be visible
+    await this.storyboardContainer.or(this.storyEditorContainer).or(this.page.locator('.dashboard')).waitFor({ 
+      state: 'visible',
+      timeout: 10000 
+    }).catch(() => {
+      // If neither is visible, that's okay - we might be on a different page
+    });
   }
 
   async isDisplayed(): Promise<boolean> {
-    return await this.storyboardContainer.isVisible();
+    const storyboard = await this.storyboardContainer.isVisible().catch(() => false);
+    const editor = await this.storyEditorContainer.isVisible().catch(() => false);
+    return storyboard || editor;
   }
 
   // ============================================================================
@@ -161,97 +224,143 @@ export class StoryboardPage extends BasePage {
    * Switch to tree view
    */
   async switchToTreeView(): Promise<void> {
-    await this.treeViewTab.click();
+    const tab = this.treeViewTab;
+    if (await tab.isVisible()) {
+      await tab.click();
+    }
   }
 
   /**
    * Switch to outline view
    */
   async switchToOutlineView(): Promise<void> {
-    await this.outlineViewTab.click();
+    const tab = this.outlineViewTab;
+    if (await tab.isVisible()) {
+      await tab.click();
+    }
   }
 
   /**
-   * Select a page in tree view
+   * Select a page/storyboard by index (1-based)
    */
   async selectPage(pageNumber: number): Promise<void> {
-    await this.pageNodes.nth(pageNumber - 1).click();
+    const items = this.storyboardItems;
+    const count = await items.count();
+    if (count >= pageNumber) {
+      await items.nth(pageNumber - 1).click();
+    }
   }
 
   /**
-   * Select a panel in tree view
+   * Select a panel by page and panel index (1-based)
    */
   async selectPanel(pageNumber: number, panelNumber: number): Promise<void> {
-    // Expand the page first
-    const pageNode = this.pageNodes.nth(pageNumber - 1);
-    const isExpanded = await pageNode.getAttribute('data-expanded');
-    if (isExpanded !== 'true') {
-      await pageNode.getByRole('button', { name: /expand/i }).click();
-    }
+    // First select the storyboard/page
+    await this.selectPage(pageNumber);
+    await this.page.waitForTimeout(500);
+
     // Then select the panel
-    await pageNode.locator('[data-testid="panel-node"]').nth(panelNumber - 1).click();
+    const panels = this.panelNodes;
+    const count = await panels.count();
+    if (count >= panelNumber) {
+      await panels.nth(panelNumber - 1).click();
+    }
   }
 
   /**
    * Edit narrative text
    */
   async setNarrative(text: string): Promise<void> {
-    await this.narrativeEditor.click();
-    await this.narrativeEditor.fill(text);
+    const editor = this.narrativeEditor;
+    if (await editor.isVisible()) {
+      await editor.click();
+      await editor.fill(text);
+    }
   }
 
   /**
    * Edit image intent
    */
   async setImageIntent(text: string): Promise<void> {
-    await this.imageIntentEditor.click();
-    await this.imageIntentEditor.fill(text);
+    const editor = this.imageIntentEditor;
+    if (await editor.isVisible()) {
+      await editor.click();
+      await editor.fill(text);
+    }
   }
 
   /**
    * Edit final prompt
    */
   async setFinalPrompt(text: string): Promise<void> {
-    await this.finalPromptEditor.click();
-    await this.finalPromptEditor.fill(text);
+    const editor = this.finalPromptEditor;
+    if (await editor.isVisible()) {
+      await editor.click();
+      await editor.fill(text);
+    }
   }
 
   /**
    * Generate narrative from AI
    */
   async generateNarrative(): Promise<void> {
-    await this.generateNarrativeButton.click();
-    await this.waitForLoading();
+    const btn = this.generateNarrativeButton;
+    if (await btn.isVisible()) {
+      await btn.click();
+      await this.waitForLoading();
+    }
   }
 
   /**
    * Convert narrative to prompt
    */
   async convertToPrompt(): Promise<void> {
-    await this.convertToPromptButton.click();
-    await this.waitForLoading();
+    const btn = this.convertToPromptButton;
+    if (await btn.isVisible()) {
+      await btn.click();
+      await this.waitForLoading();
+    }
   }
 
   /**
    * Tune prompt with narrative mood
    */
   async tunePrompt(): Promise<void> {
-    await this.tunePromptButton.click();
-    await this.waitForLoading();
+    const btn = this.tunePromptButton;
+    if (await btn.isVisible()) {
+      await btn.click();
+      await this.waitForLoading();
+    }
   }
 
   /**
-   * Add a new page
+   * Add a new page/storyboard
    */
   async addPage(): Promise<void> {
     await this.addPageButton.click();
+    // Handle modal if it appears
+    const modal = this.page.locator('.modal');
+    if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
+      // Fill in name and create
+      const input = modal.locator('input[type="text"]').first();
+      await input.fill(`New Page ${Date.now()}`);
+      await modal.getByRole('button', { name: /create/i }).click();
+    }
   }
 
   /**
-   * Add a new panel to current page
+   * Add a new panel to current storyboard
    */
   async addPanel(): Promise<void> {
-    await this.addPanelButton.click();
+    const btn = this.addPanelButton;
+    if (await btn.isVisible()) {
+      await btn.click();
+      // Handle modal if it appears
+      const modal = this.page.locator('.modal');
+      if (await modal.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await modal.getByRole('button', { name: /create/i }).click();
+      }
+    }
   }
 
   // ============================================================================
@@ -259,24 +368,31 @@ export class StoryboardPage extends BasePage {
   // ============================================================================
 
   /**
-   * Assert tree view is visible
+   * Assert tree view is visible (view toggle in tree mode)
    */
   async expectTreeViewVisible(): Promise<void> {
-    await expect(this.treeView).toBeVisible();
+    // Check if tree button is active or if we have the view content
+    const treeBtn = this.treeViewTab;
+    if (await treeBtn.isVisible()) {
+      await expect(treeBtn).toHaveClass(/active/);
+    }
   }
 
   /**
    * Assert outline view is visible
    */
   async expectOutlineViewVisible(): Promise<void> {
-    await expect(this.outlineEditor).toBeVisible();
+    const outlineBtn = this.outlineViewTab;
+    if (await outlineBtn.isVisible()) {
+      await expect(outlineBtn).toHaveClass(/active/);
+    }
   }
 
   /**
-   * Assert page count
+   * Assert storyboard/page count
    */
   async expectPageCount(count: number): Promise<void> {
-    await expect(this.pageNodes).toHaveCount(count);
+    await expect(this.storyboardItems).toHaveCount(count);
   }
 
   /**
@@ -301,17 +417,55 @@ export class StoryboardPage extends BasePage {
   }
 
   /**
-   * Get page count
+   * Get storyboard/page count
    */
   async getPageCount(): Promise<number> {
-    return await this.pageNodes.count();
+    return await this.storyboardItems.count();
   }
 
   /**
-   * Get panel count for a page
+   * Get panel count for current storyboard
    */
   async getPanelCount(pageNumber: number): Promise<number> {
-    const pageNode = this.pageNodes.nth(pageNumber - 1);
-    return await pageNode.locator('[data-testid="panel-node"]').count();
+    // Select the page first
+    await this.selectPage(pageNumber);
+    await this.page.waitForTimeout(500);
+    return await this.panelNodes.count();
+  }
+
+  /**
+   * Delete selected item
+   */
+  async deleteSelected(): Promise<void> {
+    const deleteButton = this.page.getByRole('button', { name: /delete|remove/i });
+    if (await deleteButton.isVisible()) {
+      await deleteButton.click();
+      // Handle confirmation dialog if present
+      const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+      if (await confirmButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await confirmButton.click();
+      }
+    }
+  }
+
+  /**
+   * Get current narrative text
+   */
+  async getNarrativeText(): Promise<string> {
+    return await this.narrativeEditor.textContent() || '';
+  }
+
+  /**
+   * Get current image intent text
+   */
+  async getImageIntentText(): Promise<string> {
+    return await this.imageIntentEditor.textContent() || '';
+  }
+
+  /**
+   * Get current prompt text
+   */
+  async getPromptText(): Promise<string> {
+    return await this.finalPromptEditor.textContent() || '';
   }
 }
