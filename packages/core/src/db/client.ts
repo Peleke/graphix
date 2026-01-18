@@ -466,6 +466,49 @@ export async function migrateDatabase(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS custom_assets_project_idx ON custom_assets(project_id);
     CREATE INDEX IF NOT EXISTS custom_assets_character_idx ON custom_assets(character_id);
     CREATE INDEX IF NOT EXISTS custom_assets_type_idx ON custom_assets(type);
+
+    -- Chat Threads table (Mastra agent persistence)
+    CREATE TABLE IF NOT EXISTS chat_threads (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT NOT NULL,
+      title TEXT,
+      project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+      working_memory TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      last_activity_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS chat_threads_resource_idx ON chat_threads(resource_id);
+    CREATE INDEX IF NOT EXISTS chat_threads_project_idx ON chat_threads(project_id);
+    CREATE INDEX IF NOT EXISTS chat_threads_status_idx ON chat_threads(status);
+    CREATE INDEX IF NOT EXISTS chat_threads_activity_idx ON chat_threads(last_activity_at);
+
+    -- Chat Messages table
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tool_call_id TEXT,
+      tool_name TEXT,
+      metadata TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS chat_messages_thread_idx ON chat_messages(thread_id);
+    CREATE INDEX IF NOT EXISTS chat_messages_role_idx ON chat_messages(role);
+    CREATE INDEX IF NOT EXISTS chat_messages_created_idx ON chat_messages(created_at);
+
+    -- Vector Indexes metadata table (for RAG)
+    CREATE TABLE IF NOT EXISTS vector_indexes (
+      name TEXT PRIMARY KEY,
+      dimension INTEGER NOT NULL,
+      metric TEXT DEFAULT 'cosine',
+      count INTEGER DEFAULT 0,
+      created_at INTEGER DEFAULT (unixepoch()),
+      updated_at INTEGER DEFAULT (unixepoch())
+    );
   `);
 
   console.error("[DB] Schema migration complete");

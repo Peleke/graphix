@@ -1096,6 +1096,146 @@ export const imageReviewsRelations = relations(imageReviews, ({ one }) => ({
 }));
 
 // ============================================================================
+// CHAT THREADS (Mastra Agent Persistence)
+// ============================================================================
+
+/**
+ * Chat threads for AI-guided project creation.
+ * Stores conversation state and working memory for Mastra agent.
+ */
+export const chatThreads = sqliteTable(
+  "chat_threads",
+  {
+    id: id(),
+    // User/session identifier (for multi-user support)
+    resourceId: text("resource_id").notNull(),
+    // Auto-generated or user-provided title
+    title: text("title"),
+    // Link to project if chat resulted in creation
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    // Mastra working memory state (JSON)
+    workingMemory: text("working_memory", { mode: "json" }).$type<ChatWorkingMemory>(),
+    // Thread status
+    status: text("status").$type<ChatThreadStatus>().default("active").notNull(),
+    // Last activity for sorting/cleanup
+    lastActivityAt: integer("last_activity_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("chat_threads_resource_idx").on(table.resourceId),
+    index("chat_threads_project_idx").on(table.projectId),
+    index("chat_threads_status_idx").on(table.status),
+    index("chat_threads_activity_idx").on(table.lastActivityAt),
+  ]
+);
+
+export type ChatThreadStatus = "active" | "completed" | "abandoned";
+
+export type ChatWorkingMemory = {
+  phase: ElicitationPhase;
+  gathered: {
+    concept?: string;
+    characters?: Array<{
+      name: string;
+      description?: string;
+      matchedId?: string;
+    }>;
+    setting?: string;
+    arc?: string;
+    style?: string;
+    pageCount?: number;
+  };
+  skipped: string[];
+};
+
+export type ElicitationPhase =
+  | "greeting"
+  | "characters"
+  | "setting"
+  | "arc"
+  | "style"
+  | "scope"
+  | "confirmation"
+  | "complete";
+
+export type ChatThread = typeof chatThreads.$inferSelect;
+export type NewChatThread = typeof chatThreads.$inferInsert;
+
+// ============================================================================
+// CHAT MESSAGES
+// ============================================================================
+
+/**
+ * Individual messages within a chat thread.
+ * Includes user messages, assistant responses, and tool calls.
+ */
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: id(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => chatThreads.id, { onDelete: "cascade" }),
+    // Message role
+    role: text("role").$type<ChatMessageRole>().notNull(),
+    // Content (text for user/assistant, JSON for tool calls/results)
+    content: text("content").notNull(),
+    // Tool call info (if role === 'tool_call' or 'tool_result')
+    toolCallId: text("tool_call_id"),
+    toolName: text("tool_name"),
+    // Metadata (suggestions, phase info, etc.)
+    metadata: text("metadata", { mode: "json" }).$type<ChatMessageMetadata>(),
+    ...timestamps,
+  },
+  (table) => [
+    index("chat_messages_thread_idx").on(table.threadId),
+    index("chat_messages_role_idx").on(table.role),
+    index("chat_messages_created_idx").on(table.createdAt),
+  ]
+);
+
+export type ChatMessageRole = "user" | "assistant" | "system" | "tool_call" | "tool_result";
+
+export type ChatMessageMetadata = {
+  suggestions?: string[];
+  phaseTransition?: {
+    from: string;
+    to: string;
+  };
+  characterMatches?: Array<{
+    id: string;
+    name: string;
+    score: number;
+    thumbnail?: string;
+  }>;
+  toolResult?: unknown;
+};
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;
+
+// ============================================================================
+// CHAT RELATIONS
+// ============================================================================
+
+export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [chatThreads.projectId],
+    references: [projects.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  thread: one(chatThreads, {
+    fields: [chatMessages.threadId],
+    references: [chatThreads.id],
+  }),
+}));
+
+// ============================================================================
 // FUTURE: M2/M3 VIDEO SCHEMAS (placeholders)
 // ============================================================================
 
