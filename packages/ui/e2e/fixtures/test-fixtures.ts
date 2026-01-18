@@ -130,7 +130,7 @@ export const test = base.extend<{
   // API Helper Fixture
   api: async ({ request }, use) => {
     const createdResources: { type: string; id: string }[] = [];
-    const apiUrl = process.env.API_URL || 'http://localhost:3000';
+    const apiUrl = process.env.API_URL || 'http://localhost:3002';
 
     const api: ApiHelper = {
       async createProject(name, description) {
