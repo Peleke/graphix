@@ -151,11 +151,18 @@ export class DashboardPage extends BasePage {
   // ============================================================================
 
   async goto(): Promise<void> {
+    // Clear TanStack Query cache to ensure fresh data on each test
+    await this.page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
     await this.page.goto('/');
   }
 
   async waitForLoad(): Promise<void> {
     await this.page.waitForLoadState('domcontentloaded');
+    // Wait for network to settle - ensures TanStack Query API call completed
+    await this.page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     // Wait for dashboard container
     await expect(this.dashboardContainer).toBeVisible({ timeout: 10000 });
     // Wait for data to load: projects, empty state, loading state, or error state
@@ -327,8 +334,12 @@ export class DashboardPage extends BasePage {
 
   /**
    * Assert project exists in list
+   * Waits for network to settle first to ensure fresh data is loaded
    */
   async expectProjectInList(name: string): Promise<void> {
+    // Wait for any pending network requests (TanStack Query refetch)
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    // Then check for the project
     await expect(this.projectCards.filter({ hasText: name })).toBeVisible({ timeout: 10000 });
   }
 
