@@ -299,7 +299,9 @@ test.describe('Flow 1: Application Entry', () => {
       const response = await request.post(`${API_URL}/api/projects`, {
         data: { name: 'Action Test Project', description: 'For action testing' },
       });
+      expect(response.status()).toBe(201);
       const project = await response.json();
+      expect(project.id).toBeTruthy();
       createdProjectIds.push(project.id);
     });
 
