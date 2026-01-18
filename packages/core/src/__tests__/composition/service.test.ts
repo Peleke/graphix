@@ -5,6 +5,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { mkdir, rm } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import sharp from "sharp";
 import {
   setupTestDatabase,
   teardownTestDatabase,
@@ -352,6 +356,53 @@ describe("CompositionService", () => {
       });
 
       expect(result).toBeDefined();
+    });
+  });
+
+  describe("stitchPages", () => {
+    it("stitches images with expected dimensions", async () => {
+      const workDir = join(tmpdir(), `graphix-stitch-${Date.now()}`);
+      await mkdir(workDir, { recursive: true });
+      const firstPath = join(workDir, "first.png");
+      const secondPath = join(workDir, "second.png");
+      const outputPath = join(workDir, "stitched.png");
+
+      try {
+        await sharp({
+          create: {
+            width: 120,
+            height: 200,
+            channels: 3,
+            background: { r: 255, g: 0, b: 0 },
+          },
+        })
+          .png()
+          .toFile(firstPath);
+
+        await sharp({
+          create: {
+            width: 120,
+            height: 150,
+            channels: 3,
+            background: { r: 0, g: 255, b: 0 },
+          },
+        })
+          .png()
+          .toFile(secondPath);
+
+        const result = await service.stitchPages({
+          imagePaths: [firstPath, secondPath],
+          outputPath,
+        });
+
+        expect(result.success).toBe(true);
+
+        const metadata = await sharp(outputPath).metadata();
+        expect(metadata.width).toBe(120);
+        expect(metadata.height).toBe(350);
+      } finally {
+        await rm(workDir, { recursive: true, force: true });
+      }
     });
   });
 

@@ -92,6 +92,12 @@ vi.mock("../../generation-tree/useGenerationTreeData", () => ({
   }),
 }));
 
+vi.mock("../../controlnet", () => ({
+  ControlNetPanel: ({ level }: { level?: number }) => (
+    <div data-testid="controlnet-panel" data-level={level ?? "unknown"} />
+  ),
+}));
+
 // ============================================================================
 // Test Data
 // ============================================================================
@@ -161,6 +167,23 @@ function renderPanelGenerator(props = {}) {
 describe("PanelGenerator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (typeof localStorage === "undefined" || typeof localStorage.clear !== "function") {
+      const store = new Map<string, string>();
+      // @ts-expect-error test-only mock
+      globalThis.localStorage = {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+        clear: () => {
+          store.clear();
+        },
+      };
+    }
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -176,6 +199,7 @@ describe("PanelGenerator", () => {
       renderPanelGenerator();
       expect(screen.getByText("Panel Generator")).toBeInTheDocument();
       expect(screen.getByText(/Configure ControlNet/i)).toBeInTheDocument();
+      expect(screen.getByTestId("controlnet-panel")).toBeInTheDocument();
     });
 
     it("renders tab navigation", () => {
@@ -274,9 +298,9 @@ describe("PanelGenerator", () => {
     it("allows changing control level", async () => {
       renderPanelGenerator();
       const level4 = screen.getByText("Level 4 - Full Control").closest(".level-option");
-      
-      await userEvent.click(level4!);
-      
+
+      fireEvent.click(level4!);
+
       expect(level4).toHaveClass("selected");
     });
   });

@@ -18,3 +18,4 @@ export * from "./story.js";
 export * from "./narrative.js";
 export * from "./review.js";
 export * from "./text.js";
+export * from "./uploads.js";

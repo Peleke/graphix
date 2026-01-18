@@ -224,4 +224,111 @@ test.describe('Flow 6: Page Composition', () => {
       expect(hasErrorState || hasErrorText || hasLoadingState || returnedToDashboard).toBeTruthy();
     });
   });
+
+  // ==========================================================================
+  // 6.7 Page Composer Layout + Assignment
+  // ==========================================================================
+
+  test.describe('6.7 Page Composer Layout + Assignment', () => {
+    const setupComposer = async (api: any, page: any) => {
+      const project = await api.createProject(`Composer Project ${Date.now()}`);
+      const storyboard = await api.createStoryboard(project.id, 'Composer Board');
+      const panelA = await api.createPanel(storyboard.id, 'Panel A');
+      const panelB = await api.createPanel(storyboard.id, 'Panel B');
+      await page.goto(`/projects/${project.id}?view=page-composer&storyboardId=${storyboard.id}`);
+      await page.waitForLoadState('networkidle');
+      return { project, storyboard, panelA, panelB };
+    };
+
+    test('should render composer shell', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await expect(page.getByTestId('page-composer-container')).toBeVisible();
+      await expect(page.getByTestId('page-composer-export')).toBeVisible();
+    });
+
+    test('should select template and show slots', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      await expect(page.getByTestId('page-canvas')).toBeVisible();
+      await expect(page.getByTestId('panel-slot').first()).toBeVisible();
+    });
+
+    test('should assign panel to slot on click', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      await page.getByTestId('panel-slot').first().click();
+      await page.getByTestId('panel-list-item').first().click();
+      await expect(page.getByTestId('panel-slot').first().getByTestId('slot-placeholder')).toContainText(/no image/i);
+      await expect(page.getByTestId('panel-list-item').first()).toHaveAttribute('data-selected', 'true');
+    });
+
+    test('should auto-fill slots', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      await page.getByTestId('assign-autofill').click();
+      await expect(page.getByTestId('panel-slot').first().getByTestId('slot-placeholder')).toContainText(/no image/i);
+    });
+
+    test('should clear active slot assignment', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      await page.getByTestId('panel-slot').first().click();
+      await page.getByTestId('panel-list-item').first().click();
+      await page.getByTestId('assign-clear-slot').click();
+      await expect(page.getByTestId('panel-slot').first().getByTestId('slot-placeholder')).toContainText(/empty slot/i);
+    });
+
+    test('should open export dialog from composer', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('page-composer-export').click();
+      await expect(page.getByTestId('export-dialog')).toBeVisible();
+    });
+
+    test('should preview composed page', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      await page.getByTestId('panel-slot').first().click();
+      await page.getByTestId('panel-list-item').first().click();
+
+      await page.route('**/api/composition/compose', async (route) => {
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, outputPath: '/output/pages/preview.png' }),
+        });
+      });
+
+      await page.getByTestId('page-composer-preview').click();
+      await expect(page.getByTestId('page-preview')).toBeVisible();
+    });
+
+    test('should assign via drag and drop', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      await setupComposer(api, page);
+      await page.getByTestId('template-card').first().click();
+      const panelItem = page.getByTestId('panel-list-item').first();
+      const slot = page.getByTestId('panel-slot').first();
+      await panelItem.dragTo(slot);
+      await expect(slot.getByTestId('slot-placeholder')).toContainText(/no image/i);
+    });
+
+    test('should persist slot assignments', { tag: [tags.MVP, tags.FLOW_6] }, async ({ page, api }) => {
+      const { project, storyboard } = await setupComposer(api, page);
+      const saveRequest = page.waitForResponse((response) =>
+        response.url().includes('/api/composition/layouts/') &&
+        response.request().method() === 'PUT' &&
+        response.status() === 200
+      );
+      await page.getByTestId('template-card').first().click();
+      await page.getByTestId('panel-slot').first().click();
+      await page.getByTestId('panel-list-item').first().click();
+      await saveRequest;
+
+      await page.evaluate(() => localStorage.clear());
+      await page.reload();
+      await page.goto(`/projects/${project.id}?view=page-composer&storyboardId=${storyboard.id}`);
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByTestId('page-canvas')).toBeVisible();
+      await expect(page.getByTestId('panel-slot').first().getByTestId('slot-placeholder')).toContainText(/no image/i);
+    });
+  });
 });

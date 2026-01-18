@@ -15,6 +15,8 @@ export const compositionKeys = {
   all: ["composition"] as const,
   templates: () => [...compositionKeys.all, "templates"] as const,
   pageSizes: () => [...compositionKeys.all, "pageSizes"] as const,
+  layout: (storyboardId: string, pageNumber: number) =>
+    [...compositionKeys.all, "layout", storyboardId, pageNumber] as const,
 };
 
 // ============================================================================
@@ -59,6 +61,16 @@ export interface ExportStoryboardInput {
   format: "png-all";
 }
 
+export interface SavePageLayoutInput {
+  storyboardId: string;
+  name: string;
+  pageNumber?: number;
+  templateId: string;
+  pageSize?: string;
+  backgroundColor?: string;
+  slotAssignments: Record<string, string>;
+}
+
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -94,7 +106,69 @@ export function usePageSizes() {
         throw new Error(error.error?.message || "Failed to fetch page sizes");
       }
 
-      return data?.pageSizes || [];
+      if (!data?.pageSizes) {
+        return [];
+      }
+
+      if (Array.isArray(data.pageSizes)) {
+        return data.pageSizes;
+      }
+
+      return Object.entries(data.pageSizes).map(([id, size]) => ({
+        id,
+        ...(size as Record<string, unknown>),
+      }));
+    },
+  });
+}
+
+/**
+ * Fetch saved layout for a storyboard page
+ */
+export function usePageLayout(storyboardId: string | null, pageNumber = 1) {
+  return useQuery({
+    queryKey: compositionKeys.layout(storyboardId ?? "", pageNumber),
+    queryFn: async () => {
+      if (!storyboardId) return null;
+
+      const { data, error } = await apiClient.GET("/composition/layouts/{storyboardId}", {
+        params: { path: { storyboardId }, query: { pageNumber } },
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to fetch layout");
+      }
+
+      return data?.layout ?? null;
+    },
+    enabled: !!storyboardId,
+  });
+}
+
+/**
+ * Save a storyboard page layout
+ */
+export function useSavePageLayout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: SavePageLayoutInput) => {
+      const { storyboardId, ...body } = input;
+      const { data, error } = await apiClient.PUT("/composition/layouts/{storyboardId}", {
+        params: { path: { storyboardId } },
+        body,
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to save layout");
+      }
+
+      return data?.layout ?? null;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: compositionKeys.layout(variables.storyboardId, variables.pageNumber ?? 1),
+      });
     },
   });
 }

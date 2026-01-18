@@ -84,6 +84,69 @@ export const compositionPaths: Record<string, any> = {
       },
     },
   },
+  "/composition/layouts/{storyboardId}": {
+    get: {
+      tags: ["Composition"],
+      summary: "Get saved layout",
+      description: "Returns saved layout for a storyboard and page number.",
+      parameters: [
+        { name: "storyboardId", in: "path", required: true, schema: { type: "string" } },
+        { name: "pageNumber", in: "query", required: false, schema: { type: "number", minimum: 1 } },
+      ],
+      responses: {
+        "200": {
+          description: "Layout fetched",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PageLayoutResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Invalid parameters",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
+    },
+    put: {
+      tags: ["Composition"],
+      summary: "Save layout",
+      description: "Saves a layout for a storyboard and page number.",
+      parameters: [
+        { name: "storyboardId", in: "path", required: true, schema: { type: "string" } },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SavePageLayout" },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Layout saved",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/PageLayoutResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/composition/compose": {
     post: {
       tags: ["Composition"],

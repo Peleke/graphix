@@ -5,10 +5,17 @@
  * recursively edited, and exported. This is where the magic happens.
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStoryboard } from "../../api/hooks/useStories";
-import { useTemplates, usePageSizes, useComposePage } from "../../api/hooks/useComposition";
+import {
+  useTemplates,
+  usePageSizes,
+  useComposePage,
+  usePageLayout,
+  useSavePageLayout,
+} from "../../api/hooks/useComposition";
 import { PanelGenerator } from "../panel-generator/PanelGenerator";
+import { ExportDialog } from "../export";
 
 interface PageComposerProps {
   storyboardId: string;
@@ -20,32 +27,228 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<string>("us-letter");
   const [showExportModal, setShowExportModal] = useState(false);
-  const [outputName, setOutputName] = useState("");
+  const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
+  const [slotAssignments, setSlotAssignments] = useState<Record<string, string>>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
+  const hydratedRef = useRef(false);
+  const hydratingRef = useRef(false);
+  const saveTimeoutRef = useRef<number | null>(null);
 
   const { data: storyboard, isLoading: loadingStoryboard } = useStoryboard(storyboardId);
   const { data: templates, isLoading: loadingTemplates } = useTemplates();
   const { data: pageSizes } = usePageSizes();
   const composePage = useComposePage();
+  const { data: savedLayout } = usePageLayout(storyboardId, 1);
+  const saveLayout = useSavePageLayout();
 
-  const handleComposePage = async () => {
-    if (!selectedTemplateId || !storyboard?.panels || storyboard.panels.length === 0) return;
+  const pageSizeOptions = useMemo(() => {
+    if (Array.isArray(pageSizes)) {
+      return pageSizes;
+    }
+    if (pageSizes && typeof pageSizes === "object") {
+      return Object.entries(pageSizes as Record<string, any>).map(([id, size]) => ({
+        id,
+        ...size,
+      }));
+    }
+    return [];
+  }, [pageSizes]);
+
+  const selectedTemplate = useMemo(
+    () => templates?.find((template: any) => template.id === selectedTemplateId) ?? null,
+    [templates, selectedTemplateId]
+  );
+
+  const selectedPageSize = useMemo(
+    () => pageSizeOptions.find((size: any) => size.id === pageSize),
+    [pageSizeOptions, pageSize]
+  );
+
+  const panelList = storyboard?.panels ?? [];
+
+  const storageKey = useMemo(
+    () => (selectedTemplateId ? `page-composer:${storyboardId}:${selectedTemplateId}` : null),
+    [selectedTemplateId, storyboardId]
+  );
+
+  const handleSelectTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setActiveSlotId(null);
+    setSlotAssignments({});
+    setPreviewUrl(null);
+    hydratedRef.current = false;
+  };
+
+  const assignPanelToSlot = (panelId: string, slotId: string) => {
+    setSlotAssignments((current) => ({
+      ...current,
+      [slotId]: panelId,
+    }));
+  };
+
+  const clearSlotAssignment = (slotId: string) => {
+    setSlotAssignments((current) => {
+      const next = { ...current };
+      delete next[slotId];
+      return next;
+    });
+  };
+
+  const autoFillSlots = () => {
+    if (!selectedTemplate?.slots || panelList.length === 0) return;
+    const nextAssignments: Record<string, string> = {};
+    selectedTemplate.slots.forEach((slot: any, index: number) => {
+      const panel = panelList[index];
+      if (panel) {
+        nextAssignments[slot.id] = panel.id;
+      }
+    });
+    setSlotAssignments(nextAssignments);
+  };
+
+  const getPanelById = (panelId: string | null) =>
+    panelList.find((panel: any) => panel.id === panelId) ?? null;
+
+  const canvasDimensions = useMemo(() => {
+    if (!selectedPageSize) return { width: 800, height: 1200 };
+    const maxWidth = 820;
+    const maxHeight = 1200;
+    const ratio = selectedPageSize.width / selectedPageSize.height;
+    let height = maxHeight;
+    let width = height * ratio;
+    if (width > maxWidth) {
+      width = maxWidth;
+      height = width / ratio;
+    }
+    return { width, height };
+  }, [selectedPageSize]);
+
+  useEffect(() => {
+    if (hydratedRef.current || !storageKey) return;
+    const layoutConfig = savedLayout?.layoutConfig as Record<string, unknown> | undefined;
+    const savedTemplateId = typeof layoutConfig?.template === "string" ? layoutConfig.template : null;
+    const savedAssignments =
+      layoutConfig && typeof layoutConfig.slotAssignments === "object" && layoutConfig.slotAssignments
+        ? (layoutConfig.slotAssignments as Record<string, string>)
+        : null;
+
+    if (savedTemplateId && (!selectedTemplateId || selectedTemplateId === savedTemplateId)) {
+      hydratingRef.current = true;
+      setSelectedTemplateId(savedTemplateId);
+      if (savedAssignments) {
+        setSlotAssignments(savedAssignments);
+      }
+      const match = pageSizeOptions.find(
+        (size: any) => size.width === layoutConfig?.width && size.height === layoutConfig?.height
+      );
+      if (match) {
+        setPageSize(match.id);
+      }
+      hydratedRef.current = true;
+      window.setTimeout(() => {
+        hydratingRef.current = false;
+      }, 0);
+      return;
+    }
+
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) {
+      hydratedRef.current = true;
+      hydratingRef.current = false;
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        hydratingRef.current = true;
+        setSlotAssignments(parsed);
+      }
+    } catch {
+      // Ignore invalid persisted data
+    } finally {
+      hydratedRef.current = true;
+      window.setTimeout(() => {
+        hydratingRef.current = false;
+      }, 0);
+    }
+  }, [savedLayout, storageKey, selectedTemplateId, pageSizeOptions]);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify(slotAssignments));
+  }, [storageKey, slotAssignments]);
+
+  useEffect(() => {
+    if (!selectedTemplateId || !hydratedRef.current) return;
+    if (hydratingRef.current) {
+      return;
+    }
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = window.setTimeout(() => {
+      saveLayout.mutate({
+        storyboardId,
+        name: `${storyboard?.storyboard?.name ?? "Storyboard"} Page 1`,
+        pageNumber: 1,
+        templateId: selectedTemplateId,
+        pageSize,
+        slotAssignments,
+      });
+    }, 350);
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [slotAssignments, selectedTemplateId, pageSize, storyboardId, storyboard?.storyboard?.name, saveLayout]);
+
+  const handleSlotDrop = (slotId: string, panelId: string, sourceSlotId?: string | null) => {
+    setSlotAssignments((current) => {
+      const next = { ...current };
+      if (sourceSlotId && next[slotId] && sourceSlotId !== slotId) {
+        const temp = next[slotId];
+        next[slotId] = panelId;
+        next[sourceSlotId] = temp;
+        return next;
+      }
+      next[slotId] = panelId;
+      if (sourceSlotId && sourceSlotId !== slotId && !next[sourceSlotId]) {
+        delete next[sourceSlotId];
+      }
+      return next;
+    });
+  };
+
+  const handleComposePreview = async () => {
+    if (!selectedTemplateId || !selectedTemplate?.slots?.length) return;
+    const assignedPanels = selectedTemplate.slots
+      .map((slot: any) => slotAssignments[slot.id])
+      .filter(Boolean);
+    if (assignedPanels.length === 0) return;
 
     try {
-      await composePage.mutateAsync({
+      setIsComposing(true);
+      const result: any = await composePage.mutateAsync({
         storyboardId,
         templateId: selectedTemplateId,
-        panelIds: storyboard.panels.map((p: any) => p.id),
-        outputName: outputName.trim() || "page-1",
+        panelIds: assignedPanels,
+        outputName: `preview_${storyboardId}.png`,
         pageSize,
       });
-      setShowExportModal(false);
-    } catch (err) {
-      console.error("Failed to compose page:", err);
+      const url = result?.outputPath
+        ? `/api/composition/download?path=${encodeURIComponent(result.outputPath)}`
+        : null;
+      setPreviewUrl(url);
+    } finally {
+      setIsComposing(false);
     }
   };
 
+
   return (
-    <div className="page-composer">
+    <div className="page-composer" data-testid="page-composer-container">
       <style>{`
         .page-composer {
           display: flex;
@@ -120,6 +323,20 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
         .panel-slot.selected {
           border-color: #8b5cf6;
           background: rgba(139, 92, 246, 0.3);
+        }
+
+        .panel-slot .slot-placeholder {
+          font-size: 0.75rem;
+          color: #d4d4d8;
+          text-align: center;
+          padding: 0.25rem;
+        }
+
+        .panel-slot img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 6px;
         }
         
         .section {
@@ -268,7 +485,15 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
       <div className="composer-header">
         <h2 className="composer-title">Page Composer</h2>
         <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button className="btn-primary" onClick={() => setShowExportModal(true)}>
+          <button
+            className="btn-secondary"
+            data-testid="page-composer-preview"
+            onClick={handleComposePreview}
+            disabled={!selectedTemplateId || isComposing}
+          >
+            {isComposing ? "Composing..." : "Preview Page"}
+          </button>
+        <button className="btn-primary" data-testid="page-composer-export" onClick={() => setShowExportModal(true)}>
             Export Page
           </button>
         </div>
@@ -287,11 +512,12 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
                   <div
                     key={template.id}
                     className={`template-card ${selectedTemplateId === template.id ? "selected" : ""}`}
-                    onClick={() => setSelectedTemplateId(template.id)}
+                    data-testid="template-card"
+                    onClick={() => handleSelectTemplate(template.id)}
                   >
                     <div className="template-name">{template.name}</div>
                     <div className="template-slots">
-                      {template.slotCount || 0} slots
+                      {template.slotCount || template.slots?.length || 0} slots
                     </div>
                   </div>
                 ))}
@@ -318,12 +544,32 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
                 color: "#fafafa",
               }}
             >
-              {pageSizes?.map((size: any) => (
+              {pageSizeOptions.map((size: any) => (
                 <option key={size.id} value={size.id}>
                   {size.name} ({size.width}x{size.height})
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="section">
+            <div className="section-title">Assignments</div>
+            <button
+              className="btn-primary"
+              data-testid="assign-autofill"
+              onClick={autoFillSlots}
+              disabled={!selectedTemplate?.slots?.length || panelList.length === 0}
+            >
+              Auto-fill slots
+            </button>
+            {activeSlotId && (
+              <button className="btn-secondary" data-testid="assign-clear-slot" onClick={() => clearSlotAssignment(activeSlotId)}>
+                Clear active slot
+              </button>
+            )}
+            <div style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#71717a" }}>
+              Click a slot, then click a panel to assign.
+            </div>
           </div>
 
           {/* Panel List */}
@@ -334,7 +580,18 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
                 {storyboard.panels.map((panel: any) => (
                   <div
                     key={panel.id}
-                    onClick={() => setSelectedPanelId(panel.id)}
+                    onClick={() => {
+                      setSelectedPanelId(panel.id);
+                      if (activeSlotId) {
+                        assignPanelToSlot(panel.id, activeSlotId);
+                      }
+                    }}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData("panelId", panel.id);
+                    }}
+                    data-testid="panel-list-item"
+                    data-selected={selectedPanelId === panel.id}
                     style={{
                       padding: "0.75rem",
                       background: selectedPanelId === panel.id ? "#8b5cf6" : "#27272a",
@@ -359,16 +616,76 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
         <div className="composer-main">
           {/* Canvas Area */}
           <div className="canvas-area">
-            {selectedTemplateId && storyboard ? (
-              <div className="page-canvas" style={{ width: "800px", height: "1200px" }}>
-                {/* Template slots would be rendered here */}
-                <div style={{ padding: "2rem", color: "#71717a", textAlign: "center" }}>
-                  <p>Template: {selectedTemplateId}</p>
-                  <p>Panels: {storyboard.panels?.length || 0}</p>
-                  <p style={{ marginTop: "1rem", fontSize: "0.875rem" }}>
-                    Canvas rendering coming soon...
-                  </p>
-                </div>
+            {selectedTemplate && storyboard ? (
+              <div
+                className="page-canvas"
+                data-testid="page-canvas"
+                style={{ width: `${canvasDimensions.width}px`, height: `${canvasDimensions.height}px` }}
+              >
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Page preview"
+                    data-testid="page-preview"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      opacity: 0.4,
+                    }}
+                  />
+                )}
+                {selectedTemplate.slots?.map((slot: any) => {
+                  const assignedPanelId = slotAssignments[slot.id];
+                  const panel = getPanelById(assignedPanelId);
+                  const imageUrl =
+                    panel?.selectedGeneration?.thumbnailPath ??
+                    panel?.selectedGeneration?.localPath ??
+                    null;
+                  return (
+                    <div
+                      key={slot.id}
+                      className={`panel-slot ${activeSlotId === slot.id ? "selected" : ""}`}
+                      data-testid="panel-slot"
+                      data-selected={activeSlotId === slot.id}
+                      style={{
+                        left: `${slot.x}%`,
+                        top: `${slot.y}%`,
+                        width: `${slot.width}%`,
+                        height: `${slot.height}%`,
+                      }}
+                      onClick={() => {
+                        setActiveSlotId(slot.id);
+                        setSelectedPanelId(assignedPanelId ?? null);
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        const panelId = event.dataTransfer.getData("panelId");
+                        const sourceSlotId = event.dataTransfer.getData("sourceSlotId");
+                        if (panelId) {
+                          handleSlotDrop(slot.id, panelId, sourceSlotId || null);
+                        }
+                      }}
+                      draggable={!!assignedPanelId}
+                      onDragStart={(event) => {
+                        if (assignedPanelId) {
+                          event.dataTransfer.setData("panelId", assignedPanelId);
+                          event.dataTransfer.setData("sourceSlotId", slot.id);
+                        }
+                      }}
+                    >
+                      {imageUrl ? (
+                        <img src={imageUrl} alt={`Slot ${slot.id}`} />
+                      ) : (
+                        <div className="slot-placeholder" data-testid="slot-placeholder">
+                          {assignedPanelId ? "No image" : "Empty slot"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div style={{ textAlign: "center", color: "#71717a" }}>
@@ -391,27 +708,7 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
       {showExportModal && (
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Export Page</h2>
-            <input
-              type="text"
-              placeholder="Output name"
-              value={outputName}
-              onChange={(e) => setOutputName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleComposePage()}
-              autoFocus
-            />
-            <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowExportModal(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={handleComposePage}
-                disabled={!selectedTemplateId || composePage.isPending}
-              >
-                {composePage.isPending ? "Exporting..." : "Export"}
-              </button>
-            </div>
+            <ExportDialog storyboardId={storyboardId} templateId={selectedTemplateId ?? undefined} />
           </div>
         </div>
       )}

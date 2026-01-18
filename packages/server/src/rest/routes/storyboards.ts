@@ -46,7 +46,18 @@ storyboardRoutes.get("/:id/full", validateId(), async (c) => {
     return errors.notFound(c, "Storyboard", id);
   }
 
-  return c.json(result);
+  const imageService = getGeneratedImageService();
+  const panelsWithGenerations = await Promise.all(
+    result.panels.map(async (panel) => {
+      if (!panel.selectedOutputId) {
+        return { ...panel, selectedGeneration: null };
+      }
+      const generation = await imageService.getById(panel.selectedOutputId);
+      return { ...panel, selectedGeneration: generation ?? null };
+    })
+  );
+
+  return c.json({ storyboard: result.storyboard, panels: panelsWithGenerations });
 });
 
 // List storyboards by project

@@ -6,12 +6,13 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { getCompositionService, getConfig } from "@graphix/core";
+import { getCompositionService, getConfig, getPageLayoutService, getPanelService } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import { ErrorCodes } from "../errors/types.js";
 import {
   validateBody,
   validateId,
+  validateParam,
   validateQuery,
   nonEmptyString,
   uuidSchema,
@@ -70,6 +71,22 @@ const exportStoryboardSchema = z.object({
   format: z.enum(["png-all"]),
 });
 
+const pageLayoutSchema = z.object({
+  name: nonEmptyString,
+  pageNumber: z.number().int().positive().default(1),
+  templateId: nonEmptyString,
+  pageSize: z.string().optional(),
+  backgroundColor: z.string().optional(),
+  slotAssignments: z.record(nonEmptyString, uuidSchema),
+});
+
+const pageLayoutQuerySchema = z.object({
+  pageNumber: z.coerce.number().int().positive().default(1),
+});
+
+const MAX_LAYOUT_ASSIGNMENTS = 64;
+const MAX_LAYOUT_PAYLOAD_BYTES = 50_000;
+
 // ============================================================================
 // Routes
 // ============================================================================
@@ -110,6 +127,100 @@ compositionRoutes.get("/page-sizes", async (c) => {
     pageSizes,
   });
 });
+
+// Get saved layout for storyboard/page
+compositionRoutes.get(
+  "/layouts/:storyboardId",
+  validateParam(z.object({ storyboardId: uuidSchema })),
+  validateQuery(pageLayoutQuerySchema),
+  async (c) => {
+    const layoutService = getPageLayoutService();
+    const { storyboardId } = c.req.valid("param");
+    const { pageNumber } = c.req.valid("query");
+
+    const layout = await layoutService.getByStoryboard(storyboardId, pageNumber);
+    return c.json({ layout });
+  }
+);
+
+// Save layout for storyboard/page
+compositionRoutes.put(
+  "/layouts/:storyboardId",
+  validateParam(z.object({ storyboardId: uuidSchema })),
+  validateBody(pageLayoutSchema),
+  async (c) => {
+    const layoutService = getPageLayoutService();
+    const panelService = getPanelService();
+    const { storyboardId } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const service = getCompositionService();
+
+    const assignments = Object.keys(body.slotAssignments);
+    const payloadBytes = new TextEncoder().encode(JSON.stringify(body.slotAssignments)).length;
+    if (payloadBytes > MAX_LAYOUT_PAYLOAD_BYTES) {
+      return errors.limitExceeded(c, "Layout payload", payloadBytes, MAX_LAYOUT_PAYLOAD_BYTES);
+    }
+    if (assignments.length > MAX_LAYOUT_ASSIGNMENTS) {
+      return errors.limitExceeded(c, "Layout assignments", assignments.length, MAX_LAYOUT_ASSIGNMENTS);
+    }
+
+    const template = service.listTemplates().find((t) => t.id === body.templateId);
+    if (!template) {
+      return errors.notFound(c, "Template", body.templateId);
+    }
+
+    if (assignments.length > template.slots.length) {
+      return errors.limitExceeded(c, "Template slots", assignments.length, template.slots.length);
+    }
+
+    const allowedSlots = new Set(template.slots.map((slot) => slot.id));
+    for (const slotId of assignments) {
+      if (!allowedSlots.has(slotId)) {
+        return errors.badRequest(c, "Invalid slot ID for template", ErrorCodes.INVALID_INPUT);
+      }
+    }
+
+    const storyboardPanels = await panelService.getByStoryboard(storyboardId);
+    const panelIds = new Set(storyboardPanels.map((panel) => panel.id));
+    for (const panelId of Object.values(body.slotAssignments)) {
+      if (!panelIds.has(panelId)) {
+        return errors.badRequest(c, "Panel does not belong to storyboard", ErrorCodes.INVALID_INPUT);
+      }
+    }
+
+    const pageSizes = service.listPageSizes();
+    const pageSize = body.pageSize ? pageSizes[body.pageSize] ?? pageSizes.comic_standard : pageSizes.comic_standard;
+
+    const layoutConfig = {
+      template: body.templateId,
+      width: pageSize.width,
+      height: pageSize.height,
+      dpi: pageSize.dpi ?? 300,
+      margin: template.margin ?? 2,
+      gutter: template.gutter ?? 2,
+      backgroundColor: body.backgroundColor ?? "#ffffff",
+      slotAssignments: body.slotAssignments,
+    };
+
+    const panelPlacements = Object.values(body.slotAssignments).map((panelId, index) => ({
+      panelId,
+      row: index,
+      col: 0,
+      rowSpan: 1,
+      colSpan: 1,
+    }));
+
+    const layout = await layoutService.upsertLayout({
+      storyboardId,
+      name: body.name,
+      pageNumber: body.pageNumber,
+      layoutConfig,
+      panelPlacements,
+    });
+
+    return c.json({ layout }, 200);
+  }
+);
 
 // Compose a page from panels
 compositionRoutes.post("/compose", validateBody(composePageSchema), async (c) => {

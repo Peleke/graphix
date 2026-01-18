@@ -6,7 +6,7 @@
  * system shows controls, user adjusts, generate.
  */
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
 import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
 import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
@@ -84,6 +84,14 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
 
   // Track generation errors for display
   const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const handleControlNetChange = useCallback(
+    (controls: ControlNetCondition[], level: 0 | 1 | 2 | 3 | 4) => {
+      setControlNetControls(controls);
+      setControlLevel(level);
+    },
+    []
+  );
 
   const handleGenerate = async () => {
     setGenerateError(null);
@@ -612,10 +620,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
               projectId={storyboardFull?.storyboard?.projectId}
               referenceImages={referenceImages}
               level={controlLevel}
-              onChange={(controls, level) => {
-                setControlNetControls(controls);
-                setControlLevel(level);
-              }}
+              onChange={handleControlNetChange}
             />
           </div>
 

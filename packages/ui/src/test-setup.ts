@@ -25,3 +25,11 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 };
+
+// Mock URL.createObjectURL for tests that use file previews
+if (typeof URL !== 'undefined' && typeof URL.createObjectURL !== 'function') {
+  // @ts-expect-error test-only shim
+  URL.createObjectURL = () => 'blob:mock';
+  // @ts-expect-error test-only shim
+  URL.revokeObjectURL = () => {};
+}

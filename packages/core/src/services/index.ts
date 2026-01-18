@@ -28,6 +28,13 @@ export {
 } from "./storyboard.service.js";
 
 export {
+  PageLayoutService,
+  createPageLayoutService,
+  getPageLayoutService,
+  resetPageLayoutService,
+} from "./page-layout.service.js";
+
+export {
   PanelService,
   getPanelService,
 } from "./panel.service.js";

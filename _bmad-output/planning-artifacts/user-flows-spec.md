@@ -30,6 +30,7 @@ This document defines ALL user flows for Graphix MVP and beyond. It serves as:
 | 7 | ControlNet Config | Set up controls for generation |
 | 8 | Export | Output final work |
 | 9 | YOLO Mode | AI autonomous generation |
+| 10 | Custom LoRA Training | Train, manage, deploy LoRAs |
 
 ---
 
@@ -820,6 +821,196 @@ interface YOLOSettings {
 
 ---
 
+## 🧬 FLOW 10: Custom LoRA Training & Deployment (Standalone-Capable)
+
+### 10.1 Scope
+
+**Primary goal:** Allow users to train, deploy, and manage custom LoRAs with a wizard UI, global library, and project/character associations.
+
+**Non-blocking goals:**
+- Swappable training backend (local-first now, RunPod later)
+- CPU/Unified Memory training supported
+- Sharing metadata captured now, publishing later
+- Policy flags visible but never blocking local use
+- LoRA Studio can run as a standalone app surface
+
+---
+
+### 10.2 Entry Points
+
+**Trigger sources:**
+1. Character editor → "Train LoRA"
+2. Generation results → "Train from selected"
+3. LoRA Library → "Train New"
+4. Import existing LoRA
+
+---
+
+### 10.3 Wizard Flow (One-shot)
+
+```gherkin
+Feature: Custom LoRA Training Wizard
+
+Scenario: Train a character LoRA from references
+  Given I am viewing a character
+  When I click "Train LoRA"
+  Then I should enter a wizard with that character's references selected
+  And I should see dataset quality warnings if needed
+  And I should be able to caption images
+  And I should choose a training preset
+  And training should start with progress updates
+  And I should evaluate the LoRA with test prompts
+  And I should save it to the global library
+  And the character should be associated with this LoRA
+
+Scenario: Train a LoRA from generation history
+  Given I have selected multiple generated images
+  When I click "Train LoRA"
+  Then the wizard should open with those images preselected
+  And I can add/remove images or crop them
+  And I can proceed through training
+
+Scenario: Train on CPU or Unified Memory
+  Given I have no GPU available
+  When I start training
+  Then the system should use CPU/Unified Memory automatically
+  And I should see slower ETA warnings
+  But training should still complete
+
+Scenario: Swap backend with config
+  Given training backend is set to "runpod"
+  When I start training
+  Then the job should be sent to the RunPod backend
+  And progress should still stream to the UI
+
+Scenario: Import existing LoRA
+  Given I have a LoRA file
+  When I import it into the library
+  Then I should enter metadata (trigger words, base model, tags)
+  And it should appear in the global library
+  And I can associate it to a project or character
+```
+
+---
+
+### 10.4 UI Elements (Sketches)
+
+**Global LoRA Library**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  LoRA Library                             [+ Train] [+ Import] │
+├────────────────────────────────────────────────────────────────┤
+│  Search [.............]  Filter: [All▼] [Character▼] [Style▼]  │
+│  Tags: [otter] [romantic] [illustrious] [sdxl] [nsfw]          │
+│────────────────────────────────────────────────────────────────│
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐           │
+│  │ Marina LoRA  │ │ Yacht Style  │ │ Otter Poses  │           │
+│  │ [preview]    │ │ [preview]    │ │ [preview]    │           │
+│  │ Trigger:     │ │ Trigger:     │ │ Trigger:     │           │
+│  │ marina_ottr  │ │ yacht_art    │ │ otter_pose   │           │
+│  │ Base: SDXL   │ │ Base: SDXL   │ │ Base: ILXL   │           │
+│  │ Strength: .8 │ │ Strength: .6 │ │ Strength: .7 │           │
+│  │ [Use] [⋯]    │ │ [Use] [⋯]    │ │ [Use] [⋯]    │           │
+│  └──────────────┘ └──────────────┘ └──────────────┘           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Wizard: Dataset Curation**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Step 1 — Dataset Curation                                      │
+├────────────────────────────────────────────────────────────────┤
+│  Selected images: 24 (recommended 15–30 for characters)        │
+│  Warnings: 3 duplicates, 5 low-res, 2 blur candidates          │
+│  [Auto Clean] [Remove Low-Res] [Duplicate Finder] [Crop 1:1]   │
+│  Grid of thumbnails with type tags                              │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Wizard: Training Config**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Step 3 — Training Configuration                                │
+├────────────────────────────────────────────────────────────────┤
+│  Backend: [Diffusers ▼]     Compute: [Auto (CPU/MPS/GPU) ▼]     │
+│  Preset: [Character Balanced ▼]                                 │
+│  Base Model: [SDXL ▼]  Resolution: [1024]                       │
+│  Rank: [32]  Alpha: [16]  LR: [1e-4]  Steps: [1800]             │
+│  [Advanced ▾] [Save preset]                                     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Wizard: Training Progress**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Step 4 — Training                                              │
+├────────────────────────────────────────────────────────────────┤
+│  Status: Training (42%)  ETA 12m  Compute: CPU (fallback)       │
+│  Steps: 780/1800  Loss: 0.014                                   │
+│  [Pause] [Stop] [View Logs]                                     │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Wizard: Evaluate & Deploy**
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Step 5 — Evaluate & Deploy                                     │
+├────────────────────────────────────────────────────────────────┤
+│  Test prompts + preview grid                                    │
+│  Default strength: [0.8]  Clip: [1.0]                           │
+│  Associate to character: [Marina ✓]                             │
+│  Save to library: [✓]                                           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 10.5 Technical Requirements
+
+**Backend routing (swappable):**
+- Local-first (Diffusers/Kohya) with config switch to RunPod.
+- Training backend selected by env/config: `TRAINING_BACKEND=local|runpod`.
+- RunPod endpoint configured via `RUNPOD_BASE_URL` + `RUNPOD_API_KEY`.
+
+**Compute mode:**
+- Auto-detect (GPU → MPS/Unified Mem → CPU).
+- User can override with "Compute Mode".
+- Training must still complete on CPU (slow, but supported).
+
+**Global library + associations:**
+- LoRAs live in a global library.
+- Project associations stored via join table.
+- Character association stored on character (for quick prompt injection).
+
+**Sharing policy:**
+- Local use is always allowed.
+- Policy flags exist for awareness and future share-gating.
+- Warnings shown but never block training or usage.
+
+**Progress streaming:**
+- SSE stream for training progress (`progress`, `log`, `sample`, `complete`, `error`).
+
+---
+
+### 10.6 Data Model (Minimal Core)
+
+```typescript
+interface TrainingJob {
+  id: string;
+  assetId?: string;
+  backend: 'local' | 'runpod';
+  computeMode: 'auto' | 'gpu' | 'mps' | 'cpu';
+  status: 'queued' | 'running' | 'complete' | 'failed' | 'canceled';
+  progress: number;
+  config: Record<string, unknown>;
+  logsPath?: string;
+  startedAt?: Date;
+  finishedAt?: Date;
+}
+```
+
+---
+
 ## ⚙️ SYSTEM CONFIGURATION
 
 ### User Roles (DO NOT BLOCK)
@@ -920,6 +1111,7 @@ Scenario: Add generation to character references
 | 7. ControlNet | ⬜ | ⬜ | ⬜ | ⬜ |
 | 8. Export | ⬜ | ⬜ | ⬜ | ⬜ |
 | 9. YOLO | ⬜ | ⬜ | ⬜ | ⬜ |
+| 10. LoRA Training | ⬜ | ⬜ | ⬜ | ⬜ |
 
 *⬜ = Not started | 🟡 = In progress | ✅ = Complete*
 

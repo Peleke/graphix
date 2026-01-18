@@ -474,6 +474,7 @@ export type PageLayoutConfig = {
   borderWidth?: number;
   borderColor?: string;
   borderRadius?: number;
+  slotAssignments?: Record<string, string>;
 };
 
 export type PanelPlacement = {

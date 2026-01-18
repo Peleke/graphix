@@ -84,6 +84,36 @@ export const ExportStoryboardSchema = z
   })
   .describe("Export storyboard request");
 
+/**
+ * Page layout save request body
+ */
+export const SavePageLayoutSchema = z
+  .object({
+    name: z.string().min(1).describe("Layout name"),
+    pageNumber: z.number().int().positive().default(1).describe("Page number"),
+    templateId: z.string().min(1).describe("Template ID"),
+    pageSize: z.string().optional().describe("Page size preset"),
+    backgroundColor: z.string().optional().describe("Background color"),
+    slotAssignments: z
+      .record(z.string().min(1), IdSchema)
+      .describe("Slot ID to panel ID assignments"),
+  })
+  .describe("Save page layout request");
+
+/**
+ * Page layout request body
+ */
+export const PageLayoutSchema = z
+  .object({
+    name: z.string().min(1).describe("Layout name"),
+    pageNumber: z.number().int().positive().optional().describe("Page number"),
+    templateId: z.string().min(1).describe("Template ID"),
+    pageSize: z.string().optional().describe("Page size preset"),
+    backgroundColor: z.string().optional().describe("Background color"),
+    slotAssignments: z.record(IdSchema).describe("Slot assignments by slot ID"),
+  })
+  .describe("Page layout request");
+
 // ============================================================================
 // Response Schemas
 // ============================================================================
@@ -114,6 +144,34 @@ export const ComposeStoryboardResponseSchema = z
   })
   .describe("Compose storyboard response");
 
+/**
+ * Page layout response
+ */
+export const PageLayoutResponseSchema = z
+  .object({
+    layout: z
+      .object({
+        id: IdSchema,
+        storyboardId: IdSchema,
+        name: z.string(),
+        pageNumber: z.number().int(),
+        layoutConfig: z.record(z.string(), z.unknown()),
+        panelPlacements: z.array(
+          z.object({
+            panelId: IdSchema,
+            row: z.number().int(),
+            col: z.number().int(),
+            rowSpan: z.number().int(),
+            colSpan: z.number().int(),
+          })
+        ),
+        renderedPath: z.string().nullable().optional(),
+        renderedAt: z.string().nullable().optional(),
+      })
+      .nullable(),
+  })
+  .describe("Page layout response");
+
 // ============================================================================
 // Type Exports
 // ============================================================================
@@ -122,3 +180,4 @@ export type ComposePage = z.infer<typeof ComposePageSchema>;
 export type ComposeStoryboard = z.infer<typeof ComposeStoryboardSchema>;
 export type ExportPage = z.infer<typeof ExportPageSchema>;
 export type ExportStoryboard = z.infer<typeof ExportStoryboardSchema>;
+export type PageLayout = z.infer<typeof PageLayoutSchema>;
