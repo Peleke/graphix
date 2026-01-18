@@ -52,10 +52,20 @@ interface TestPanel {
 }
 
 /**
+ * Test storyboard fixture data
+ */
+interface TestStoryboard {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/**
  * API helper for test setup/teardown
  */
 interface ApiHelper {
   createProject(name: string, description?: string): Promise<TestProject>;
+  createStoryboard(projectId: string, name: string, description?: string): Promise<TestStoryboard>;
   createCharacter(projectId: string, data: Partial<TestCharacter>): Promise<TestCharacter>;
   createPanel(storyboardId: string, description: string): Promise<TestPanel>;
   cleanup(): Promise<void>;
@@ -140,6 +150,15 @@ export const test = base.extend<{
         const project = await response.json();
         createdResources.push({ type: 'project', id: project.id });
         return project;
+      },
+
+      async createStoryboard(projectId, name, description) {
+        const response = await request.post(`${apiUrl}/api/storyboards`, {
+          data: { projectId, name, description },
+        });
+        const storyboard = await response.json();
+        createdResources.push({ type: 'storyboard', id: storyboard.id });
+        return storyboard;
       },
 
       async createCharacter(projectId, data) {

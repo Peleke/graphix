@@ -9,6 +9,7 @@
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
+import { uniqueName } from '../utils/test-data';
 
 // Mock generation data for deterministic testing
 const MOCK_GENERATIONS = [
@@ -19,11 +20,23 @@ const MOCK_GENERATIONS = [
 ];
 
 test.describe('Flow 5: Panel Generation & Iteration', () => {
+  async function setupPanelGenerator({ page, api, testProject, storyboardPage, testInfo }: any) {
+    const storyboard = await api.createStoryboard(
+      testProject.id,
+      uniqueName('Storyboard', testInfo),
+      'Flow 5 storyboard'
+    );
+    await api.createPanel(storyboard.id, 'Test panel description');
+
+    await page.goto(`/projects/${testProject.id}`);
+    await page.getByText('Storyboard', { exact: true }).click();
+    await storyboardPage.selectPanel(1, 1);
+  }
   // ==========================================================================
   // Setup: Mock API responses for deterministic testing
   // ==========================================================================
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, api, testProject, storyboardPage }, testInfo) => {
     // Mock the generations endpoint to return test data
     await page.route('**/api/generations/panel/**', async (route) => {
       await route.fulfill({
@@ -90,6 +103,8 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
         body: JSON.stringify({ success: true }),
       });
     });
+
+    await setupPanelGenerator({ page, api, testProject, storyboardPage, testInfo });
   });
 
   // ==========================================================================
@@ -99,7 +114,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
   test.describe('5.1 Generation Trigger', () => {
     test('should render panel generator with all controls', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
       // Navigate to a panel (using mock project/panel)
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       
       // Wait for component to load
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
@@ -113,7 +127,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should start generation when clicking Generate Single', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Enter a prompt
@@ -127,7 +140,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should generate variants with configured count', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Set variant count to 6
@@ -161,7 +173,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should NOT auto-generate on prompt change', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Track API calls
@@ -188,7 +199,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
   test.describe('5.2 Generation Progress', () => {
     test('should show loading indicator during generation', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Make generation take longer
@@ -212,7 +222,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should disable buttons during generation', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Make generation take longer
@@ -240,7 +249,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
   test.describe('5.3 Result Presentation (N-Up)', () => {
     test('should display generation results in grid', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should show generation cards from mock data
@@ -251,7 +259,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should show seed and dimensions on each card', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should show seed info
@@ -262,7 +269,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should allow selecting a generation', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click the first generation card's select button
@@ -279,7 +285,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
   test.describe('5.4 Iteration Actions', () => {
     test('should allow rating generations with stars', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should have rating stars
@@ -294,7 +299,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should allow copying prompt from generation', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click copy prompt button (clipboard icon)
@@ -312,7 +316,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
   test.describe('5.5 Tab Navigation', () => {
     test('should switch between Generate and Versions tabs', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click Versions tab
@@ -329,7 +332,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should show Text tab with generated text', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click Text tab
@@ -341,7 +343,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should show Captions tab', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click Captions tab
@@ -358,7 +359,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
   test.describe('5.6 Error Handling', () => {
     test('should display error when generation fails', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Mock failed generation
@@ -380,7 +380,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should clear error on new generation attempt', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // First: fail
@@ -435,7 +434,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
         });
       });
       
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should show character section
@@ -443,7 +441,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should display control level options', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should show control level section
@@ -454,7 +451,6 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     });
 
     test('should allow changing control level', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
-      await page.goto('/projects/test-project?view=panel&panelId=test-panel');
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Click Level 4 (Full Control)
