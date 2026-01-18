@@ -5,7 +5,6 @@
  */
 
 import { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { css } from '../../../styled-system/css';
 import { useThreads } from '../../api/hooks/useThreads';
 
@@ -270,15 +269,25 @@ export function ThreadModal({
 
   if (!isOpen) return null;
 
-  // Guard for SSR/tests where document.body might not exist
-  if (typeof document === 'undefined' || !document.body) {
-    return null;
-  }
+  // Inline styles to guarantee positioning (CSS-in-JS can be unreliable)
+  const overlayInlineStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 99999,
+  };
 
-  // Use portal to render at body level (escapes parent fixed positioning)
-  return createPortal(
+  return (
     <div 
-      className={overlayStyles} 
+      style={overlayInlineStyle}
       onClick={onClose}
       data-testid="thread-modal-overlay"
     >
@@ -361,7 +370,6 @@ export function ThreadModal({
           )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
