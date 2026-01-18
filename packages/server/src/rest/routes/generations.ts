@@ -303,11 +303,20 @@ generationRoutes.get("/:id/image", validateId(), async (c) => {
 
   // For local dev, serve the file
   const { readFile } = await import("fs/promises");
-  const { extname } = await import("path");
+  const { extname, normalize, resolve } = await import("path");
+  const { config } = await import("@graphix/core");
+
+  // SECURITY: Validate path is within allowed output directory
+  const outputDir = resolve(config.outputDir);
+  const normalizedPath = resolve(generation.localPath);
+  if (!normalizedPath.startsWith(outputDir)) {
+    console.error(`Path traversal attempt blocked: ${generation.localPath}`);
+    return c.json({ error: "Invalid file path" }, 403);
+  }
 
   try {
-    const fileBuffer = await readFile(generation.localPath);
-    const ext = extname(generation.localPath).toLowerCase();
+    const fileBuffer = await readFile(normalizedPath);
+    const ext = extname(normalizedPath).toLowerCase();
     const contentType = ext === ".png" ? "image/png" : 
                        ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
                        ext === ".webp" ? "image/webp" : "application/octet-stream";
@@ -342,11 +351,20 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
   }
 
   const { readFile } = await import("fs/promises");
-  const { extname } = await import("path");
+  const { extname, resolve } = await import("path");
+  const { config } = await import("@graphix/core");
+
+  // SECURITY: Validate path is within allowed output directory
+  const outputDir = resolve(config.outputDir);
+  const normalizedPath = resolve(imagePath);
+  if (!normalizedPath.startsWith(outputDir)) {
+    console.error(`Path traversal attempt blocked: ${imagePath}`);
+    return c.json({ error: "Invalid file path" }, 403);
+  }
 
   try {
-    const fileBuffer = await readFile(imagePath);
-    const ext = extname(imagePath).toLowerCase();
+    const fileBuffer = await readFile(normalizedPath);
+    const ext = extname(normalizedPath).toLowerCase();
     const contentType = ext === ".png" ? "image/png" : 
                        ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
                        ext === ".webp" ? "image/webp" : "application/octet-stream";
