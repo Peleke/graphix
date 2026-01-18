@@ -290,9 +290,12 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
 
   const confirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
-    await deleteCharacter(pendingDelete.id);
+    const deleted = await deleteCharacter(pendingDelete.id);
+    if (!deleted) {
+      actions.removeCharacter(pendingDelete.id);
+    }
     setPendingDelete(null);
-  }, [deleteCharacter, pendingDelete]);
+  }, [deleteCharacter, pendingDelete, actions]);
 
   const cancelDelete = useCallback(() => {
     setPendingDelete(null);
