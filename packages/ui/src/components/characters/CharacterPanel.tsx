@@ -138,6 +138,25 @@ const panelStyles = {
   emptySubtext: css({
     fontSize: '12px',
     color: 'slate.600',
+    marginBottom: '16px',
+  }),
+  
+  emptyCreateButton: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '10px 16px',
+    fontSize: '13px',
+    fontWeight: '600',
+    backgroundColor: 'violet.600',
+    border: 'none',
+    borderRadius: '8px',
+    color: 'white',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    _hover: {
+      backgroundColor: 'violet.500',
+    },
   }),
   
   footer: css({
@@ -371,6 +390,16 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
             <p className={panelStyles.emptySubtext}>
               {hasValue ? 'Try a different search' : 'Create one to get started'}
             </p>
+            {!hasValue && (
+              <button
+                className={panelStyles.emptyCreateButton}
+                onClick={handleCreateCharacter}
+                data-testid="character-empty-create-button"
+              >
+                <PlusIcon />
+                Create Character
+              </button>
+            )}
           </div>
         ) : (
           characters.map((character) => (

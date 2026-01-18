@@ -136,6 +136,8 @@ const cardStyles = {
     gap: '2px',
     opacity: 1,
     transition: 'opacity 0.15s ease',
+    visibility: 'visible',
+    pointerEvents: 'auto',
   }),
   
   actionsVisible: css({

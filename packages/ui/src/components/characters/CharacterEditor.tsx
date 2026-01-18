@@ -296,11 +296,25 @@ export function CharacterEditor({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            backgroundColor: '#111827',
           })}
         >
-          <h2 id="editor-title" className={css({ margin: 0, color: '#fff', fontSize: '1.5rem' })}>
-            {isCreateMode ? 'Create Character' : `Edit: ${character?.name}`}
-          </h2>
+          <div>
+            <h2 id="editor-title" className={css({ margin: 0, color: '#fff', fontSize: '1.5rem' })}>
+              {isCreateMode ? 'Create Character' : `Edit: ${character?.name}`}
+            </h2>
+            {isCreateMode && (
+              <p
+                className={css({
+                  margin: '6px 0 0 0',
+                  fontSize: '0.85rem',
+                  color: '#9ca3af',
+                })}
+              >
+                Start with the basics. You can add references and LoRA later.
+              </p>
+            )}
+          </div>
           <button
             onClick={handleCancel}
             className={css({

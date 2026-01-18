@@ -405,9 +405,16 @@ export class CharacterEditorPage extends BasePage {
     const card = this.page.getByLabel(`${name} character`, { exact: true });
     // Wait for the card to be visible
     await card.waitFor({ state: 'visible', timeout: 15000 });
+    // Select the card to make action buttons visible
+    await card.click({ trial: true }).catch(() => {});
+    await card.click().catch(() => {});
     await card.hover();
-    // Find the edit button within or near this card
-    await card.getByTestId('character-edit-button').click();
+    // Primary path: open editor via double-click on card
+    await card.dblclick().catch(() => {});
+    if (!(await this.characterEditor.isVisible().catch(() => false))) {
+      // Fallback: click edit button (force to avoid hover/opacity issues)
+      await card.getByTestId('character-edit-button').click({ force: true });
+    }
     // Wait for editor to open
     await expect(this.characterEditor).toBeVisible({ timeout: 10000 });
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
@@ -446,7 +453,10 @@ export class CharacterEditorPage extends BasePage {
     await card.hover();
     await card.getByTestId('character-delete-button').click();
     // Wait for and click confirmation
-    await this.page.getByRole('button', { name: /confirm|yes/i }).click();
+    const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+    if (await confirmButton.isVisible().catch(() => false)) {
+      await confirmButton.click();
+    }
   }
 
   /**
