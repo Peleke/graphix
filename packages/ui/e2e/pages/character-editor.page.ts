@@ -337,15 +337,15 @@ export class CharacterEditorPage extends BasePage {
 
   async goto(projectId: string): Promise<void> {
     await this.page.goto(`/projects/${projectId}`);
-    // Wait for page to load
     await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   }
 
   async navigateToCharacters(): Promise<void> {
     // Click on Characters nav item in sidebar
     await this.page.click('.nav-item:has-text("Characters")');
-    // Wait for character panel to be visible
-    await this.page.waitForLoadState('networkidle');
+    // Wait for character panel and network to settle (fresh data from API)
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   }
 
   async waitForLoad(): Promise<void> {
@@ -400,10 +400,16 @@ export class CharacterEditorPage extends BasePage {
    * Edit a character by name (hover and click edit)
    */
   async editCharacter(name: string): Promise<void> {
+    // Wait for network to settle (TanStack Query may need to fetch)
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    // Wait for the card to be visible
+    await card.waitFor({ state: 'visible', timeout: 15000 });
     await card.hover();
     // Find the edit button within or near this card
     await card.getByRole('button', { name: /edit/i }).click();
+    // Wait for editor to open
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
   }
 
   /**
