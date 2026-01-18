@@ -285,4 +285,81 @@ generationRoutes.delete(
   }
 );
 
+// Serve image file by generation ID
+// This endpoint serves the actual image file for local development
+generationRoutes.get("/:id/image", validateId(), async (c) => {
+  const service = getGeneratedImageService();
+  const { id } = c.req.valid("param");
+
+  const generation = await service.getById(id);
+  if (!generation) {
+    return c.json({ error: "Generation not found" }, 404);
+  }
+
+  // In production, redirect to cloudUrl if available
+  if (generation.cloudUrl) {
+    return c.redirect(generation.cloudUrl, 302);
+  }
+
+  // For local dev, serve the file
+  const { readFile } = await import("fs/promises");
+  const { extname } = await import("path");
+
+  try {
+    const fileBuffer = await readFile(generation.localPath);
+    const ext = extname(generation.localPath).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : 
+                       ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
+                       ext === ".webp" ? "image/webp" : "application/octet-stream";
+
+    return new Response(fileBuffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000", // Cache for 1 year (immutable images)
+      },
+    });
+  } catch (err) {
+    return c.json({ error: "Failed to read image file" }, 500);
+  }
+});
+
+// Serve thumbnail by generation ID
+generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
+  const service = getGeneratedImageService();
+  const { id } = c.req.valid("param");
+
+  const generation = await service.getById(id);
+  if (!generation) {
+    return c.json({ error: "Generation not found" }, 404);
+  }
+
+  // Use thumbnail if available, otherwise fall back to main image
+  const imagePath = generation.thumbnailPath || generation.localPath;
+  
+  // In production, could redirect to a thumbnail CDN URL
+  if (generation.cloudUrl && !generation.thumbnailPath) {
+    return c.redirect(generation.cloudUrl, 302);
+  }
+
+  const { readFile } = await import("fs/promises");
+  const { extname } = await import("path");
+
+  try {
+    const fileBuffer = await readFile(imagePath);
+    const ext = extname(imagePath).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : 
+                       ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
+                       ext === ".webp" ? "image/webp" : "application/octet-stream";
+
+    return new Response(fileBuffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000",
+      },
+    });
+  } catch (err) {
+    return c.json({ error: "Failed to read thumbnail file" }, 500);
+  }
+});
+
 export { generationRoutes };

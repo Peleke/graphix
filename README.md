@@ -20,7 +20,7 @@
 >
 > Let's be real: what this tool produces is not *art*. It's AI-generated images arranged into panels. Real comics are made by artists who spent years mastering anatomy, perspective, and storytelling through sequential imagery. This is... not that.
 >
-> Graphix is for **rapid prototyping**, **concept visualization**, **moodboards**, and honestly, **NSFW furry commissions** (we see you, we don't judge). If you're using this to replace actual artists, please reconsider your life choices. If you're using it to iterate on ideas before hiring an artist, or just having fun—welcome aboard, ye scurvy dog. 🏴‍☠️
+> Graphix is for **rapid prototyping**, **concept visualization**, **moodboards**, and **having fun**. If you're using this to replace actual artists, please reconsider your life choices. If you're using it to iterate on ideas before hiring an artist, or just messing around—welcome aboard, ye scurvy dog. 🏴‍☠️
 >
 > *We're not delusional. We're just building tools.*
 

@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
 import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
-import { useGenerationsByPanel } from "../../api/hooks/useGenerations";
+import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
 import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
 import { useGeneratedTextsByPanel, useActiveGeneratedText, type GeneratedTextType } from "../../api/hooks/useGeneratedTexts";
 import { GenerationTreeVisualization } from "../generation-tree";
@@ -62,29 +62,39 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const generateVariants = useGeneratePanelVariants();
   const selectOutput = useSelectPanelOutput();
   const generateCaptions = useGenerateCaptions();
+  const rateGeneration = useRateGeneration();
+
+  // Track generation errors for display
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
+    setGenerateError(null);
     try {
       await generatePanel.mutateAsync({
         panelId,
-        prompt: prompt.trim() || "A beautiful scene",
+        prompt: prompt.trim() || undefined,
         negativePrompt: negativePrompt.trim() || undefined,
         // ControlNet stack will be built from selected characters and control level
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to generate";
+      setGenerateError(message);
       console.error("Failed to generate:", err);
     }
   };
 
   const handleGenerateVariants = async () => {
+    setGenerateError(null);
     try {
       await generateVariants.mutateAsync({
         panelId,
         count: variantCount,
-        prompt: prompt.trim() || "A beautiful scene",
+        prompt: prompt.trim() || undefined,
         negativePrompt: negativePrompt.trim() || undefined,
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to generate variants";
+      setGenerateError(message);
       console.error("Failed to generate variants:", err);
     }
   };
@@ -252,10 +262,37 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           cursor: not-allowed;
         }
         
+        .spinner {
+          display: inline-block;
+          width: 1em;
+          height: 1em;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin-right: 0.5rem;
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        
         .generations-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          grid-template-columns: repeat(2, 1fr);
           gap: 1rem;
+        }
+        
+        @media (min-width: 1200px) {
+          .generations-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .generations-grid {
+            grid-template-columns: 1fr;
+          }
         }
         
         .generation-card {
@@ -293,6 +330,52 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         .generation-status {
           font-size: 0.75rem;
           color: #71717a;
+        }
+        
+        .generation-actions {
+          display: flex;
+          gap: 0.25rem;
+          margin-top: 0.5rem;
+        }
+        
+        .action-btn {
+          flex: 1;
+          padding: 0.375rem;
+          background: #3f3f46;
+          border: none;
+          border-radius: 4px;
+          color: #a1a1aa;
+          font-size: 0.75rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        
+        .action-btn:hover {
+          background: #52525b;
+          color: #fafafa;
+        }
+        
+        .action-btn.selected {
+          background: #8b5cf6;
+          color: white;
+        }
+        
+        .rating-stars {
+          display: flex;
+          gap: 2px;
+          margin-top: 0.25rem;
+        }
+        
+        .star {
+          cursor: pointer;
+          font-size: 0.875rem;
+          color: #52525b;
+          transition: color 0.15s ease;
+        }
+        
+        .star:hover,
+        .star.filled {
+          color: #fbbf24;
         }
         
         .tab-bar {
@@ -523,12 +606,32 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           {/* Generation Controls */}
           <div className="section">
             <div className="section-title">Generate</div>
+            
+            {/* Error Display */}
+            {generateError && (
+              <div style={{
+                padding: "0.75rem",
+                background: "#7f1d1d",
+                border: "1px solid #dc2626",
+                borderRadius: "8px",
+                color: "#fecaca",
+                fontSize: "0.875rem",
+                marginBottom: "1rem",
+              }}>
+                ⚠️ {generateError}
+              </div>
+            )}
+            
             <button
               className="btn-primary"
               onClick={handleGenerate}
-              disabled={generatePanel.isPending}
+              disabled={generatePanel.isPending || generateVariants.isPending}
             >
-              {generatePanel.isPending ? "Generating..." : "Generate Single"}
+              {generatePanel.isPending ? (
+                <>
+                  <span className="spinner" /> Generating...
+                </>
+              ) : "Generate Single"}
             </button>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <input
@@ -538,23 +641,43 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
                 value={variantCount}
                 onChange={(e) => setVariantCount(parseInt(e.target.value) || 4)}
                 style={{
-                  flex: 1,
+                  width: "70px",
                   padding: "0.75rem",
                   background: "#27272a",
                   border: "1px solid #3f3f46",
                   borderRadius: "8px",
                   color: "#fafafa",
+                  textAlign: "center",
                 }}
               />
               <button
                 className="btn-primary"
                 onClick={handleGenerateVariants}
-                disabled={generateVariants.isPending}
-                style={{ width: "auto", padding: "0.75rem 1.5rem" }}
+                disabled={generatePanel.isPending || generateVariants.isPending}
+                style={{ flex: 1, padding: "0.75rem 1.5rem" }}
               >
-                {generateVariants.isPending ? "Generating..." : `Generate ${variantCount}`}
+                {generateVariants.isPending ? (
+                  <>
+                    <span className="spinner" /> Generating {variantCount}...
+                  </>
+                ) : `Generate ${variantCount} Variants`}
               </button>
             </div>
+            
+            {/* Generation Progress Hint */}
+            {(generatePanel.isPending || generateVariants.isPending) && (
+              <div style={{
+                padding: "0.75rem",
+                background: "#1e1e3f",
+                border: "1px solid #8b5cf6",
+                borderRadius: "8px",
+                color: "#c4b5fd",
+                fontSize: "0.75rem",
+                marginTop: "0.5rem",
+              }}>
+                🖼️ Sending to ComfyUI... This may take a moment.
+              </div>
+            )}
           </div>
         </div>
 
@@ -564,30 +687,85 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
             <div>Loading generations...</div>
           ) : generations && generations.length > 0 ? (
             <div className="generations-grid">
-              {generations.map((gen: any) => (
-                <div
-                  key={gen.id}
-                  className={`generation-card ${selectedGenerationId === gen.id ? "selected" : ""}`}
-                  onClick={() => handleSelectOutput(gen.id)}
-                >
-                  <div className="generation-thumb">
-                    {gen.thumbnailPath ? (
+              {generations.map((gen: any) => {
+                // Use API endpoint to serve images
+                const imageUrl = gen.cloudUrl || `${import.meta.env.VITE_API_URL || 'http://localhost:3002'}/api/generations/${gen.id}/thumbnail`;
+                const currentRating = gen.rating || 0;
+                
+                return (
+                  <div
+                    key={gen.id}
+                    className={`generation-card ${selectedGenerationId === gen.id ? "selected" : ""}`}
+                  >
+                    <div 
+                      className="generation-thumb"
+                      onClick={() => handleSelectOutput(gen.id)}
+                      style={{ cursor: "pointer" }}
+                    >
                       <img
-                        src={gen.thumbnailPath}
-                        alt="Generation"
+                        src={imageUrl}
+                        alt={`Generation ${gen.seed}`}
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={(e) => {
+                          // Show placeholder on error
+                          (e.target as HTMLImageElement).style.display = "none";
+                          const parent = (e.target as HTMLImageElement).parentElement;
+                          if (parent) parent.innerHTML = `<span style="font-size: 2rem;">🖼️</span><br/>Seed: ${gen.seed}`;
+                        }}
                       />
-                    ) : (
-                      "No preview"
-                    )}
-                  </div>
-                  <div className="generation-info">
-                    <div className="generation-status">
-                      {gen.selected ? "✓ Selected" : "Click to select"}
+                    </div>
+                    <div className="generation-info">
+                      <div className="generation-status">
+                        {gen.selected ? "✓ Selected" : "Click image to select"}
+                      </div>
+                      <div style={{ fontSize: "0.7rem", color: "#52525b", marginTop: "0.25rem" }}>
+                        Seed: {gen.seed} • {gen.width}×{gen.height}
+                      </div>
+                      
+                      {/* Rating Stars */}
+                      <div className="rating-stars">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={`star ${star <= currentRating ? "filled" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              rateGeneration.mutate({ generationId: gen.id, rating: star });
+                            }}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {/* Quick Actions */}
+                      <div className="generation-actions">
+                        <button
+                          className={`action-btn ${gen.selected ? "selected" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectOutput(gen.id);
+                          }}
+                        >
+                          {gen.selected ? "✓" : "Select"}
+                        </button>
+                        <button
+                          className="action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Use this generation's seed for regeneration
+                            setPrompt(gen.prompt || prompt);
+                            setNegativePrompt(gen.negativePrompt || negativePrompt);
+                          }}
+                          title="Use this prompt"
+                        >
+                          📋
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div style={{ textAlign: "center", padding: "4rem 2rem", color: "#71717a" }}>

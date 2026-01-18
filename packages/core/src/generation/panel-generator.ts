@@ -78,6 +78,13 @@ export interface GenerateOptions {
   /** Control strength when chaining */
   chainStrength?: number;
 
+  // === Inline Prompt Override ===
+
+  /** Override panel description with custom prompt */
+  prompt?: string;
+  /** Override negative prompt */
+  negativePrompt?: string;
+
   // === Config Engine Presets ===
 
   /** Use a named size preset (e.g., "portrait_3x4", "landscape_16x9") */
@@ -191,7 +198,15 @@ export class PanelGenerator {
 
       // Build the prompt using resolved model family
       const modelFamily = options.modelFamily ?? resolvedConfig.modelFamily;
-      const prompt = buildPanelPrompt(panel, characters, modelFamily);
+      const builtPrompt = buildPanelPrompt(panel, characters, modelFamily);
+      
+      // Use inline prompt override if provided, otherwise use built prompt
+      const prompt = {
+        positive: options.prompt ?? builtPrompt.positive,
+        negative: options.negativePrompt ?? builtPrompt.negative,
+        characterLoras: builtPrompt.characterLoras,
+        references: builtPrompt.references,
+      };
 
       // Resolve reference if using chaining or explicit reference
       const reference = await this.resolveReference(panel, options);

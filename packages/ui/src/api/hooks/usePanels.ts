@@ -31,17 +31,31 @@ export interface CreatePanelInput {
 }
 
 export interface GeneratePanelInput {
+  /** Override panel description with custom prompt */
+  prompt?: string;
+  /** Override negative prompt */
+  negativePrompt?: string;
+  /** Model checkpoint */
   model?: string;
+  /** Model family for prompt optimization */
   modelFamily?: string;
+  /** Image dimensions */
   width?: number;
   height?: number;
+  /** Generation parameters */
   steps?: number;
   cfg?: number;
   sampler?: string;
   scheduler?: string;
   seed?: number;
-  controlNetStack?: any; // ControlNetStackRequest
+  /** ControlNet configuration */
+  controlNetStack?: any;
+  /** LoRA stack */
   loras?: Array<{ name: string; strength?: number }>;
+  /** Size preset (e.g., "portrait_3x4") */
+  sizePreset?: string;
+  /** Quality preset (draft, standard, high, ultra) */
+  qualityPreset?: string;
 }
 
 // ============================================================================

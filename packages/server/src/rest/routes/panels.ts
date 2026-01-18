@@ -254,6 +254,9 @@ panelRoutes.post("/:id/generate", validateId(), async (c) => {
     sizePreset: body.sizePreset,
     qualityPreset: body.qualityPreset as QualityPresetId | undefined,
     forComposition,
+    // Inline prompt override (skips panel.description)
+    prompt: body.prompt,
+    negativePrompt: body.negativePrompt,
   });
 
   if (!result.success) {
@@ -297,6 +300,9 @@ panelRoutes.post("/:id/generate/variants", validateId(), async (c) => {
     sizePreset: body.sizePreset,
     qualityPreset: body.qualityPreset as QualityPresetId | undefined,
     forComposition,
+    // Inline prompt override (skips panel.description)
+    prompt: body.prompt,
+    negativePrompt: body.negativePrompt,
   });
 
   return c.json({
