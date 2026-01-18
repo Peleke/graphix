@@ -241,9 +241,10 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
       // Start generation
       await panelEditorPage.generateButton.click();
       
-      // Both buttons should be disabled
-      await expect(panelEditorPage.generateButton).toBeDisabled();
-      await expect(panelEditorPage.generateVariantsButton).toBeDisabled();
+      // Buttons should be disabled during generation
+      await expect(page.getByText(/ComfyUI/i)).toBeVisible();
+      await expect(page.getByRole('button', { name: /Generating/i })).toBeDisabled();
+      await expect(page.getByRole('button', { name: /Generate .* Variants/i })).toBeDisabled();
     });
   });
 
@@ -265,11 +266,9 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
     test('should show seed and dimensions on each card', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
-      // Should show seed info
-      await expect(page.getByText(/Seed: 12345/)).toBeVisible();
-      
-      // Should show dimensions
-      await expect(page.getByText(/512×768/).first()).toBeVisible();
+      // Should show seed info and dimensions in generation info
+      await expect(page.locator('.generation-info').first().getByText(/Seed: 12345/)).toBeVisible();
+      await expect(page.locator('.generation-info').first().getByText(/512×768/)).toBeVisible();
     });
 
     test('should allow selecting a generation', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_5] }, async ({ page, panelEditorPage }) => {
@@ -342,8 +341,8 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
       await page.getByRole('button', { name: /Text \(/ }).click();
       
       // Should show text sections
-      await expect(page.getByText('Panel Description')).toBeVisible();
-      await expect(page.getByText('Dialogue')).toBeVisible();
+      await expect(page.locator('.text-section-title', { hasText: 'Panel Description' }).first()).toBeVisible();
+      await expect(page.locator('.text-section-title', { hasText: 'Dialogue' }).first()).toBeVisible();
     });
 
     test('should show Captions tab', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
@@ -353,7 +352,7 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
       await page.getByRole('button', { name: /Captions \(/ }).click();
       
       // Should show generate from beat button
-      await expect(page.getByText('Generate from Beat')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Generate from Beat' })).toBeVisible();
     });
   });
 
@@ -441,7 +440,7 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
       await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
       
       // Should show character section
-      await expect(page.getByText('Characters')).toBeVisible();
+      await expect(page.locator('.section-title', { hasText: 'Characters' }).first()).toBeVisible();
     });
 
     test('should display control level options', { tag: [tags.MVP, tags.FLOW_5] }, async ({ page }) => {
