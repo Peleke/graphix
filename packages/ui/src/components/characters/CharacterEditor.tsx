@@ -459,6 +459,14 @@ export function CharacterEditor({
                 <label
                   htmlFor="character-name"
                   className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    color: '#cbd5f5',
+                  }}
                 >
                   Name *
                 </label>
@@ -477,6 +485,16 @@ export function CharacterEditor({
                     fontSize: '1rem',
                     _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0b1020',
+                    border: errors.name ? '1px solid #ef4444' : '1px solid #1f2937',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.2',
+                  }}
                   aria-invalid={!!errors.name}
                   aria-describedby={errors.name ? 'name-error' : undefined}
                   data-testid="character-name-input"
@@ -493,6 +511,14 @@ export function CharacterEditor({
                 <label
                   htmlFor="character-species"
                   className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    color: '#cbd5f5',
+                  }}
                 >
                   Species *
                 </label>
@@ -511,6 +537,16 @@ export function CharacterEditor({
                     fontSize: '1rem',
                     _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0b1020',
+                    border: errors.species ? '1px solid #ef4444' : '1px solid #1f2937',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.2',
+                  }}
                   aria-invalid={!!errors.species}
                   aria-describedby={errors.species ? 'species-error' : undefined}
                   data-testid="character-species-input"
@@ -527,6 +563,14 @@ export function CharacterEditor({
                 <label
                   htmlFor="character-description"
                   className={css({ display: 'block', color: '#cbd5f5', marginBottom: '8px', fontSize: '0.85rem' })}
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    color: '#cbd5f5',
+                  }}
                 >
                   Description
                 </label>
@@ -546,6 +590,17 @@ export function CharacterEditor({
                     resize: 'vertical',
                     _focus: { outline: 'none', borderColor: '#7c3aed', boxShadow: '0 0 0 2px rgba(124,58,237,0.2)' },
                   })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    backgroundColor: '#0b1020',
+                    border: errors.description ? '1px solid #ef4444' : '1px solid #1f2937',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.3',
+                    resize: 'vertical',
+                  }}
                   aria-invalid={!!errors.description}
                   aria-describedby={errors.description ? 'description-error' : 'description-hint'}
                   data-testid="character-description-input"

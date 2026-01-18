@@ -400,7 +400,9 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
               color: '#cbd5e1',
               border: '1px dashed #334155',
               borderRadius: '12px',
-              backgroundColor: '#0f172a',
+              backgroundColor: '#0b1020',
+              maxWidth: '720px',
+              margin: '12px auto',
             }}
             data-testid="character-empty-state"
           >
