@@ -1,5 +1,7 @@
 /**
  * ChatPanel Unit Tests
+ * 
+ * Tests the ChatPanel component with mocked useChat hook.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -7,7 +9,36 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChatPanel, CHAT_COMMANDS, MAX_MESSAGE_LENGTH } from '../ChatPanel';
 
-// Mock scrollIntoView - JSDOM doesn't support it
+// Mock the useChat hook
+const mockCreateSession = vi.fn();
+const mockSendMessage = vi.fn();
+const mockReset = vi.fn();
+const mockCreateProject = vi.fn();
+
+vi.mock('../../../api/hooks/useChat', () => ({
+  useChat: vi.fn(() => ({
+    session: { id: 'test-session', threadId: 'test-thread', state: { phase: 'greeting' }, messages: [] },
+    messages: [
+      {
+        id: 'greeting-1',
+        role: 'assistant',
+        content: "Hi! I'm here to help you create a new project. Tell me about your story idea.",
+        createdAt: new Date(),
+        metadata: {
+          suggestions: ['A romance between two otters', 'A space adventure comic', 'A slice of life story'],
+        },
+      },
+    ],
+    isStreaming: false,
+    error: null,
+    createSession: mockCreateSession,
+    sendMessage: mockSendMessage,
+    reset: mockReset,
+    createProject: mockCreateProject,
+  })),
+}));
+
+// Mock scrollIntoView
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -15,19 +46,20 @@ beforeEach(() => {
 describe('ChatPanel', () => {
   const mockOnClose = vi.fn();
   const mockOnProjectCreated = vi.fn();
-  const mockIdGenerator = vi.fn();
-  let idCounter = 0;
 
   beforeEach(() => {
     mockOnClose.mockClear();
     mockOnProjectCreated.mockClear();
-    idCounter = 0;
-    mockIdGenerator.mockImplementation(() => `test-msg-${idCounter++}`);
+    mockCreateSession.mockClear();
+    mockSendMessage.mockClear();
+    mockReset.mockClear();
+    mockCreateProject.mockClear();
+    mockCreateSession.mockResolvedValue({ id: 'new-session' });
+    mockCreateProject.mockResolvedValue('new-project-id');
   });
 
   afterEach(() => {
     vi.clearAllTimers();
-    vi.useRealTimers();
   });
 
   describe('rendering', () => {
@@ -35,23 +67,17 @@ describe('ChatPanel', () => {
       const { container } = render(
         <ChatPanel isOpen={false} onClose={mockOnClose} />
       );
-      
       expect(container.firstChild).toBeNull();
     });
 
     it('renders panel when open', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByText('Create with AI')).toBeInTheDocument();
     });
 
-    it('renders greeting message on open', async () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+    it('renders greeting message from session', async () => {
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       await waitFor(() => {
         expect(screen.getByText(/help you create a new project/i)).toBeInTheDocument();
@@ -59,18 +85,12 @@ describe('ChatPanel', () => {
     });
 
     it('renders close button', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       expect(screen.getByLabelText(/close chat/i)).toBeInTheDocument();
     });
 
     it('renders chat input', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       expect(screen.getByRole('textbox')).toBeInTheDocument();
     });
   });
@@ -78,153 +98,123 @@ describe('ChatPanel', () => {
   describe('closing behavior', () => {
     it('calls onClose when clicking close button', async () => {
       const user = userEvent.setup();
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       await user.click(screen.getByLabelText(/close chat/i));
-      
       expect(mockOnClose).toHaveBeenCalled();
     });
 
     it('calls onClose when clicking overlay', async () => {
       const user = userEvent.setup();
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
-      // Click on the overlay (dialog element itself)
       await user.click(screen.getByRole('dialog'));
-      
       expect(mockOnClose).toHaveBeenCalled();
     });
 
     it('does not close when clicking inside panel', async () => {
       const user = userEvent.setup();
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
-      // Click on the panel content
       await user.click(screen.getByText('Create with AI'));
-      
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
 
   describe('message sending', () => {
-    it('adds user message to chat', async () => {
+    it('calls sendMessage when sending a message', async () => {
       const user = userEvent.setup();
-      
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       await user.type(screen.getByRole('textbox'), 'My story idea');
       await user.click(screen.getByRole('button', { name: /send/i }));
       
       await waitFor(() => {
-        expect(screen.getByText('My story idea')).toBeInTheDocument();
-      }, { timeout: 3000 });
+        expect(mockSendMessage).toHaveBeenCalledWith('My story idea');
+      });
     });
   });
 
   describe('special commands', () => {
-    it('triggers project creation on Create Project command', async () => {
+    it('calls createProject on Create Project command', async () => {
       const user = userEvent.setup();
       render(
         <ChatPanel 
           isOpen={true} 
           onClose={mockOnClose} 
           onProjectCreated={mockOnProjectCreated}
-          idGenerator={mockIdGenerator}
         />
       );
       
-      // Type the create project command
       await user.type(screen.getByRole('textbox'), CHAT_COMMANDS.CREATE_PROJECT);
       await user.click(screen.getByRole('button', { name: /send/i }));
       
-      expect(mockOnProjectCreated).toHaveBeenCalledWith('mock-project-id');
-      expect(mockOnClose).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockCreateProject).toHaveBeenCalled();
+      });
     });
 
-    // Skipped: Complex async timing - covered by E2E test "2.8 Start Over"
-    it.skip('resets conversation on Start Over command', async () => {
+    it('calls onProjectCreated with project ID', async () => {
       const user = userEvent.setup();
-      
       render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
+        <ChatPanel 
+          isOpen={true} 
+          onClose={mockOnClose} 
+          onProjectCreated={mockOnProjectCreated}
+        />
       );
       
-      // Wait for greeting
-      await waitFor(() => {
-        expect(screen.getByText(/help you create/i)).toBeInTheDocument();
-      });
-      
-      // Send a unique message
-      await user.type(screen.getByRole('textbox'), 'UniqueTestPhrase12345');
+      await user.type(screen.getByRole('textbox'), CHAT_COMMANDS.CREATE_PROJECT);
       await user.click(screen.getByRole('button', { name: /send/i }));
       
       await waitFor(() => {
-        expect(screen.getByText('UniqueTestPhrase12345')).toBeInTheDocument();
-      }, { timeout: 3000 });
+        expect(mockOnProjectCreated).toHaveBeenCalledWith('new-project-id');
+      });
+    });
+
+    it('resets and creates new session on Start Over command', async () => {
+      const user = userEvent.setup();
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
-      // Now send Start Over - this should reset
       await user.type(screen.getByRole('textbox'), CHAT_COMMANDS.START_OVER);
       await user.click(screen.getByRole('button', { name: /send/i }));
       
-      // After reset, our unique message should be gone
       await waitFor(() => {
-        expect(screen.queryByText('UniqueTestPhrase12345')).not.toBeInTheDocument();
-      }, { timeout: 3000 });
-    });
-  });
-
-  describe('message length validation', () => {
-    it('exports MAX_MESSAGE_LENGTH constant', () => {
-      expect(MAX_MESSAGE_LENGTH).toBe(4000);
+        expect(mockReset).toHaveBeenCalled();
+        expect(mockCreateSession).toHaveBeenCalled();
+      });
     });
   });
 
   describe('suggestion chips', () => {
-    it('renders initial suggestions', async () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+    it('renders suggestions from session', async () => {
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       await waitFor(() => {
         expect(screen.getByText('A romance between two otters')).toBeInTheDocument();
         expect(screen.getByText('A space adventure comic')).toBeInTheDocument();
-      }, { timeout: 3000 });
+      });
     });
 
     it('sends message when suggestion chip is clicked', async () => {
       const user = userEvent.setup();
-      
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       await waitFor(() => {
         expect(screen.getByText('A romance between two otters')).toBeInTheDocument();
-      }, { timeout: 3000 });
+      });
       
       await user.click(screen.getByText('A romance between two otters'));
       
       await waitFor(() => {
-        // Should appear as user message
-        const userMessages = document.querySelectorAll('.chat-message.user');
-        expect(userMessages.length).toBeGreaterThan(0);
-      }, { timeout: 3000 });
+        expect(mockSendMessage).toHaveBeenCalledWith('A romance between two otters');
+      });
     });
   });
 
   describe('accessibility', () => {
     it('has correct ARIA attributes', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       
       const dialog = screen.getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
@@ -232,18 +222,12 @@ describe('ChatPanel', () => {
     });
 
     it('has live region for messages', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       expect(screen.getByRole('log')).toHaveAttribute('aria-live', 'polite');
     });
 
     it('close button has accessible label', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
+      render(<ChatPanel isOpen={true} onClose={mockOnClose} />);
       expect(screen.getByRole('button', { name: /close chat/i })).toBeInTheDocument();
     });
   });
@@ -255,15 +239,9 @@ describe('ChatPanel', () => {
       expect(CHAT_COMMANDS.ADD_DETAILS).toBe('Add more details');
       expect(CHAT_COMMANDS.SKIP).toBe('Skip for now');
     });
-  });
 
-  describe('id generation', () => {
-    it('uses provided idGenerator', () => {
-      render(
-        <ChatPanel isOpen={true} onClose={mockOnClose} idGenerator={mockIdGenerator} />
-      );
-      
-      expect(mockIdGenerator).toHaveBeenCalled();
+    it('exports MAX_MESSAGE_LENGTH', () => {
+      expect(MAX_MESSAGE_LENGTH).toBe(4000);
     });
   });
 });

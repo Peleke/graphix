@@ -2,21 +2,19 @@
  * ChatPanel Component
  * 
  * Main chat interface that slides up from the dashboard.
- * Handles message display, input, and mock responses for Phase 1.
- * 
- * TODO: Phase 2 - Replace mock responses with real AI via:
- * - Mastra agent (https://mastra.ai) for TypeScript-native agent logic
- * - TextGenerationService for Ollama/Claude/OpenAI provider switching
+ * Connected to real backend via useChat hook.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThreadModal } from './ThreadModal';
-import { type ChatMessage as ChatMessageType, type ElicitationPhase } from './types';
+import { useChat } from '../../api/hooks/useChat';
+import { type ChatMessage as ChatMessageType } from './types';
+import { useState } from 'react';
 
 // =============================================================================
-// Constants (avoid magic strings)
+// Constants
 // =============================================================================
 
 export const CHAT_COMMANDS = {
@@ -26,65 +24,17 @@ export const CHAT_COMMANDS = {
   SKIP: 'Skip for now',
 } as const;
 
-export const ELICITATION_PHASES: readonly ElicitationPhase[] = [
+export const ELICITATION_PHASES: readonly string[] = [
   'greeting', 'characters', 'setting', 'style', 'scope', 'confirmation'
 ] as const;
 
 export const MAX_MESSAGE_LENGTH = 4000;
-
-// =============================================================================
-// ID Generation (uses crypto when available for better uniqueness)
-// =============================================================================
 
 export const generateId = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `msg-${crypto.randomUUID()}`;
   }
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-};
-
-// =============================================================================
-// Mock Responses (Phase 1 - will be replaced with real AI)
-// =============================================================================
-
-interface MockResponse {
-  content: string;
-  suggestions: string[];
-}
-
-const MOCK_RESPONSES: Record<ElicitationPhase, MockResponse> = {
-  greeting: {
-    content: "Hi! I'm here to help you create a new project. Tell me about your story idea - it can be as simple as a single sentence or as detailed as you'd like.",
-    suggestions: ["A romance between two otters", "A space adventure comic", "A slice of life story"]
-  },
-  characters: {
-    content: "That sounds interesting! Who are the main characters in your story? Tell me about them - their names, what they look like, their personalities.",
-    suggestions: ["Use existing characters", "Create new ones", CHAT_COMMANDS.SKIP]
-  },
-  setting: {
-    content: "Great characters! Now, where and when does your story take place? Describe the world, the environment, the mood.",
-    suggestions: ["Modern day", "Fantasy world", CHAT_COMMANDS.SKIP]
-  },
-  arc: {
-    content: "What's the main story arc? What conflict or journey will the characters go through?",
-    suggestions: ["Coming of age", "Mystery to solve", CHAT_COMMANDS.SKIP]
-  },
-  style: {
-    content: "What's the visual style you're going for? Think about art style, color palette, mood.",
-    suggestions: ["Warm and romantic", "Dark and gritty", "Bright and colorful", CHAT_COMMANDS.SKIP]
-  },
-  scope: {
-    content: "Almost done! How long do you want this to be? A short one-shot, a longer story?",
-    suggestions: ["4 pages", "8 pages", "12+ pages"]
-  },
-  confirmation: {
-    content: "I've got everything I need! Ready to create your project with the details we discussed. Click 'Create Project' when you're ready, or keep chatting to add more details.",
-    suggestions: [CHAT_COMMANDS.CREATE_PROJECT, CHAT_COMMANDS.ADD_DETAILS, CHAT_COMMANDS.START_OVER]
-  },
-  complete: {
-    content: "Your project has been created! Redirecting you now...",
-    suggestions: []
-  }
 };
 
 // =============================================================================
@@ -95,7 +45,6 @@ interface ChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectCreated?: (projectId: string) => void;
-  /** Optional ID generator for testing */
   idGenerator?: () => string;
 }
 
@@ -107,156 +56,122 @@ export function ChatPanel({
   isOpen, 
   onClose, 
   onProjectCreated,
-  idGenerator = generateId 
 }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [elicitationPhase, setElicitationPhase] = useState<ElicitationPhase>('greeting');
-  const [error, setError] = useState<string | null>(null);
   const [showThreadModal, setShowThreadModal] = useState(false);
-  
+  const [localError, setLocalError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const streamingContentRef = useRef<string>('');
-  const streamingIdRef = useRef<string>('');
+  const initializedRef = useRef(false);
 
-  // Initialize with greeting
+  // Use the real chat hook
+  const {
+    session,
+    messages: chatMessages,
+    isStreaming,
+    error: chatError,
+    createSession,
+    sendMessage,
+    reset,
+    createProject,
+  } = useChat({
+    onError: (err) => {
+      console.error('[ChatPanel] Error:', err);
+      setLocalError(err.message);
+    },
+  });
+
+  // Convert hook messages to component format
+  const messages: ChatMessageType[] = chatMessages.map((m) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+    timestamp: m.createdAt,
+    isStreaming: m.isStreaming,
+    metadata: m.metadata ? {
+      suggestions: m.metadata.suggestions,
+    } : undefined,
+  }));
+
+  // Initialize session when panel opens
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      const greeting: ChatMessageType = {
-        id: idGenerator(),
-        role: 'assistant',
-        content: MOCK_RESPONSES.greeting.content,
-        timestamp: new Date(),
-        metadata: { suggestions: MOCK_RESPONSES.greeting.suggestions }
-      };
-      setMessages([greeting]);
-      setError(null);
+    if (isOpen && !session && !initializedRef.current) {
+      initializedRef.current = true;
+      createSession().catch((err) => {
+        console.error('[ChatPanel] Failed to create session:', err);
+        setLocalError('Failed to connect to AI. Please try again.');
+      });
     }
-  }, [isOpen, messages.length, idGenerator]);
+  }, [isOpen, session, createSession]);
+
+  // Reset initialization flag when panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      initializedRef.current = false;
+    }
+  }, [isOpen]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Advance to next phase
-  const advancePhase = useCallback(() => {
-    const phaseOrder: ElicitationPhase[] = ['greeting', 'characters', 'setting', 'arc', 'style', 'scope', 'confirmation'];
-    const currentIdx = phaseOrder.indexOf(elicitationPhase);
-    if (currentIdx < phaseOrder.length - 1) {
-      setElicitationPhase(phaseOrder[currentIdx + 1]);
-      return phaseOrder[currentIdx + 1];
-    }
-    return elicitationPhase;
-  }, [elicitationPhase]);
-
-  // Simulate streaming response (Phase 1 mock)
-  // Uses refs to batch updates and avoid per-character re-renders
-  const simulateResponse = useCallback(async (_userMessage: string) => {
-    setIsStreaming(true);
-    setError(null);
-
-    try {
-      const nextPhase = advancePhase();
-      const responseData = MOCK_RESPONSES[nextPhase] || MOCK_RESPONSES.confirmation;
-      
-      const assistantId = idGenerator();
-      streamingIdRef.current = assistantId;
-      streamingContentRef.current = '';
-      
-      // Add empty assistant message for streaming effect
-      setMessages(prev => [...prev, {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        isStreaming: true
-      }]);
-
-      // Simulate streaming - batch updates every N characters
-      const fullContent = responseData.content;
-      const BATCH_SIZE = 5; // Update every 5 characters instead of every 1
-      
-      for (let i = 0; i <= fullContent.length; i += BATCH_SIZE) {
-        await new Promise(r => setTimeout(r, 15 * BATCH_SIZE));
-        const content = fullContent.slice(0, Math.min(i + BATCH_SIZE, fullContent.length));
-        streamingContentRef.current = content;
-        
-        setMessages(prev => prev.map(m => 
-          m.id === assistantId 
-            ? { ...m, content }
-            : m
-        ));
-      }
-
-      // Finalize message with suggestions
-      setMessages(prev => prev.map(m => 
-        m.id === assistantId 
-          ? { 
-              ...m, 
-              content: fullContent,
-              isStreaming: false, 
-              metadata: { suggestions: responseData.suggestions }
-            }
-          : m
-      ));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsStreaming(false);
-      streamingIdRef.current = '';
-      streamingContentRef.current = '';
-    }
-  }, [advancePhase, idGenerator]);
-
-  const handleSend = useCallback((content: string) => {
-    // Validate input length
+  const handleSend = useCallback(async (content: string) => {
     if (content.length > MAX_MESSAGE_LENGTH) {
-      setError(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`);
+      setLocalError(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`);
       return;
     }
 
-    setError(null);
+    setLocalError(null);
 
     // Handle special commands
     if (content === CHAT_COMMANDS.CREATE_PROJECT) {
-      // TODO: Phase 5 - Trigger bootstrap flow with gathered data
-      onProjectCreated?.('mock-project-id');
-      onClose();
+      try {
+        const projectId = await createProject();
+        if (projectId) {
+          onProjectCreated?.(projectId);
+          onClose();
+        } else {
+          setLocalError('Failed to create project. Please try again.');
+        }
+      } catch (err) {
+        setLocalError('Failed to create project. Please try again.');
+      }
       return;
     }
 
     if (content === CHAT_COMMANDS.START_OVER) {
-      setMessages([]);
-      setElicitationPhase('greeting');
+      reset();
+      initializedRef.current = false;
+      // Create new session
+      try {
+        await createSession();
+      } catch (err) {
+        setLocalError('Failed to start new session.');
+      }
       return;
     }
 
-    // Add user message
-    const userMessage: ChatMessageType = {
-      id: idGenerator(),
-      role: 'user',
-      content,
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, userMessage]);
-
-    // Simulate AI response
-    simulateResponse(content);
-  }, [simulateResponse, onProjectCreated, onClose, idGenerator]);
+    // Send message to backend
+    try {
+      await sendMessage(content);
+    } catch (err) {
+      console.error('[ChatPanel] Send error:', err);
+      // Error is handled by onError callback
+    }
+  }, [sendMessage, createProject, createSession, reset, onProjectCreated, onClose]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     handleSend(suggestion);
   }, [handleSend]);
 
   const handleRetry = useCallback(() => {
-    setError(null);
-    // Retry last user message if there is one
+    setLocalError(null);
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (lastUserMessage) {
-      simulateResponse(lastUserMessage.content);
+      handleSend(lastUserMessage.content);
     }
-  }, [messages, simulateResponse]);
+  }, [messages, handleSend]);
+
+  const error = localError || chatError?.message;
 
   if (!isOpen) return null;
 
@@ -438,6 +353,15 @@ export function ChatPanel({
         .chat-error button:hover {
           background: rgba(239, 68, 68, 0.2);
         }
+
+        .chat-loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          color: #71717a;
+          font-size: 0.875rem;
+        }
       `}</style>
 
       <div 
@@ -485,6 +409,9 @@ export function ChatPanel({
         </div>
 
         <div className="chat-messages" role="log" aria-live="polite">
+          {messages.length === 0 && !error && (
+            <div className="chat-loading">Connecting to AI...</div>
+          )}
           {messages.map((message) => (
             <ChatMessage
               key={message.id}
@@ -504,7 +431,7 @@ export function ChatPanel({
 
         <ChatInput
           onSend={handleSend}
-          disabled={isStreaming}
+          disabled={isStreaming || !session}
           maxLength={MAX_MESSAGE_LENGTH}
           autoFocus
         />
@@ -514,13 +441,15 @@ export function ChatPanel({
       <ThreadModal
         isOpen={showThreadModal}
         onClose={() => setShowThreadModal(false)}
+        activeThreadId={session?.id}
         onSelectThread={(threadId) => {
           // TODO: Load thread and restore messages
           console.log('Switch to thread:', threadId);
         }}
         onNewChat={() => {
-          setMessages([]);
-          setElicitationPhase('greeting');
+          reset();
+          initializedRef.current = false;
+          createSession();
         }}
       />
     </div>
