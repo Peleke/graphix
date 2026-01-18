@@ -286,6 +286,14 @@ export function CharacterEditor({
           display: 'flex',
           flexDirection: 'column',
         })}
+        style={{
+          width: '90%',
+          maxWidth: '800px',
+          maxHeight: '90vh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
         data-testid="character-editor"
       >
         {/* Header */}
@@ -298,6 +306,14 @@ export function CharacterEditor({
             justifyContent: 'space-between',
             backgroundColor: '#111827',
           })}
+          style={{
+            padding: '16px 24px',
+            borderBottom: '1px solid #333',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#111827',
+          }}
         >
           <div>
             <h2 id="editor-title" className={css({ margin: 0, color: '#fff', fontSize: '1.5rem' })}>
@@ -409,6 +425,12 @@ export function CharacterEditor({
             padding: '24px',
             backgroundColor: '#0f172a',
           })}
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: '24px',
+            backgroundColor: '#0f172a',
+          }}
         >
           {/* Details Panel */}
           {(isCreateMode || activeTab === 'details') && (
@@ -425,6 +447,12 @@ export function CharacterEditor({
                   borderRadius: '12px',
                   padding: '20px',
                 })}
+                style={{
+                  backgroundColor: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '12px',
+                  padding: '20px',
+                }}
               >
               {/* Name Field */}
               <div className={css({ marginBottom: '16px' })}>
@@ -652,6 +680,14 @@ export function CharacterEditor({
             gap: '12px',
             backgroundColor: '#0b1020',
           })}
+          style={{
+            padding: '16px 24px',
+            borderTop: '1px solid #333',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '12px',
+            backgroundColor: '#0b1020',
+          }}
         >
           <button
             onClick={handleCancel}

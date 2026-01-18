@@ -62,7 +62,16 @@ export function Dialog({
   return (
     <div
       className={overlayStyle}
-      style={{ zIndex }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex,
+      }}
       role={role}
       aria-modal="true"
       aria-labelledby={ariaLabelledby}
@@ -72,6 +81,12 @@ export function Dialog({
     >
       <div
         className={contentStyle}
+        style={{
+          backgroundColor: '#1a1a2e',
+          border: '1px solid #333',
+          borderRadius: '12px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+        }}
         data-testid={contentTestId}
         onClick={(event) => event.stopPropagation()}
       >

@@ -388,7 +388,22 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       {/* Character List */}
       <div className={panelStyles.listContainer} data-testid="character-list">
         {characters.length === 0 ? (
-          <div className={panelStyles.emptyState} data-testid="character-empty-state">
+          <div
+            className={panelStyles.emptyState}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '32px 24px',
+              textAlign: 'center',
+              color: '#cbd5e1',
+              border: '1px dashed #334155',
+              borderRadius: '12px',
+              backgroundColor: '#0f172a',
+            }}
+            data-testid="character-empty-state"
+          >
             <div className={panelStyles.emptyIcon}>
               <UserIcon />
             </div>
