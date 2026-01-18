@@ -57,20 +57,13 @@ if (!rootElement) {
   throw new Error('Root element not found');
 }
 
-// Check if we're in dev mode
-const isDev = import.meta.env.DEV;
-console.log('[Graphix] Dev mode:', isDev);
-
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      {isDev && (
+      {import.meta.env.DEV && (
         <DevtoolsToggle>
-          {(visible) => {
-            console.log('[Graphix] DevTools visible:', visible);
-            return visible ? <ReactQueryDevtools initialIsOpen={false} position="bottom" /> : null;
-          }}
+          {(visible) => visible ? <ReactQueryDevtools initialIsOpen={false} position="bottom" /> : null}
         </DevtoolsToggle>
       )}
     </QueryClientProvider>
