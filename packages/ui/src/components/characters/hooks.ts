@@ -101,7 +101,7 @@ export function useFetchCharacters(projectId: string) {
       setIsLoading(false);
       actions.setLoading(false);
     }
-  }, [projectId, actions]);
+  }, [projectId]);
 
   return { fetchCharacters, isLoading, error };
 }
