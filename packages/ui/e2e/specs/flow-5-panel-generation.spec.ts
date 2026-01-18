@@ -9,7 +9,12 @@
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
-import { uniqueName } from '../utils/test-data';
+import type { TestInfo } from '@playwright/test';
+
+const uniqueName = (base: string, testInfo: TestInfo) => {
+  const suffix = `${testInfo.project.name}-${testInfo.workerIndex}-${Date.now()}`;
+  return `${base} ${suffix}`;
+};
 
 // Mock generation data for deterministic testing
 const MOCK_GENERATIONS = [
