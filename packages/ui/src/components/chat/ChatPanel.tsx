@@ -12,6 +12,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { ThreadDropdown } from './ThreadDropdown';
 import { type ChatMessage as ChatMessageType, type ElicitationPhase } from './types';
 
 // =============================================================================
@@ -339,6 +340,12 @@ export function ChatPanel({
           margin: 0;
         }
 
+        .chat-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .chat-close-btn {
           width: 32px;
           height: 32px;
@@ -430,16 +437,29 @@ export function ChatPanel({
             </div>
           </div>
 
-          <button 
-            className="chat-close-btn" 
-            onClick={onClose} 
-            aria-label="Close chat"
-            type="button"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
+          <div className="chat-header-actions">
+            <ThreadDropdown
+              activeTitle="New conversation"
+              onSelectThread={(threadId) => {
+                // TODO: Load thread and restore messages
+                console.log('Switch to thread:', threadId);
+              }}
+              onNewChat={() => {
+                setMessages([]);
+                setElicitationPhase('greeting');
+              }}
+            />
+            <button 
+              className="chat-close-btn" 
+              onClick={onClose} 
+              aria-label="Close chat"
+              type="button"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="chat-messages" role="log" aria-live="polite">

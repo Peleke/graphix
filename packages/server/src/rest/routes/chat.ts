@@ -73,6 +73,51 @@ chatRoutes.post(
 );
 
 /**
+ * GET /sessions
+ * 
+ * List all chat sessions (threads) for thread management UI.
+ */
+chatRoutes.get("/sessions", async (c) => {
+  const chatService = getChatService();
+  const resourceId = c.req.query("resourceId") || "anonymous";
+  
+  const sessions = await chatService.listSessions(resourceId);
+  
+  return c.json({
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      title: s.title || getSessionTitle(s),
+      projectId: s.projectId,
+      status: s.status,
+      phase: s.workingMemory.phase,
+      messageCount: s.messages.length,
+      lastActivityAt: s.lastActivityAt,
+      createdAt: s.createdAt,
+    })),
+  });
+});
+
+/**
+ * Get a title for a session based on its content.
+ */
+function getSessionTitle(session: { workingMemory: { gathered: { concept?: string } }; messages: { content: string }[] }): string {
+  // Use concept if available
+  if (session.workingMemory.gathered.concept) {
+    const concept = session.workingMemory.gathered.concept;
+    return concept.length > 50 ? concept.slice(0, 47) + "..." : concept;
+  }
+  
+  // Use first user message
+  const firstUserMessage = session.messages.find((m) => m.content && m.content.length > 10);
+  if (firstUserMessage) {
+    const content = firstUserMessage.content;
+    return content.length > 50 ? content.slice(0, 47) + "..." : content;
+  }
+  
+  return "New conversation";
+}
+
+/**
  * GET /sessions/:id
  * 
  * Get a chat session with messages.
