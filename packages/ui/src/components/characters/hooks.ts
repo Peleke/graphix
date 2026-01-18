@@ -22,6 +22,7 @@ import type {
   ReferenceImageType,
 } from './types';
 import { LORA_CATEGORIES, MODEL_FAMILIES } from './types';
+import { getLora, type LoraEntry } from '@graphix/core/generation/models';
 
 // ============================================================================
 // API Base URL
@@ -407,6 +408,7 @@ export function useCharacterLoRA(characterId: string | null) {
     if (!characterId) return;
     
     const loraConfig: CharacterLoRA = {
+      id: loraEntry.id,
       path: loraEntry.filename,
       strength: strength ?? loraEntry.strength.recommended,
       triggerWords: loraEntry.trigger ? [loraEntry.trigger] : [],
@@ -414,6 +416,12 @@ export function useCharacterLoRA(characterId: string | null) {
     
     actions.setCharacterLora(characterId, loraConfig);
   }, [characterId, actions]);
+
+  const associateLora = useCallback((loraId: string, strength?: number) => {
+    const entry = getLora(loraId);
+    if (!entry) return;
+    setLora(entry, strength);
+  }, [setLora]);
 
   const setStrength = useCallback((strength: number) => {
     if (characterId) {
@@ -432,6 +440,9 @@ export function useCharacterLoRA(characterId: string | null) {
     setLora,
     setStrength,
     clearLora,
+    associateLora,
+    removeLora: clearLora,
+    updateStrength: setStrength,
     hasLora: !!lora,
   };
 }

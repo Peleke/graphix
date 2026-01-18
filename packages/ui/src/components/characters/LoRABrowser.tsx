@@ -218,7 +218,12 @@ export function LoRABrowser({
   // Get selected LoRA details
   const selectedLoraDetails = useMemo(() => {
     if (!selectedLora) return null;
-    return getLora(selectedLora.id);
+    if (selectedLora.id) {
+      return getLora(selectedLora.id);
+    }
+    // Fallback: match by filename/path
+    const all = Object.values(LORA_CATALOG);
+    return all.find((entry) => entry.filename === selectedLora.path) ?? null;
   }, [selectedLora]);
 
   // ============================================================================

@@ -82,6 +82,8 @@ export interface CharacterProfile {
  * LoRA configuration for a character
  */
 export interface CharacterLoRA {
+  /** LoRA catalog identifier (if known) */
+  id?: string;
   /** LoRA file path or identifier */
   path: string;
   
