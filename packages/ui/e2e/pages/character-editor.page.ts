@@ -343,6 +343,7 @@ export class CharacterEditorPage extends BasePage {
     await this.page.click('.nav-item:has-text("Characters")');
     // Wait for character panel and network to settle (fresh data from API)
     await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await this.characterList.waitFor({ state: 'visible', timeout: 10000 });
   }
 
   async waitForLoad(): Promise<void> {
@@ -390,6 +391,7 @@ export class CharacterEditorPage extends BasePage {
    */
   async selectCharacter(name: string): Promise<void> {
     const card = this.page.getByLabel(`${name} character`, { exact: true });
+    await card.waitFor({ state: 'visible', timeout: 15000 });
     await card.click();
   }
 
@@ -438,6 +440,7 @@ export class CharacterEditorPage extends BasePage {
    */
   async deleteCharacter(name: string): Promise<void> {
     const card = this.page.getByLabel(`${name} character`, { exact: true });
+    await card.waitFor({ state: 'visible', timeout: 15000 });
     await card.hover();
     await card.getByTestId('character-delete-button').click();
     // Wait for and click confirmation
@@ -497,14 +500,18 @@ export class CharacterEditorPage extends BasePage {
    * Assert character exists in list
    */
   async expectCharacterInList(name: string): Promise<void> {
-    await expect(this.page.getByLabel(`${name} character`, { exact: true })).toBeVisible();
+    await expect(async () => {
+      await expect(this.page.getByLabel(`${name} character`, { exact: true })).toBeVisible();
+    }).toPass({ timeout: 15000 });
   }
 
   /**
    * Assert character NOT in list
    */
   async expectCharacterNotInList(name: string): Promise<void> {
-    await expect(this.page.getByLabel(`${name} character`, { exact: true })).not.toBeVisible();
+    await expect(async () => {
+      await expect(this.page.getByLabel(`${name} character`, { exact: true })).not.toBeVisible();
+    }).toPass({ timeout: 15000 });
   }
 
   /**
