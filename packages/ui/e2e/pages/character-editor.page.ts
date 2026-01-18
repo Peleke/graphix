@@ -10,147 +10,352 @@ import { BasePage } from './base.page';
 
 export class CharacterEditorPage extends BasePage {
   // ============================================================================
-  // Locators
+  // Locators - Character Panel (list view)
   // ============================================================================
+
+  /**
+   * Character panel container (sidebar view)
+   */
+  get characterPanel(): Locator {
+    return this.page.locator('.nav-item:has-text("Characters")');
+  }
+
+  /**
+   * Character list container within CharacterPanel
+   */
+  get characterList(): Locator {
+    // The CharacterPanel has character cards inside a list container
+    return this.page.locator('[class*="listContainer"]');
+  }
+
+  /**
+   * Character cards in the panel (uses CharacterCard component)
+   */
+  get characterCards(): Locator {
+    return this.page.locator('[role="button"][tabindex="0"]').filter({
+      has: this.page.locator('[class*="thumbnail"]'),
+    });
+  }
+
+  /**
+   * Create new character button (Add Character)
+   */
+  get createCharacterButton(): Locator {
+    return this.page.getByRole('button', { name: /add character/i });
+  }
+
+  /**
+   * Search input in character panel
+   */
+  get searchInput(): Locator {
+    return this.page.getByPlaceholder(/search characters/i);
+  }
+
+  /**
+   * Character count badge
+   */
+  get characterCountBadge(): Locator {
+    return this.page.locator('[class*="countBadge"]');
+  }
+
+  /**
+   * Empty state message
+   */
+  get emptyState(): Locator {
+    return this.page.locator('[class*="emptyState"]');
+  }
+
+  // ============================================================================
+  // Locators - Character Editor Modal
+  // ============================================================================
+
+  /**
+   * Character editor modal overlay
+   */
+  get editorOverlay(): Locator {
+    return this.page.getByTestId('character-editor-overlay');
+  }
 
   /**
    * Character editor container
    */
-  get characterEditorContainer(): Locator {
-    return this.page.getByTestId('character-editor-container');
+  get characterEditor(): Locator {
+    return this.page.getByTestId('character-editor');
   }
 
   /**
-   * Character list sidebar
+   * Editor title (Create/Edit: Name)
    */
-  get characterList(): Locator {
-    return this.page.getByTestId('character-list');
+  get editorTitle(): Locator {
+    return this.page.locator('#editor-title');
   }
 
   /**
-   * Character cards in the list
+   * Close editor button (X)
    */
-  get characterCards(): Locator {
-    return this.characterList.getByTestId('character-card');
-  }
-
-  /**
-   * Create new character button
-   */
-  get createCharacterButton(): Locator {
-    return this.page.getByRole('button', { name: /create character|new character/i });
+  get closeEditorButton(): Locator {
+    return this.page.getByTestId('close-editor-button');
   }
 
   /**
    * Character name input
    */
   get nameInput(): Locator {
-    return this.page.getByLabel(/name/i);
+    return this.page.getByTestId('character-name-input');
   }
 
   /**
-   * Species input
+   * Character species input
    */
   get speciesInput(): Locator {
-    return this.page.getByLabel(/species/i);
+    return this.page.getByTestId('character-species-input');
   }
 
   /**
-   * Appearance description textarea
+   * Character description textarea
    */
-  get appearanceInput(): Locator {
-    return this.page.getByLabel(/appearance/i);
+  get descriptionInput(): Locator {
+    return this.page.getByTestId('character-description-input');
   }
 
   /**
-   * Color palette picker
+   * Name validation error
    */
-  get colorPalette(): Locator {
-    return this.page.getByTestId('color-palette');
+  get nameError(): Locator {
+    return this.page.getByTestId('name-error');
   }
 
   /**
-   * Reference image upload area
+   * Species validation error
    */
-  get referenceImageUpload(): Locator {
-    return this.page.getByTestId('reference-image-upload');
+  get speciesError(): Locator {
+    return this.page.getByTestId('species-error');
   }
 
   /**
-   * Reference images gallery
+   * Description validation error
    */
-  get referenceGallery(): Locator {
-    return this.page.getByTestId('reference-gallery');
+  get descriptionError(): Locator {
+    return this.page.getByTestId('description-error');
   }
 
   /**
-   * Generate reference button
+   * Save button in editor
    */
-  get generateReferenceButton(): Locator {
-    return this.page.getByRole('button', { name: /generate reference/i });
+  get saveButton(): Locator {
+    return this.page.getByTestId('save-button');
   }
 
   /**
-   * Age input (optional)
+   * Cancel button in editor
    */
-  get ageInput(): Locator {
-    return this.page.getByLabel(/age/i);
+  get cancelButton(): Locator {
+    return this.page.getByTestId('cancel-button');
   }
 
   /**
-   * Personality traits input
+   * Generate fragments button
    */
-  get personalityInput(): Locator {
-    return this.page.getByLabel(/personality/i);
+  get generateFragmentsButton(): Locator {
+    return this.page.getByTestId('generate-fragments-button');
   }
 
   /**
    * Prompt fragments display
    */
   get promptFragments(): Locator {
-    return this.page.getByTestId('prompt-fragments');
+    return this.page.getByTestId('prompt-fragment');
+  }
+
+  // ============================================================================
+  // Locators - Editor Tabs (edit mode only)
+  // ============================================================================
+
+  /**
+   * Details tab
+   */
+  get detailsTab(): Locator {
+    return this.page.getByTestId('tab-details');
   }
 
   /**
-   * Save character button
+   * References tab
    */
-  get saveButton(): Locator {
-    return this.page.getByRole('button', { name: /save/i });
+  get referencesTab(): Locator {
+    return this.page.getByTestId('tab-references');
+  }
+
+  /**
+   * LoRA tab
+   */
+  get loraTab(): Locator {
+    return this.page.getByTestId('tab-lora');
+  }
+
+  /**
+   * Details panel
+   */
+  get detailsPanel(): Locator {
+    return this.page.getByTestId('panel-details');
+  }
+
+  /**
+   * References panel
+   */
+  get referencesPanel(): Locator {
+    return this.page.getByTestId('panel-references');
+  }
+
+  /**
+   * LoRA panel
+   */
+  get loraPanel(): Locator {
+    return this.page.getByTestId('panel-lora');
+  }
+
+  // ============================================================================
+  // Locators - LoRA Browser
+  // ============================================================================
+
+  /**
+   * LoRA browser container
+   */
+  get loraBrowser(): Locator {
+    return this.page.getByTestId('lora-browser');
+  }
+
+  /**
+   * LoRA search input
+   */
+  get loraSearchInput(): Locator {
+    return this.page.getByTestId('lora-search-input');
+  }
+
+  /**
+   * LoRA category filter buttons
+   */
+  get categoryFilterAll(): Locator {
+    return this.page.getByTestId('category-filter-all');
+  }
+
+  get categoryFilterStyle(): Locator {
+    return this.page.getByTestId('category-filter-style');
+  }
+
+  get categoryFilterCharacter(): Locator {
+    return this.page.getByTestId('category-filter-character');
+  }
+
+  /**
+   * LoRA cards
+   */
+  get loraCards(): Locator {
+    return this.page.getByTestId('lora-card');
+  }
+
+  /**
+   * Selected LoRA display
+   */
+  get selectedLoraDisplay(): Locator {
+    return this.page.getByTestId('selected-lora-display');
+  }
+
+  /**
+   * LoRA strength slider
+   */
+  get loraStrengthSlider(): Locator {
+    return this.page.getByTestId('lora-strength-slider');
+  }
+
+  /**
+   * Remove LoRA button
+   */
+  get removeLoraButton(): Locator {
+    return this.page.getByTestId('remove-lora-button');
+  }
+
+  // ============================================================================
+  // Locators - Confirmation Dialog
+  // ============================================================================
+
+  /**
+   * Confirm close dialog (unsaved changes)
+   */
+  get confirmCloseDialog(): Locator {
+    return this.page.getByTestId('confirm-close-dialog');
+  }
+
+  /**
+   * Keep editing button
+   */
+  get keepEditingButton(): Locator {
+    return this.page.getByTestId('cancel-close-button');
+  }
+
+  /**
+   * Discard changes button
+   */
+  get discardChangesButton(): Locator {
+    return this.page.getByTestId('confirm-close-button');
+  }
+
+  // ============================================================================
+  // Locators - Character Card Actions
+  // ============================================================================
+
+  /**
+   * Edit character button (on card hover)
+   */
+  get editButton(): Locator {
+    return this.page.getByRole('button', { name: /edit character/i });
+  }
+
+  /**
+   * Duplicate character button
+   */
+  get duplicateButton(): Locator {
+    return this.page.getByRole('button', { name: /duplicate character/i });
   }
 
   /**
    * Delete character button
    */
   get deleteButton(): Locator {
-    return this.page.getByRole('button', { name: /delete/i });
+    return this.page.getByRole('button', { name: /delete character/i });
   }
 
   /**
-   * Character dropdown selector (for panels)
+   * Delete confirmation button
    */
-  get characterSelector(): Locator {
-    return this.page.getByTestId('character-selector');
+  get confirmDeleteButton(): Locator {
+    return this.page.getByRole('button', { name: /confirm|yes|delete/i });
   }
 
   // ============================================================================
   // Navigation
   // ============================================================================
 
-  async goto(projectId?: string): Promise<void> {
-    if (projectId) {
-      await this.page.goto(`/projects/${projectId}/characters`);
-    } else {
-      await this.page.goto('/characters');
-    }
+  async goto(projectId: string): Promise<void> {
+    await this.page.goto(`/projects/${projectId}`);
+    // Wait for page to load
+    await this.page.waitForLoadState('domcontentloaded');
+  }
+
+  async navigateToCharacters(): Promise<void> {
+    // Click on Characters nav item in sidebar
+    await this.page.click('.nav-item:has-text("Characters")');
+    // Wait for character panel to be visible
+    await this.page.waitForLoadState('networkidle');
   }
 
   async waitForLoad(): Promise<void> {
     await this.page.waitForLoadState('domcontentloaded');
-    await expect(this.characterEditorContainer).toBeVisible();
   }
 
   async isDisplayed(): Promise<boolean> {
-    return await this.characterEditorContainer.isVisible();
+    // Check if we're on the characters view
+    const navItem = this.page.locator('.nav-item.active:has-text("Characters")');
+    return await navItem.isVisible().catch(() => false);
   }
 
   // ============================================================================
@@ -162,55 +367,43 @@ export class CharacterEditorPage extends BasePage {
    */
   async startNewCharacter(): Promise<void> {
     await this.createCharacterButton.click();
+    await expect(this.characterEditor).toBeVisible();
   }
 
   /**
    * Fill in required character fields (MVP)
    */
-  async fillRequiredFields(name: string, species: string, appearance: string): Promise<void> {
+  async fillRequiredFields(name: string, species: string, description: string): Promise<void> {
     await this.nameInput.fill(name);
     await this.speciesInput.fill(species);
-    await this.appearanceInput.fill(appearance);
+    await this.descriptionInput.fill(description);
   }
 
   /**
-   * Create a basic character
+   * Create a basic character (full flow)
    */
-  async createCharacter(name: string, species: string, appearance: string): Promise<void> {
+  async createCharacter(name: string, species: string, description: string): Promise<void> {
     await this.startNewCharacter();
-    await this.fillRequiredFields(name, species, appearance);
+    await this.fillRequiredFields(name, species, description);
     await this.save();
   }
 
   /**
-   * Select a character from the list
+   * Select a character from the list by name
    */
   async selectCharacter(name: string): Promise<void> {
-    await this.characterCards.filter({ hasText: name }).click();
+    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    await card.click();
   }
 
   /**
-   * Upload a reference image
+   * Edit a character by name (hover and click edit)
    */
-  async uploadReferenceImage(filePath: string): Promise<void> {
-    const fileInput = this.referenceImageUpload.locator('input[type="file"]');
-    await fileInput.setInputFiles(filePath);
-  }
-
-  /**
-   * Generate a reference image
-   */
-  async generateReference(): Promise<void> {
-    await this.generateReferenceButton.click();
-    await this.waitForLoading();
-  }
-
-  /**
-   * Set a color in the palette
-   */
-  async setColor(index: number, color: string): Promise<void> {
-    const colorInput = this.colorPalette.locator('input[type="color"]').nth(index);
-    await colorInput.fill(color);
+  async editCharacter(name: string): Promise<void> {
+    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    await card.hover();
+    // Find the edit button within or near this card
+    await card.getByRole('button', { name: /edit/i }).click();
   }
 
   /**
@@ -222,28 +415,73 @@ export class CharacterEditorPage extends BasePage {
   }
 
   /**
-   * Delete the current character
+   * Cancel editing
    */
-  async deleteCharacter(): Promise<void> {
-    await this.deleteButton.click();
-    // Confirm deletion
+  async cancel(): Promise<void> {
+    await this.cancelButton.click();
+  }
+
+  /**
+   * Close the editor
+   */
+  async closeEditor(): Promise<void> {
+    await this.closeEditorButton.click();
+  }
+
+  /**
+   * Delete a character by name
+   */
+  async deleteCharacter(name: string): Promise<void> {
+    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    await card.hover();
+    await card.getByRole('button', { name: /delete/i }).click();
+    // Wait for and click confirmation
     await this.page.getByRole('button', { name: /confirm|yes/i }).click();
   }
 
   /**
-   * Add character to panel via selector
+   * Switch to a tab in the editor
    */
-  async addCharacterToPanel(name: string): Promise<void> {
-    await this.characterSelector.click();
-    await this.page.getByRole('option', { name }).click();
+  async switchToTab(tab: 'details' | 'references' | 'lora'): Promise<void> {
+    switch (tab) {
+      case 'details':
+        await this.detailsTab.click();
+        break;
+      case 'references':
+        await this.referencesTab.click();
+        break;
+      case 'lora':
+        await this.loraTab.click();
+        break;
+    }
   }
 
   /**
-   * Drag character card onto a panel
+   * Select a LoRA by ID
    */
-  async dragCharacterToPanel(characterName: string, panelLocator: Locator): Promise<void> {
-    const characterCard = this.characterCards.filter({ hasText: characterName });
-    await characterCard.dragTo(panelLocator);
+  async selectLora(loraId: string): Promise<void> {
+    await this.loraCards.filter({ has: this.page.locator(`[data-lora-id="${loraId}"]`) }).click();
+  }
+
+  /**
+   * Set LoRA strength
+   */
+  async setLoraStrength(strength: number): Promise<void> {
+    await this.loraStrengthSlider.fill(strength.toString());
+  }
+
+  /**
+   * Filter LoRAs by category
+   */
+  async filterLorasByCategory(category: 'all' | 'style' | 'character' | 'concept' | 'effect'): Promise<void> {
+    await this.page.getByTestId(`category-filter-${category}`).click();
+  }
+
+  /**
+   * Search characters
+   */
+  async searchCharacters(query: string): Promise<void> {
+    await this.searchInput.fill(query);
   }
 
   // ============================================================================
@@ -254,49 +492,112 @@ export class CharacterEditorPage extends BasePage {
    * Assert character exists in list
    */
   async expectCharacterInList(name: string): Promise<void> {
-    await expect(this.characterCards.filter({ hasText: name })).toBeVisible();
+    await expect(this.page.locator(`[role="button"]:has-text("${name}")`)).toBeVisible();
+  }
+
+  /**
+   * Assert character NOT in list
+   */
+  async expectCharacterNotInList(name: string): Promise<void> {
+    await expect(this.page.locator(`[role="button"]:has-text("${name}")`)).not.toBeVisible();
   }
 
   /**
    * Assert character count
    */
   async expectCharacterCount(count: number): Promise<void> {
-    await expect(this.characterCards).toHaveCount(count);
+    await expect(this.characterCountBadge).toContainText(`${count} character`);
+  }
+
+  /**
+   * Assert editor is visible
+   */
+  async expectEditorVisible(): Promise<void> {
+    await expect(this.characterEditor).toBeVisible();
+  }
+
+  /**
+   * Assert editor is in create mode
+   */
+  async expectCreateMode(): Promise<void> {
+    await expect(this.editorTitle).toContainText('Create Character');
+  }
+
+  /**
+   * Assert editor is in edit mode for character
+   */
+  async expectEditMode(characterName: string): Promise<void> {
+    await expect(this.editorTitle).toContainText(`Edit: ${characterName}`);
+  }
+
+  /**
+   * Assert validation error for name
+   */
+  async expectNameError(message?: string): Promise<void> {
+    await expect(this.nameError).toBeVisible();
+    if (message) {
+      await expect(this.nameError).toContainText(message);
+    }
+  }
+
+  /**
+   * Assert validation error for species
+   */
+  async expectSpeciesError(message?: string): Promise<void> {
+    await expect(this.speciesError).toBeVisible();
+    if (message) {
+      await expect(this.speciesError).toContainText(message);
+    }
+  }
+
+  /**
+   * Assert save button is disabled
+   */
+  async expectSaveDisabled(): Promise<void> {
+    await expect(this.saveButton).toBeDisabled();
+  }
+
+  /**
+   * Assert save button is enabled
+   */
+  async expectSaveEnabled(): Promise<void> {
+    await expect(this.saveButton).toBeEnabled();
   }
 
   /**
    * Assert prompt fragments contain expected text
    */
   async expectPromptFragmentsContain(text: string): Promise<void> {
-    await expect(this.promptFragments).toContainText(text);
+    await expect(this.promptFragments.filter({ hasText: text })).toBeVisible();
   }
 
   /**
-   * Assert reference gallery has images
+   * Assert LoRA is selected
    */
-  async expectReferenceImages(count: number): Promise<void> {
-    const images = this.referenceGallery.getByRole('img');
-    await expect(images).toHaveCount(count);
+  async expectLoraSelected(loraName: string): Promise<void> {
+    await expect(this.selectedLoraDisplay).toContainText(loraName);
   }
 
   /**
-   * Assert character is valid (all required fields filled)
+   * Assert empty state is shown
    */
-  async expectCharacterValid(): Promise<void> {
-    await expect(this.saveButton).toBeEnabled();
+  async expectEmptyState(): Promise<void> {
+    await expect(this.emptyState).toBeVisible();
   }
 
   /**
-   * Assert save confirmation
+   * Assert LoRA browser shows category
    */
-  async expectSaveConfirmation(): Promise<void> {
-    await this.waitForToast(/saved|created/i);
+  async expectLoraCategory(category: string): Promise<void> {
+    await expect(this.page.getByTestId(`lora-category-${category}`)).toBeVisible();
   }
 
   /**
    * Get character count
    */
   async getCharacterCount(): Promise<number> {
-    return await this.characterCards.count();
+    const badgeText = await this.characterCountBadge.textContent();
+    const match = badgeText?.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
   }
 }
