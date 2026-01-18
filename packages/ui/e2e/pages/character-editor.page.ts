@@ -416,9 +416,16 @@ export class CharacterEditorPage extends BasePage {
     await card.hover();
     // Primary path: open editor via double-click on card
     await card.dblclick().catch(() => {});
+    // Give the modal a moment to open before falling back
+    await expect(this.characterEditor).toBeVisible({ timeout: 2000 }).catch(() => {});
     if (!(await this.characterEditor.isVisible().catch(() => false))) {
       // Fallback: click edit button (force to avoid hover/opacity issues)
-      await card.getByTestId('character-edit-button').click({ force: true });
+      const editButton = card.getByTestId('character-edit-button');
+      if (await editButton.count().catch(() => 0)) {
+        await editButton.click({ force: true });
+      } else {
+        await card.dblclick().catch(() => {});
+      }
     }
     // Wait for editor to open
     await expect(this.characterEditor).toBeVisible({ timeout: 10000 });
@@ -456,9 +463,10 @@ export class CharacterEditorPage extends BasePage {
     const card = this.page.getByLabel(`${name} character`, { exact: true });
     await card.waitFor({ state: 'visible', timeout: 15000 });
     await card.hover();
-    await card.getByTestId('character-delete-button').click();
+    await card.getByTestId('character-delete-button').click({ force: true });
     // Wait for and click confirmation
     const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+    await this.page.getByTestId('delete-character-modal').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     if (await confirmButton.isVisible().catch(() => false)) {
       await confirmButton.click();
     }
