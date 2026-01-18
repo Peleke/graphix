@@ -187,12 +187,30 @@ export class StoryboardPage extends BasePage {
   }
 
   // ============================================================================
+  // Workspace sidebar navigation
+  // ============================================================================
+
+  /**
+   * Workspace sidebar nav item for Story Editor
+   */
+  get storyEditorNavItem(): Locator {
+    return this.page.locator('.nav-item').filter({ hasText: /story editor/i });
+  }
+
+  /**
+   * Workspace sidebar nav item for Storyboard
+   */
+  get storyboardNavItem(): Locator {
+    return this.page.locator('.nav-item').filter({ hasText: /^storyboard$/i });
+  }
+
+  // ============================================================================
   // Navigation
   // ============================================================================
 
   async goto(projectId?: string): Promise<void> {
     if (projectId) {
-      // Try the project workspace route which may show storyboard
+      // Navigate to project workspace
       await this.page.goto(`/projects/${projectId}`);
     } else {
       await this.page.goto('/');
@@ -201,13 +219,37 @@ export class StoryboardPage extends BasePage {
 
   async waitForLoad(): Promise<void> {
     await this.page.waitForLoadState('domcontentloaded');
-    // Wait for either storyboard or story editor to be visible
-    await this.storyboardContainer.or(this.storyEditorContainer).or(this.page.locator('.dashboard')).waitFor({ 
+    // Wait for workspace to be visible
+    await this.page.locator('.project-workspace, .dashboard').waitFor({ 
       state: 'visible',
       timeout: 10000 
-    }).catch(() => {
-      // If neither is visible, that's okay - we might be on a different page
-    });
+    }).catch(() => {});
+  }
+
+  /**
+   * Navigate to Storyboard view in workspace sidebar
+   */
+  async gotoStoryboardView(): Promise<void> {
+    const navItem = this.storyboardNavItem;
+    if (await navItem.isVisible()) {
+      await navItem.click();
+      await this.page.waitForTimeout(300);
+      // Wait for storyboard container to appear
+      await this.storyboardContainer.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    }
+  }
+
+  /**
+   * Navigate to Story Editor view in workspace sidebar
+   */
+  async gotoStoryEditorView(): Promise<void> {
+    const navItem = this.storyEditorNavItem;
+    if (await navItem.isVisible()) {
+      await navItem.click();
+      await this.page.waitForTimeout(300);
+      // Wait for story editor container to appear
+      await this.storyEditorContainer.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    }
   }
 
   async isDisplayed(): Promise<boolean> {
@@ -371,11 +413,10 @@ export class StoryboardPage extends BasePage {
    * Assert tree view is visible (view toggle in tree mode)
    */
   async expectTreeViewVisible(): Promise<void> {
-    // Check if tree button is active or if we have the view content
     const treeBtn = this.treeViewTab;
-    if (await treeBtn.isVisible()) {
-      await expect(treeBtn).toHaveClass(/active/);
-    }
+    // Wait for button to be visible and have active class
+    await expect(treeBtn).toBeVisible({ timeout: 5000 });
+    await expect(treeBtn).toHaveClass(/active/, { timeout: 2000 });
   }
 
   /**
@@ -383,9 +424,8 @@ export class StoryboardPage extends BasePage {
    */
   async expectOutlineViewVisible(): Promise<void> {
     const outlineBtn = this.outlineViewTab;
-    if (await outlineBtn.isVisible()) {
-      await expect(outlineBtn).toHaveClass(/active/);
-    }
+    await expect(outlineBtn).toBeVisible({ timeout: 5000 });
+    await expect(outlineBtn).toHaveClass(/active/, { timeout: 2000 });
   }
 
   /**
