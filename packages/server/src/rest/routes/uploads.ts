@@ -6,6 +6,7 @@
 
 import { Hono } from "hono";
 import { errors } from "../errors/index.js";
+import { ErrorCodes } from "../errors/types.js";
 import { getConfig } from "@graphix/core";
 import { join, extname } from "path";
 import { mkdir, writeFile } from "fs/promises";
@@ -13,6 +14,7 @@ import { mkdir, writeFile } from "fs/promises";
 export const uploadRoutes = new Hono();
 
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
 
 function extensionForType(type: string): string {
   switch (type) {
@@ -40,7 +42,11 @@ uploadRoutes.post("/image", async (c) => {
   }
 
   if (!ALLOWED_TYPES.has(file.type)) {
-    return errors.badRequest(c, "Unsupported file type");
+    return errors.badRequest(c, "Unsupported file type", ErrorCodes.INVALID_FILE_TYPE);
+  }
+  
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return errors.badRequest(c, "File too large", ErrorCodes.FILE_TOO_LARGE);
   }
 
   const config = getConfig();
