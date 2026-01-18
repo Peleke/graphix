@@ -29,6 +29,33 @@ function extensionForType(type: string): string {
   }
 }
 
+function detectMimeType(buffer: Buffer): string | null {
+  if (buffer.length >= 8) {
+    // PNG signature
+    const pngSig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    const isPng = pngSig.every((byte, idx) => buffer[idx] === byte);
+    if (isPng) return "image/png";
+  }
+
+  if (buffer.length >= 3) {
+    // JPEG signature FF D8 FF
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      return "image/jpeg";
+    }
+  }
+
+  if (buffer.length >= 12) {
+    // WEBP signature: "RIFF"...."WEBP"
+    const riff = buffer.toString("ascii", 0, 4);
+    const webp = buffer.toString("ascii", 8, 12);
+    if (riff === "RIFF" && webp === "WEBP") {
+      return "image/webp";
+    }
+  }
+
+  return null;
+}
+
 /**
  * POST /uploads/image
  * Upload reference image for ControlNet
@@ -53,17 +80,22 @@ uploadRoutes.post("/image", async (c) => {
   const outputDir = join(config.storage.outputDir, "uploads");
   await mkdir(outputDir, { recursive: true });
 
-  const ext = extensionForType(file.type);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const detectedType = detectMimeType(buffer);
+  if (!detectedType || detectedType !== file.type) {
+    return errors.badRequest(c, "Invalid magic bytes", ErrorCodes.INVALID_MAGIC_BYTES);
+  }
+
+  const ext = extensionForType(detectedType);
   const filename = `${crypto.randomUUID()}${ext}`;
   const outputPath = join(outputDir, filename);
 
-  const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(outputPath, buffer);
 
   return c.json({
     success: true,
     filename,
-    mimeType: file.type,
+    mimeType: detectedType,
     path: outputPath,
   });
 });

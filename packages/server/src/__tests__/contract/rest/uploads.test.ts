@@ -9,7 +9,8 @@ describe("REST /api/uploads", () => {
   describe("POST /api/uploads/image", () => {
     it("returns 200 with upload response", async () => {
       const formData = new FormData();
-      const file = new File(["controlnet"], "ref.png", { type: "image/png" });
+      const pngHeader = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      const file = new File([pngHeader], "ref.png", { type: "image/png" });
       formData.append("file", file);
 
       const res = await app.request("/api/uploads/image", {
@@ -21,6 +22,19 @@ describe("REST /api/uploads", () => {
       const body = await res.json();
       expect(body).toHaveProperty("success", true);
       expect(body).toHaveProperty("path");
+    });
+
+    it("returns 400 when magic bytes do not match mime type", async () => {
+      const formData = new FormData();
+      const file = new File(["not-a-png"], "ref.png", { type: "image/png" });
+      formData.append("file", file);
+
+      const res = await app.request("/api/uploads/image", {
+        method: "POST",
+        body: formData,
+      });
+
+      expect(res.status).toBe(400);
     });
 
     it("returns 400 when file is missing", async () => {
