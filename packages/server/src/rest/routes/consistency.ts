@@ -11,7 +11,7 @@ import {
   type ChainOptions,
 } from "@graphix/core";
 import { getIPAdapter, type IPAdapterModel } from "@graphix/core";
-import { getControlNetStack } from "@graphix/core";
+import { getControlNetStack, getConfig } from "@graphix/core";
 import type { QualityPresetId } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import { validateBody, validateId, validateParam } from "../validation/index.js";
@@ -70,6 +70,40 @@ const referenceSheetSchema = z.object({
   poses: z.array(z.string()).optional(),
   includeExpressions: z.boolean().optional(),
   qualityPreset: z.string().optional(),
+});
+
+/** Schema for ControlNet preview */
+const controlNetPreviewSchema = z.object({
+  inputImage: nonEmptyString,
+  controlType: z.enum([
+    "canny",
+    "depth",
+    "openpose",
+    "lineart",
+    "scribble",
+    "softedge",
+    "normalbae",
+    "mlsd",
+    "shuffle",
+    "tile",
+    "blur",
+    "inpaint",
+    "ip2p",
+    "semantic_seg",
+    "qrcode",
+    "reference",
+  ]),
+  preprocessorOptions: z.object({
+    lowThreshold: z.number().int().min(0).max(255).optional(),
+    highThreshold: z.number().int().min(0).max(255).optional(),
+    detectBody: z.boolean().optional(),
+    detectFace: z.boolean().optional(),
+    detectHands: z.boolean().optional(),
+    depthType: z.enum(["midas", "zoe", "leres"]).optional(),
+    coarse: z.boolean().optional(),
+    valueThreshold: z.number().min(0).max(1).optional(),
+    distanceThreshold: z.number().min(0).max(1).optional(),
+  }).partial().optional(),
 });
 
 /** Schema for identity ID param */
@@ -390,3 +424,45 @@ consistencyRoutes.get("/control-types", async (c) => {
     types: typeInfo,
   });
 });
+
+/**
+ * POST /consistency/controlnet/preview
+ * Preprocess a reference image for ControlNet and return a preview
+ */
+consistencyRoutes.post(
+  "/controlnet/preview",
+  validateBody(controlNetPreviewSchema),
+  async (c) => {
+    const controlStack = getControlNetStack();
+    const body = c.req.valid("json");
+    const config = getConfig();
+    const { mkdir } = await import("fs/promises");
+    const { join } = await import("path");
+
+    const outputDir = config.storage.outputDir;
+    await mkdir(outputDir, { recursive: true });
+
+    const outputPath = join(
+      outputDir,
+      `controlnet_preview_${body.controlType}_${Date.now()}.png`
+    );
+
+    const result = await controlStack.preprocess(
+      body.inputImage,
+      body.controlType,
+      outputPath,
+      body.preprocessorOptions
+    );
+
+    if (!result.success) {
+      return errors.internal(c, result.error ?? "Failed to generate preview");
+    }
+
+    return c.json({
+      success: true,
+      controlType: body.controlType,
+      previewPath: result.localPath,
+      signedUrl: result.signedUrl,
+    });
+  }
+);

@@ -185,4 +185,22 @@ describe("REST /api/consistency", () => {
       expect(Array.isArray(body.types)).toBe(true);
     });
   });
+
+  // ============================================================================
+  // POST /api/consistency/controlnet/preview
+  // ============================================================================
+
+  describe("POST /api/consistency/controlnet/preview", () => {
+    it("returns 400 when required fields are missing", async () => {
+      const res = await app.request("/api/consistency/controlnet/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toHaveProperty("error");
+    });
+  });
 });

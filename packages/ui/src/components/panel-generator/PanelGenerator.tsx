@@ -10,10 +10,13 @@ import { useState } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
 import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
 import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
+import { useStoryboard } from "../../api/hooks/useStories";
 import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
 import { useGeneratedTextsByPanel, useActiveGeneratedText, type GeneratedTextType } from "../../api/hooks/useGeneratedTexts";
 import { GenerationTreeVisualization } from "../generation-tree";
 import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
+import { ControlNetPanel } from "../controlnet";
+import type { ControlNetCondition } from "../../types/controlnet";
 
 interface PanelGeneratorProps {
   panelId: string;
@@ -38,9 +41,11 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const [variantCount, setVariantCount] = useState(4);
   const [selectedGenerationId, setSelectedGenerationId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generate" | "versions" | "text" | "captions">("generate");
+  const [controlNetControls, setControlNetControls] = useState<ControlNetCondition[]>([]);
 
   // Panel data
   const { data: panelFull, isLoading: loadingPanel } = usePanelFull(panelId);
+  const { data: storyboardFull } = useStoryboard(storyboardId);
   
   // Characters
   const { data: characters } = useCharacters(storyboardId); // Note: might need projectId
@@ -64,6 +69,14 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const generateCaptions = useGenerateCaptions();
   const rateGeneration = useRateGeneration();
 
+  const referenceImages = (generations || [])
+    .map((gen: any) => ({
+      id: gen.id,
+      label: `Seed ${gen.seed ?? "?"}`,
+      path: gen.localPath || gen.cloudUrl || "",
+    }))
+    .filter((img: { path: string }) => img.path);
+
   // Track generation errors for display
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -74,7 +87,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         panelId,
         prompt: prompt.trim() || undefined,
         negativePrompt: negativePrompt.trim() || undefined,
-        // ControlNet stack will be built from selected characters and control level
+        controlNet: controlNetControls.length > 0 ? controlNetControls : undefined,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to generate";
@@ -91,6 +104,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         count: variantCount,
         prompt: prompt.trim() || undefined,
         negativePrompt: negativePrompt.trim() || undefined,
+        controlNet: controlNetControls.length > 0 ? controlNetControls : undefined,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to generate variants";
@@ -585,6 +599,21 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
             </div>
           </div>
 
+          {/* ControlNet */}
+          <div className="section">
+            <div className="section-title">ControlNet Stack</div>
+            <ControlNetPanel
+              panelId={panelId}
+              projectId={storyboardFull?.storyboard?.projectId}
+              referenceImages={referenceImages}
+              level={controlLevel}
+              onChange={(controls, level) => {
+                setControlNetControls(controls);
+                setControlLevel(level);
+              }}
+            />
+          </div>
+
           {/* Prompts */}
           <div className="section">
             <div className="section-title">Prompts</div>
@@ -635,6 +664,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
             </button>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
               <input
+                data-testid="variant-count-input"
                 type="number"
                 min="1"
                 max="8"

@@ -217,7 +217,7 @@ describe("PanelGenerator", () => {
 
     it("renders variant count input with default value of 4", () => {
       renderPanelGenerator();
-      const input = screen.getByRole("spinbutton");
+      const input = screen.getByTestId("variant-count-input");
       expect(input).toHaveValue(4);
     });
   });
@@ -347,7 +347,7 @@ describe("PanelGenerator", () => {
       mockGenerateVariants.mockResolvedValueOnce({ success: true });
       renderPanelGenerator();
       
-      const input = screen.getByRole("spinbutton") as HTMLInputElement;
+      const input = screen.getByTestId("variant-count-input") as HTMLInputElement;
       // Clear and set value directly to avoid type concatenation issues
       fireEvent.change(input, { target: { value: "6" } });
       

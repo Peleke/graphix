@@ -74,6 +74,70 @@ export const ChainSequenceSchema = z
   })
   .describe("Chain sequence request");
 
+/**
+ * ControlNet preprocessor options
+ */
+export const ControlNetPreprocessorOptionsSchema = z
+  .object({
+    lowThreshold: z.number().int().min(0).max(255).optional(),
+    highThreshold: z.number().int().min(0).max(255).optional(),
+    detectBody: z.boolean().optional(),
+    detectFace: z.boolean().optional(),
+    detectHands: z.boolean().optional(),
+    depthType: z.enum(["midas", "zoe", "leres"]).optional(),
+    coarse: z.boolean().optional(),
+    valueThreshold: z.number().min(0).max(1).optional(),
+    distanceThreshold: z.number().min(0).max(1).optional(),
+  })
+  .partial()
+  .describe("ControlNet preprocessor options");
+
+/**
+ * ControlNet condition
+ */
+export const ControlNetConditionSchema = z
+  .object({
+    type: z
+      .enum([
+        "canny",
+        "depth",
+        "openpose",
+        "lineart",
+        "scribble",
+        "softedge",
+        "normalbae",
+        "mlsd",
+        "shuffle",
+        "tile",
+        "blur",
+        "inpaint",
+        "ip2p",
+        "semantic_seg",
+        "qrcode",
+        "reference",
+      ])
+      .describe("ControlNet control type"),
+    image: z.string().min(1).describe("Reference image path or URL"),
+    strength: z.number().min(0).max(2).optional().describe("Control strength (0-2)"),
+    startPercent: z.number().min(0).max(1).optional().describe("Start influence (0-1)"),
+    endPercent: z.number().min(0).max(1).optional().describe("End influence (0-1)"),
+    preprocess: z.boolean().optional().describe("Whether to preprocess the image"),
+    preprocessorOptions: ControlNetPreprocessorOptionsSchema.optional(),
+    controlnetModel: z.string().optional().describe("Specific ControlNet model to use"),
+  })
+  .describe("ControlNet condition");
+
+/**
+ * ControlNet preview request body
+ */
+export const ControlNetPreviewRequestSchema = z
+  .object({
+    inputImage: z.string().min(1).describe("Input image path or URL"),
+    controlType: ControlNetConditionSchema.shape.type,
+    preprocessorOptions: ControlNetPreprocessorOptionsSchema.optional(),
+  })
+  .describe("ControlNet preview request");
+
 // ============================================================================
 // Response Schemas
 // ============================================================================
@@ -98,6 +162,19 @@ export const ChainOperationResponseSchema = z
     usedControlNet: z.boolean().optional().describe("Whether ControlNet was used"),
   })
   .describe("Chain operation response");
+
+/**
+ * ControlNet preview response
+ */
+export const ControlNetPreviewResponseSchema = z
+  .object({
+    success: z.boolean().describe("Whether preprocessing succeeded"),
+    controlType: ControlNetConditionSchema.shape.type,
+    previewPath: z.string().optional().describe("Local path to preview image"),
+    signedUrl: z.string().optional().describe("Signed URL to preview image"),
+    error: z.string().optional().describe("Error message"),
+  })
+  .describe("ControlNet preview response");
 
 // ============================================================================
 // Type Exports

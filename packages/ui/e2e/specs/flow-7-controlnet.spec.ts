@@ -1,110 +1,77 @@
 /**
  * Flow 7: ControlNet Configuration
  *
- * E2E tests for control level exposure, reference image processing,
- * visual cards, full control mode, and ergonomic setup flow.
- *
- * STATUS: NOT IMPLEMENTED
- * The dedicated ControlNet UI does not exist yet. The Panel Generator has
- * control level selection, but the full visual cards, reference image
- * processing, and preset systems are not built.
- *
- * These tests are SKIPPED until the ControlNet UI is implemented.
- *
- * @see _bmad-output/planning-artifacts/user-flows-spec.md - Flow 7
- * @see e2e/features/controlnet.feature
+ * E2E tests for control level exposure, reference selection, preview, and
+ * multi-control configuration in the Panel Generator.
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
 
+async function setupPanelGenerator(api: any, page: any) {
+  const project = await api.createProject(`ControlNet Project ${Date.now()}`);
+  const storyboard = await api.createStoryboard(project.id, "ControlNet Board");
+  const panel = await api.createPanel(storyboard.id, "ControlNet panel");
+
+  await page.route('**/api/generations/panel/**', async (route: any) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        generations: [
+          {
+            id: 'gen-controlnet-1',
+            panelId: panel.id,
+            localPath: '/output/mock-controlnet-ref.png',
+            seed: 4242,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto(`/projects/${project.id}?view=panel-generator&panelId=${panel.id}&storyboardId=${storyboard.id}`);
+
+  return { project, storyboard, panel };
+}
+
 test.describe('Flow 7: ControlNet Configuration', () => {
-  // ALL TESTS SKIPPED - ControlNet UI not implemented
+  test('should display ControlNet panel and toggle controls', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async ({ page, api }) => {
+    await setupPanelGenerator(api, page);
 
-  test.describe('7.1 Exposure Levels', () => {
-    test.skip('should display control level selector', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
+    await expect(page.getByTestId('controlnet-container')).toBeVisible();
+    await expect(page.getByTestId('controlnet-visual-cards')).toBeVisible();
 
-    test.skip('should show Level 3 (Visual Cards) by default', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should display toggleable control cards in Level 3', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should allow switching to Level 4 (Full Control)', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should show strength slider in Full Control mode', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
+    await page.getByTestId('control-card-openpose').getByRole('switch').click();
+    await expect(page.getByTestId('active-controls-summary')).toContainText('openpose');
   });
 
-  test.describe('7.2 Reference Image Flow', () => {
-    test.skip('should display reference image drop zone', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
+  test('should preview ControlNet preprocessing and send control stack', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async ({ page, api }) => {
+    await setupPanelGenerator(api, page);
+
+    await page.route('**/api/consistency/controlnet/preview', async (route: any) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          controlType: 'openpose',
+          previewPath: '/output/mock-preview.png',
+        }),
+      });
     });
 
-    test.skip('should process reference image and show previews', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
+    const generateRequestPromise = page.waitForRequest('**/api/panels/*/generate');
 
-    test.skip('should show skeleton preview for OpenPose', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-  });
+    await page.getByTestId('control-card-openpose').getByRole('switch').click();
+    await page.getByTestId('reference-image-select').selectOption({ index: 1 });
+    await page.getByRole('button', { name: /Full Control/i }).click();
+    await page.getByTestId('controlnet-preview-button').first().click();
 
-  test.describe('7.3 MVP ControlNet Flow', () => {
-    test.skip('should suggest controls based on interaction type', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
+    await expect(page.getByTestId('preprocessor-preview')).toBeVisible();
 
-    test.skip('should show what controls will be used', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should allow toggling individual controls', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should allow adjusting control strength', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-  });
-
-  test.describe('7.4 Control Card Interaction', () => {
-    test.skip('should toggle control card on/off', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should show enabled state visually', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should include enabled controls in generation request', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-  });
-
-  test.describe('7.5 Override Auto-Selected Controls', () => {
-    test.skip('should allow overriding suggested controls', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should indicate when user has customized controls', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-  });
-
-  test.describe('7.6 Natural Language Integration', () => {
-    test.skip('should allow adding natural language to ControlNet setup', { tag: [tags.MVP, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
-
-    test.skip('should combine controls and natural language in generation', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_7] }, async () => {
-      // TODO: Implement when ControlNet UI is built
-    });
+    await page.getByRole('button', { name: 'Generate' }).click();
+    const request = await generateRequestPromise;
+    const payload = request.postDataJSON();
+    expect(payload.controlNet?.length).toBeGreaterThan(0);
   });
 });

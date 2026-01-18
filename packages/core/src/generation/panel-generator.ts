@@ -11,6 +11,7 @@ import { getPanelService, getCharacterService, getGeneratedImageService, getStor
 import { getNarrativeService, type GenerateCaptionsOptions } from "../services/narrative.service.js";
 import { PromptBuilder, buildPanelPrompt, generateVariantSeeds, type ModelFamily } from "./prompt-builder.js";
 import { ComfyUIClient, getComfyUIClient, type GenerationResult, type ControlNetRequest } from "./comfyui-client.js";
+import { getControlNetStack, type ControlCondition } from "./controlnet-stack.js";
 import type { Panel, Character, GeneratedImage, PanelCaption } from "../db/schema.js";
 import {
   getConfigEngine,
@@ -84,6 +85,11 @@ export interface GenerateOptions {
   prompt?: string;
   /** Override negative prompt */
   negativePrompt?: string;
+
+  // === ControlNet Stack ===
+
+  /** Multi-control ControlNet configuration */
+  controlNet?: ControlCondition[];
 
   // === Config Engine Presets ===
 
@@ -214,7 +220,33 @@ export class PanelGenerator {
       // Choose generation method based on whether we have a reference
       let result: GenerationResult;
 
-      if (reference) {
+      if (options.controlNet && options.controlNet.length > 0) {
+        const controlStack = getControlNetStack();
+        const outputPath = path.join(
+          config.storage.outputDir,
+          `panel_${panelId}_${Date.now()}_controlnet.png`
+        );
+
+        result = await controlStack.generate({
+          prompt: prompt.positive,
+          negativePrompt: prompt.negative,
+          controls: options.controlNet,
+          width: resolvedConfig.width,
+          height: resolvedConfig.height,
+          steps: resolvedConfig.steps,
+          cfgScale: resolvedConfig.cfg,
+          sampler: resolvedConfig.sampler,
+          scheduler: resolvedConfig.scheduler,
+          model: resolvedConfig.model,
+          loras: prompt.characterLoras.map((l) => ({
+            name: l.name,
+            strengthModel: l.weight,
+            strengthClip: l.weight,
+          })),
+          seed: options.seed,
+          outputPath,
+        });
+      } else if (reference) {
         // Generate with ControlNet guidance
         result = await this.client.generateWithControlNet({
           prompt: prompt.positive,
@@ -262,6 +294,11 @@ export class PanelGenerator {
         return { success: false, error: result.error, generationResult: result };
       }
 
+      const controlSource = options.controlNet?.[0];
+      const usedControlNet = Boolean(controlSource || reference);
+      const controlNetType = controlSource?.type ?? reference?.controlType;
+      const controlNetImage = controlSource?.image ?? reference?.imagePath;
+
       // Store generation record with resolved config values
       const generatedImage = await this.imageService.create({
         panelId,
@@ -276,9 +313,9 @@ export class PanelGenerator {
         cfg: resolvedConfig.cfg,
         sampler: resolvedConfig.sampler,
         loras: prompt.characterLoras.map((l) => ({ name: l.name, strength: l.weight })),
-        controlNetImage: reference?.imagePath,
-        controlNetType: reference?.controlType,
-        usedControlNet: !!reference,
+        controlNetImage,
+        controlNetType,
+        usedControlNet,
       });
 
       // === Caption Integration ===

@@ -202,6 +202,42 @@ Requirements:
 
 ---
 
+## Agent F: Flow 7 ControlNet - Full Test Coverage Plan
+
+**Goal:** Design and scope *unit, integration, contract, and E2E* coverage for Flow 7 (ControlNet configuration).
+
+**Inputs to review:**
+- UI components under `packages/ui/src/components/controlnet` (or wherever ControlNet UI will live)
+- API client hooks under `packages/ui/src/api/hooks`
+- Server endpoints under `packages/server/src/rest/routes/*` (ControlNet or panel generation routes)
+- Core logic in `packages/core/src/generation/*` (especially `panel-generator.ts`)
+- E2E spec `e2e/specs/flow-7-controlnet.spec.ts`
+- Feature file `e2e/features/controlnet.feature`
+
+**Deliverables:**
+1. A coverage map (table) listing:
+   - Unit tests (components/hooks/services)
+   - Integration tests (UI + hooks + API mocking; server service integration if applicable)
+   - Contract tests (OpenAPI schema vs handler behavior)
+   - E2E tests (happy path + error states)
+2. A prioritized checklist of missing tests with suggested file paths.
+3. A "minimum viable UI" list required for the E2E suite to be enabled (selectors, flows).
+
+**Prompt:**
+```
+You are planning the full test coverage for Graphix Flow 7 (ControlNet).
+Return a structured plan with:
+- Unit tests (file suggestions + what to assert)
+- Integration tests (mocked API + UI behavior)
+- Contract tests (OpenAPI vs handlers)
+- E2E scenarios (based on controlnet.feature)
+
+Also call out any code gaps or missing UI surface needed to make the tests real.
+Provide a prioritized list of next actions.
+```
+
+---
+
 ## Running Tests
 
 ```bash

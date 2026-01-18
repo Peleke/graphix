@@ -257,6 +257,7 @@ panelRoutes.post("/:id/generate", validateId(), async (c) => {
     // Inline prompt override (skips panel.description)
     prompt: body.prompt,
     negativePrompt: body.negativePrompt,
+    controlNet: body.controlNet,
   });
 
   if (!result.success) {
@@ -303,6 +304,7 @@ panelRoutes.post("/:id/generate/variants", validateId(), async (c) => {
     // Inline prompt override (skips panel.description)
     prompt: body.prompt,
     negativePrompt: body.negativePrompt,
+    controlNet: body.controlNet,
   });
 
   return c.json({

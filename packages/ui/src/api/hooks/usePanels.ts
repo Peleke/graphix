@@ -6,6 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../client";
+import type { ControlNetCondition } from "../../types/controlnet";
 
 // ============================================================================
 // Query Keys
@@ -49,7 +50,7 @@ export interface GeneratePanelInput {
   scheduler?: string;
   seed?: number;
   /** ControlNet configuration */
-  controlNetStack?: any;
+  controlNet?: ControlNetCondition[];
   /** LoRA stack */
   loras?: Array<{ name: string; strength?: number }>;
   /** Size preset (e.g., "portrait_3x4") */

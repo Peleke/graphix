@@ -235,4 +235,45 @@ export const consistencyPaths: Record<string, any> = {
       },
     },
   },
+  "/consistency/controlnet/preview": {
+    post: {
+      tags: ["Consistency"],
+      summary: "Preview ControlNet preprocessing",
+      description: "Preprocesses a reference image for a ControlNet type and returns a preview image.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ControlNetPreviewRequest" },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Preview generated",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ControlNetPreviewResponse" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+        "500": {
+          description: "Preview generation failed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
+    },
+  },
 };

@@ -157,6 +157,48 @@ export const reorderPanelsSchema = z.object({
 // Generation Schemas
 // ============================================================================
 
+const controlNetTypeSchema = z.enum([
+  "canny",
+  "depth",
+  "openpose",
+  "lineart",
+  "scribble",
+  "softedge",
+  "normalbae",
+  "mlsd",
+  "shuffle",
+  "tile",
+  "blur",
+  "inpaint",
+  "ip2p",
+  "semantic_seg",
+  "qrcode",
+  "reference",
+]);
+
+const controlNetPreprocessorSchema = z.object({
+  lowThreshold: z.number().int().min(0).max(255).optional(),
+  highThreshold: z.number().int().min(0).max(255).optional(),
+  detectBody: z.boolean().optional(),
+  detectFace: z.boolean().optional(),
+  detectHands: z.boolean().optional(),
+  depthType: z.enum(["midas", "zoe", "leres"]).optional(),
+  coarse: z.boolean().optional(),
+  valueThreshold: z.number().min(0).max(1).optional(),
+  distanceThreshold: z.number().min(0).max(1).optional(),
+}).partial();
+
+export const controlNetConditionSchema = z.object({
+  type: controlNetTypeSchema,
+  image: nonEmptyString,
+  strength: z.number().min(0).max(2).optional(),
+  startPercent: z.number().min(0).max(1).optional(),
+  endPercent: z.number().min(0).max(1).optional(),
+  preprocess: z.boolean().optional(),
+  preprocessorOptions: controlNetPreprocessorSchema.optional(),
+  controlnetModel: optionalString,
+});
+
 export const generateImageSchema = z.object({
   panelId: uuidSchema,
   prompt: optionalString,
@@ -178,8 +220,15 @@ export const generateImageSchema = z.object({
   useControlNet: z.boolean().optional(),
   controlNetImage: optionalString,
   controlNetType: optionalString,
+  controlNet: z.array(controlNetConditionSchema).optional(),
   useIPAdapter: z.boolean().optional(),
   ipAdapterImages: z.array(z.string()).optional(),
+});
+
+export const controlNetPreviewSchema = z.object({
+  inputImage: nonEmptyString,
+  controlType: controlNetTypeSchema,
+  preprocessorOptions: controlNetPreprocessorSchema.optional(),
 });
 
 export const regenerateImageSchema = z.object({
@@ -355,6 +404,8 @@ export type UpdateStoryboard = z.infer<typeof updateStoryboardSchema>;
 export type CreatePanel = z.infer<typeof createPanelSchema>;
 export type UpdatePanel = z.infer<typeof updatePanelSchema>;
 export type GenerateImage = z.infer<typeof generateImageSchema>;
+export type ControlNetCondition = z.infer<typeof controlNetConditionSchema>;
+export type ControlNetPreview = z.infer<typeof controlNetPreviewSchema>;
 export type CreateCaption = z.infer<typeof createCaptionSchema>;
 export type UpdateCaption = z.infer<typeof updateCaptionSchema>;
 export type Pagination = z.infer<typeof paginationSchema>;
