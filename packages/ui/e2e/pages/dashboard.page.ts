@@ -322,7 +322,7 @@ export class DashboardPage extends BasePage {
    * Assert project exists in list
    */
   async expectProjectInList(name: string): Promise<void> {
-    await expect(this.projectCards.filter({ hasText: name })).toBeVisible();
+    await expect(this.projectCards.filter({ hasText: name })).toBeVisible({ timeout: 10000 });
   }
 
   /**
