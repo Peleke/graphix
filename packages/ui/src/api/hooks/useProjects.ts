@@ -70,9 +70,9 @@ export function useProjects(params: ProjectListParams = {}) {
         throw new Error(error.error?.message || "Failed to fetch projects");
       }
 
-      // API returns { projects: [], pagination: {} }
+      // API returns { data: [], pagination: {} }
       return {
-        data: data?.projects || [],
+        data: data?.data || [],
         pagination: data?.pagination,
       };
     },
