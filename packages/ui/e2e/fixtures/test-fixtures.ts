@@ -143,13 +143,20 @@ export const test = base.extend<{
       },
 
       async createCharacter(projectId, data) {
-        const response = await request.post(`${apiUrl}/api/projects/${projectId}/characters`, {
+        const response = await request.post(`${apiUrl}/api/characters`, {
           data: {
+            projectId,
             name: data.name || 'Test Character',
-            species: data.species || 'otter',
-            appearance: data.appearance || 'fluffy brown fur',
+            profile: {
+              species: data.species || 'otter',
+              ...(data.appearance ? { distinguishing: [data.appearance] } : {}),
+            },
           },
         });
+        if (!response.ok()) {
+          const body = await response.text();
+          throw new Error(`Failed to create character: ${response.status()} ${body}`);
+        }
         const character = await response.json();
         createdResources.push({ type: 'character', id: character.id });
         return character;
