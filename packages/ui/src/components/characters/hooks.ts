@@ -84,7 +84,9 @@ export function useFetchCharacters(projectId: string) {
     actions.setLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE}/api/characters/project/${projectId}`);
+      const response = await fetch(`${API_BASE}/api/characters/project/${projectId}`, {
+        cache: 'no-store',
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to fetch characters: ${response.statusText}`);
