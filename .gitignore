@@ -46,6 +46,9 @@ projects/
 # But keep template assets
 !templates/**/*.png
 !templates/**/*.jpg
+# Keep visual regression baselines (stored in Git LFS)
+!packages/ui/e2e/snapshots/**/*.png
+!packages/ui/e2e/snapshots/**/*.jpg
 # Tauri build artifacts
 packages/ui/src-tauri/target/
 
