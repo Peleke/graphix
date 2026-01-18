@@ -79,31 +79,38 @@ export default defineConfig({
   },
 
   // Projects for different browsers and viewports
-  projects: [
-    // Desktop Browsers (Primary)
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // Mobile Browsers (Secondary - post-MVP)
-    // {
-    //   name: 'mobile-chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'mobile-safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-  ],
+  projects: CI
+    ? [
+        // Desktop Browsers (CI regression)
+        {
+          name: 'chromium',
+          use: { ...devices['Desktop Chrome'] },
+        },
+        {
+          name: 'firefox',
+          use: { ...devices['Desktop Firefox'] },
+        },
+        {
+          name: 'webkit',
+          use: { ...devices['Desktop Safari'] },
+        },
+        // Mobile Browsers (Secondary - post-MVP)
+        // {
+        //   name: 'mobile-chrome',
+        //   use: { ...devices['Pixel 5'] },
+        // },
+        // {
+        //   name: 'mobile-safari',
+        //   use: { ...devices['iPhone 12'] },
+        // },
+      ]
+    : [
+        // Local runs: chromium only for speed/stability
+        {
+          name: 'chromium',
+          use: { ...devices['Desktop Chrome'] },
+        },
+      ],
 
   // Run your local dev server before starting the tests
   webServer: [
