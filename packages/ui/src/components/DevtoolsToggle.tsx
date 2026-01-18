@@ -56,6 +56,8 @@ export function DevtoolsToggle({ children }: DevtoolsToggleProps) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(visible));
+    // Dispatch custom event for same-tab listeners (storage event only fires cross-tab)
+    window.dispatchEvent(new CustomEvent('devtools-toggle'));
   }, [visible]);
 
   return (

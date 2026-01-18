@@ -27,13 +27,15 @@ function RootLayout() {
       setDevtoolsVisible(stored === null ? true : stored === 'true');
     };
     
-    // Check periodically since storage events don't fire in same tab
-    const interval = setInterval(handleStorage, 500);
+    // Custom event for same-tab updates (storage event only fires cross-tab)
+    const handleCustomEvent = () => handleStorage();
+    
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('devtools-toggle', handleCustomEvent);
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('devtools-toggle', handleCustomEvent);
     };
   }, []);
 

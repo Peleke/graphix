@@ -69,7 +69,7 @@ export function useThreads(options: UseThreadsOptions = {}): UseThreadsReturn {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${baseUrl}/sessions?resourceId=${resourceId}`);
+      const response = await fetch(`${baseUrl}/sessions?resourceId=${encodeURIComponent(resourceId)}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch threads: ${response.statusText}`);
@@ -77,7 +77,8 @@ export function useThreads(options: UseThreadsOptions = {}): UseThreadsReturn {
 
       const data = await response.json();
 
-      const fetchedThreads: ChatThread[] = data.sessions.map((s: any) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fetchedThreads: ChatThread[] = data.sessions.map((s: Record<string, any>) => ({
         id: s.id,
         title: s.title,
         projectId: s.projectId,

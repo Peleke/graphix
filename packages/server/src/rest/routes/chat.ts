@@ -182,9 +182,6 @@ chatRoutes.post(
     
     // Stream the response using SSE
     return streamSSE(c, async (stream) => {
-      let fullContent = '';
-      let metadata: Record<string, unknown> = {};
-      
       try {
         for await (const chunk of chatService.sendMessageStreaming(sessionId, content)) {
           if (chunk.type === 'text' && chunk.content) {
