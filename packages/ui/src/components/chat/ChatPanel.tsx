@@ -12,7 +12,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
-import { ThreadDropdown } from './ThreadDropdown';
+import { ThreadModal } from './ThreadModal';
 import { type ChatMessage as ChatMessageType, type ElicitationPhase } from './types';
 
 // =============================================================================
@@ -113,6 +113,7 @@ export function ChatPanel({
   const [isStreaming, setIsStreaming] = useState(false);
   const [elicitationPhase, setElicitationPhase] = useState<ElicitationPhase>('greeting');
   const [error, setError] = useState<string | null>(null);
+  const [showThreadModal, setShowThreadModal] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingContentRef = useRef<string>('');
@@ -346,6 +347,26 @@ export function ChatPanel({
           gap: 8px;
         }
 
+        .chat-history-btn {
+          width: 32px;
+          height: 32px;
+          background: transparent;
+          border: 1px solid #3f3f46;
+          border-radius: 8px;
+          color: #a1a1aa;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+        }
+
+        .chat-history-btn:hover {
+          background: #27272a;
+          border-color: #52525b;
+          color: #fafafa;
+        }
+
         .chat-close-btn {
           width: 32px;
           height: 32px;
@@ -438,17 +459,18 @@ export function ChatPanel({
           </div>
 
           <div className="chat-header-actions">
-            <ThreadDropdown
-              activeTitle="New conversation"
-              onSelectThread={(threadId) => {
-                // TODO: Load thread and restore messages
-                console.log('Switch to thread:', threadId);
-              }}
-              onNewChat={() => {
-                setMessages([]);
-                setElicitationPhase('greeting');
-              }}
-            />
+            <button 
+              className="chat-history-btn" 
+              onClick={() => setShowThreadModal(true)} 
+              aria-label="View conversations"
+              type="button"
+              data-testid="chat-history-button"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M12 8v4l3 3" />
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+            </button>
             <button 
               className="chat-close-btn" 
               onClick={onClose} 
@@ -487,6 +509,20 @@ export function ChatPanel({
           autoFocus
         />
       </div>
+
+      {/* Thread History Modal */}
+      <ThreadModal
+        isOpen={showThreadModal}
+        onClose={() => setShowThreadModal(false)}
+        onSelectThread={(threadId) => {
+          // TODO: Load thread and restore messages
+          console.log('Switch to thread:', threadId);
+        }}
+        onNewChat={() => {
+          setMessages([]);
+          setElicitationPhase('greeting');
+        }}
+      />
     </div>
   );
 }

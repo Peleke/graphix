@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { DevtoolsToggle } from './components/DevtoolsToggle';
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen';
@@ -60,7 +61,11 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      <ReactQueryDevtools initialIsOpen={false} position="bottom" />
+      {import.meta.env.DEV && (
+        <DevtoolsToggle>
+          {(visible) => visible && <ReactQueryDevtools initialIsOpen={false} position="bottom" />}
+        </DevtoolsToggle>
+      )}
     </QueryClientProvider>
   </StrictMode>
 );

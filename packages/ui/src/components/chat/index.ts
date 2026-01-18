@@ -8,5 +8,5 @@ export { ChatPanel, CHAT_COMMANDS, ELICITATION_PHASES, MAX_MESSAGE_LENGTH, gener
 export { ChatMessage } from './ChatMessage';
 export { ChatInput, DEFAULT_MAX_LENGTH } from './ChatInput';
 export { ThreadSidebar } from './ThreadSidebar';
-export { ThreadDropdown } from './ThreadDropdown';
+export { ThreadModal } from './ThreadModal';
 export * from './types';

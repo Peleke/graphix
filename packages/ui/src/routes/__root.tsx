@@ -7,11 +7,35 @@
 
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const DEVTOOLS_STORAGE_KEY = 'graphix-devtools-visible';
 
 // Root layout component
 function RootLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [devtoolsVisible, setDevtoolsVisible] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem(DEVTOOLS_STORAGE_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+
+  // Listen for storage changes (from DevtoolsToggle in main.tsx)
+  useEffect(() => {
+    const handleStorage = () => {
+      const stored = localStorage.getItem(DEVTOOLS_STORAGE_KEY);
+      setDevtoolsVisible(stored === null ? true : stored === 'true');
+    };
+    
+    // Check periodically since storage events don't fire in same tab
+    const interval = setInterval(handleStorage, 500);
+    window.addEventListener('storage', handleStorage);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   return (
     <div className="app-root">
@@ -279,8 +303,8 @@ function RootLayout() {
         <Outlet />
       </main>
       
-      {/* Dev tools (only in development) */}
-      {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
+      {/* Dev tools (only in development, toggleable) */}
+      {import.meta.env.DEV && devtoolsVisible && <TanStackRouterDevtools position="bottom-right" />}
     </div>
   );
 }
