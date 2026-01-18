@@ -295,6 +295,8 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
     await deleteCharacter(pendingDelete.id);
     // Re-sync from server in case the delete failed or state drifted
     await fetchCharacters();
+    // Force local removal in case the backend still returns the character
+    actions.removeCharacter(pendingDelete.id);
     setPendingDelete(null);
   }, [deleteCharacter, pendingDelete, actions, fetchCharacters]);
 
