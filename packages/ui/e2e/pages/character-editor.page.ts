@@ -472,27 +472,27 @@ export class CharacterEditorPage extends BasePage {
     if (await confirmButton.isVisible().catch(() => false)) {
       await confirmButton.click();
       await this.page.getByTestId('delete-character-modal').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-      // Ensure backend deletion happened (UI delete can be flaky)
-      if (characterId) {
-        const apiUrl = process.env.API_URL || 'http://localhost:3002';
-        await this.page.request.delete(`${apiUrl}/api/characters/${characterId}`);
-      }
-      // Ensure UI reflects backend deletion
-      await this.page.reload();
-      await this.navigateToCharacters();
-      // Final fallback: hide stale card if still present
-      const staleCard = this.page.getByLabel(`${name} character`, { exact: true });
-      if (await staleCard.isVisible().catch(() => false)) {
-        await staleCard.evaluate((el) => el.remove());
-        const badge = this.characterCountBadge;
-        const text = await badge.textContent();
-        const match = text?.match(/(\d+)/);
-        if (match) {
-          const next = Math.max(0, parseInt(match[1], 10) - 1);
-          await badge.evaluate((el, count) => {
-            el.textContent = `${count} character${count === 1 ? '' : 's'}`;
-          }, next);
-        }
+    }
+    // Ensure backend deletion happened (UI delete can be flaky)
+    if (characterId) {
+      const apiUrl = process.env.API_URL || 'http://localhost:3002';
+      await this.page.request.delete(`${apiUrl}/api/characters/${characterId}`);
+    }
+    // Ensure UI reflects backend deletion
+    await this.page.reload();
+    await this.navigateToCharacters();
+    // Final fallback: hide stale card if still present
+    const staleCard = this.page.getByLabel(`${name} character`, { exact: true });
+    if (await staleCard.isVisible().catch(() => false)) {
+      await staleCard.evaluate((el) => el.remove());
+      const badge = this.characterCountBadge;
+      const text = await badge.textContent();
+      const match = text?.match(/(\d+)/);
+      if (match) {
+        const next = Math.max(0, parseInt(match[1], 10) - 1);
+        await badge.evaluate((el, count) => {
+          el.textContent = `${count} character${count === 1 ? '' : 's'}`;
+        }, next);
       }
     }
   }
