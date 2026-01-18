@@ -365,7 +365,12 @@ export class CharacterEditorPage extends BasePage {
    * Start creating a new character
    */
   async startNewCharacter(): Promise<void> {
-    await this.createCharacterButton.click();
+    if (await this.createCharacterButton.isVisible().catch(() => false)) {
+      await this.createCharacterButton.click();
+    } else {
+      const emptyCreate = this.page.getByTestId('character-empty-create-button');
+      await emptyCreate.click();
+    }
     await expect(this.characterEditor).toBeVisible();
   }
 
