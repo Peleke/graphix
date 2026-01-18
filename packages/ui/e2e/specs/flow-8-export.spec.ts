@@ -20,10 +20,12 @@ test.describe('Flow 8: Export', () => {
     await expect(page.getByTestId('export-dialog')).toBeVisible();
     await expect(page.getByTestId('export-format')).toBeVisible();
     await expect(page.getByLabel(/metadata always included/i)).toBeChecked();
+    await expect(page.getByLabel(/filename/i)).toBeVisible();
   });
 
   test('should export single page as PNG', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_8] }, async ({ page, api }) => {
     await setupExport(api, page);
+    await page.getByLabel(/filename/i).fill('flow8-single');
 
     await page.route('**/api/composition/compose', async (route: any) => {
       await route.fulfill({
@@ -39,8 +41,31 @@ test.describe('Flow 8: Export', () => {
     await expect(page.getByRole('link', { name: /download/i })).toBeVisible();
   });
 
+  test('should export all pages as stitched PNG', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_8] }, async ({ page, api }) => {
+    await setupExport(api, page);
+    await page.getByLabel(/filename/i).fill('flow8-all');
+
+    await page.route('**/api/composition/export-storyboard', async (route: any) => {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          outputPath: '/output/pages/flow8-all.png',
+          downloadUrl: '/api/composition/download?path=%2Foutput%2Fpages%2Fflow8-all.png',
+        }),
+      });
+    });
+
+    await page.getByRole('radio', { name: /png.*all|all.*png/i }).click();
+    await page.getByRole('button', { name: /^export$/i }).click();
+    await expect(page.getByTestId('export-complete')).toBeVisible();
+    await expect(page.getByRole('link', { name: /download/i })).toBeVisible();
+  });
+
   test('should export project as PDF', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_8] }, async ({ page, api }) => {
     await setupExport(api, page);
+    await page.getByLabel(/filename/i).fill('flow8-pdf');
 
     await page.route('**/api/composition/compose-storyboard', async (route: any) => {
       await route.fulfill({

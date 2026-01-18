@@ -71,6 +71,19 @@ export const ExportPageSchema = z
   })
   .describe("Export page request");
 
+/**
+ * Export storyboard request body
+ */
+export const ExportStoryboardSchema = z
+  .object({
+    storyboardId: IdSchema.describe("Storyboard ID"),
+    templateId: z.string().optional().describe("Template ID"),
+    pageSize: z.string().optional().describe("Page size preset"),
+    outputName: z.string().min(1).describe("Output filename"),
+    format: z.enum(["png-all"]).describe("Export format"),
+  })
+  .describe("Export storyboard request");
+
 // ============================================================================
 // Response Schemas
 // ============================================================================
@@ -108,3 +121,4 @@ export const ComposeStoryboardResponseSchema = z
 export type ComposePage = z.infer<typeof ComposePageSchema>;
 export type ComposeStoryboard = z.infer<typeof ComposeStoryboardSchema>;
 export type ExportPage = z.infer<typeof ExportPageSchema>;
+export type ExportStoryboard = z.infer<typeof ExportStoryboardSchema>;

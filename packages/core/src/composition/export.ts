@@ -6,7 +6,7 @@
  */
 
 import sharp from "sharp";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile, stat } from "fs/promises";
 import { dirname, basename, join } from "path";
 import type { PageSize } from "./templates.js";
 import { PAGE_SIZES } from "./templates.js";
@@ -47,6 +47,11 @@ export interface ExportResult {
   format?: string;
   fileSize?: number;
   error?: string;
+}
+
+export interface StitchOptions {
+  direction?: "vertical" | "horizontal";
+  gap?: number;
 }
 
 /**
@@ -318,6 +323,85 @@ export async function exportToPDF(
     return {
       success: false,
       error: error instanceof Error ? error.message : "PDF export failed",
+    };
+  }
+}
+
+// ============================================================================
+// Stitch Export
+// ============================================================================
+
+/**
+ * Stitch multiple images into a single PNG.
+ */
+export async function stitchImages(
+  imagePaths: string[],
+  outputPath: string,
+  options?: StitchOptions
+): Promise<ExportResult> {
+  try {
+    if (!imagePaths.length) {
+      return { success: false, error: "No images provided" };
+    }
+
+    await mkdir(dirname(outputPath), { recursive: true });
+
+    const direction = options?.direction ?? "vertical";
+    const gap = options?.gap ?? 0;
+
+    const images = await Promise.all(
+      imagePaths.map(async (path) => {
+        const image = sharp(path);
+        const metadata = await image.metadata();
+        if (!metadata.width || !metadata.height) {
+          throw new Error(`Invalid image dimensions: ${path}`);
+        }
+        const buffer = await image.toBuffer();
+        return { buffer, width: metadata.width, height: metadata.height };
+      })
+    );
+
+    const totalWidth =
+      direction === "vertical"
+        ? Math.max(...images.map((img) => img.width))
+        : images.reduce((sum, img) => sum + img.width, 0) + gap * (images.length - 1);
+    const totalHeight =
+      direction === "vertical"
+        ? images.reduce((sum, img) => sum + img.height, 0) + gap * (images.length - 1)
+        : Math.max(...images.map((img) => img.height));
+
+    let offset = 0;
+    const composites = images.map((img) => {
+      const top = direction === "vertical" ? offset : Math.floor((totalHeight - img.height) / 2);
+      const left = direction === "vertical" ? Math.floor((totalWidth - img.width) / 2) : offset;
+      offset += (direction === "vertical" ? img.height : img.width) + gap;
+      return { input: img.buffer, top, left };
+    });
+
+    await sharp({
+      create: {
+        width: totalWidth,
+        height: totalHeight,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 },
+      },
+    })
+      .composite(composites)
+      .png()
+      .toFile(outputPath);
+
+    const { size } = await stat(outputPath);
+
+    return {
+      success: true,
+      outputPath,
+      format: "png",
+      fileSize: size,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Stitch failed",
     };
   }
 }

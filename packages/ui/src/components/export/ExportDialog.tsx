@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import { css } from "../../../styled-system/css";
-import { useComposePage, useComposeStoryboard, useExportPage } from "../../api/hooks/useComposition";
+import {
+  useComposePage,
+  useComposeStoryboard,
+  useExportPage,
+  useExportStoryboard,
+} from "../../api/hooks/useComposition";
 import { useStoryboard } from "../../api/hooks/useStories";
 
 type ExportFormat = "png-single" | "png-all" | "pdf";
@@ -61,8 +66,10 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
   const composePage = useComposePage();
   const composeStoryboard = useComposeStoryboard();
   const exportPage = useExportPage();
+  const exportStoryboard = useExportStoryboard();
 
   const [format, setFormat] = useState<ExportFormat>("png-single");
+  const [filename, setFilename] = useState<string>(storyboardId);
   const [dpi, setDpi] = useState(300);
   const [status, setStatus] = useState<"idle" | "exporting" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +92,8 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
     setProgressLabel("Preparing export");
 
     try {
+      const safeName = filename.trim() || storyboardId;
+
       if (format === "png-single") {
         setProgressValue(35);
         setProgressLabel("Composing page");
@@ -92,11 +101,29 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
           storyboardId,
           templateId,
           panelIds,
-          outputName: `${storyboardId}_page1.png`,
+          outputName: `${safeName}.png`,
         });
         setProgressValue(90);
         setProgressLabel("Finalizing download");
         setDownloadUrl(buildDownloadUrl(composeResult?.outputPath ?? null));
+        setProgressValue(100);
+        setStatus("done");
+        return;
+      }
+
+      if (format === "png-all") {
+        setProgressValue(35);
+        setProgressLabel("Composing storyboard");
+        const exportResult: any = await exportStoryboard.mutateAsync({
+          storyboardId,
+          templateId: templateId ?? undefined,
+          outputName: `${safeName}.png`,
+          format: "png-all",
+        });
+
+        setProgressValue(90);
+        setProgressLabel("Finalizing download");
+        setDownloadUrl(exportResult?.downloadUrl ?? buildDownloadUrl(exportResult?.outputPath));
         setProgressValue(100);
         setStatus("done");
         return;
@@ -107,31 +134,22 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
       const composed: any = await composeStoryboard.mutateAsync({
         storyboardId,
         templateId,
-        outputPrefix: storyboardId,
+        outputPrefix: safeName,
       });
       const firstOutput = composed?.pages?.[0]?.outputPath;
-
-      if (format === "png-all") {
-        setProgressValue(90);
-        setProgressLabel("Finalizing download");
-        setDownloadUrl(buildDownloadUrl(firstOutput ?? null));
-        setProgressValue(100);
-        setStatus("done");
-        return;
-      }
 
       setProgressValue(70);
       setProgressLabel("Exporting PDF");
       const exportResult: any = await exportPage.mutateAsync({
         inputPath: firstOutput ?? `${storyboardId}_page1.png`,
-        outputPath: `${storyboardId}.pdf`,
+        outputPath: `${safeName}.pdf`,
         format: "pdf",
         dpi,
       });
 
       setProgressValue(90);
       setProgressLabel("Finalizing download");
-      setDownloadUrl(buildDownloadUrl(exportResult?.outputPath ?? null));
+      setDownloadUrl(exportResult?.downloadUrl ?? buildDownloadUrl(exportResult?.outputPath ?? null));
       setProgressValue(100);
       setStatus("done");
     } catch (err) {
@@ -193,6 +211,27 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
             </div>
           </label>
         </div>
+      </div>
+
+      <div className={styles.section}>
+        <label className={styles.label}>
+          Filename
+          <input
+            type="text"
+            value={filename}
+            onChange={(event) => setFilename(event.target.value)}
+            className={css({
+              width: "100%",
+              padding: "0.5rem 0.75rem",
+              borderRadius: "8px",
+              border: "1px solid #3f3f46",
+              background: "#0f0f12",
+              color: "#e4e4e7",
+              display: "block",
+              marginTop: "0.5rem",
+            })}
+          />
+        </label>
       </div>
 
       <div className={styles.section}>

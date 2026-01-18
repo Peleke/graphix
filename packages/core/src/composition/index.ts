@@ -44,6 +44,7 @@ export {
   exportToPDF,
   exportBatch,
   prepareForPrint,
+  stitchImages,
   type ExportFormat,
   type ExportOptions,
   type ExportResult,

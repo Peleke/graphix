@@ -62,6 +62,14 @@ const downloadQuerySchema = z.object({
   path: nonEmptyString,
 });
 
+const exportStoryboardSchema = z.object({
+  storyboardId: uuidSchema,
+  templateId: z.string().optional(),
+  pageSize: z.string().optional(),
+  outputName: nonEmptyString,
+  format: z.enum(["png-all"]),
+});
+
 // ============================================================================
 // Routes
 // ============================================================================
@@ -194,6 +202,55 @@ compositionRoutes.post("/export", validateBody(exportPageSchema), async (c) => {
   const downloadUrl = `/api/composition/download?path=${encodeURIComponent(outputPath)}`;
   return c.json({ ...result, downloadUrl }, 201);
 });
+
+compositionRoutes.post(
+  "/export-storyboard",
+  validateBody(exportStoryboardSchema),
+  async (c) => {
+    const service = getCompositionService();
+    const body = c.req.valid("json");
+    const { resolve, extname, basename, sep } = await import("path");
+    const config = getConfig();
+
+    const outputRoot = resolve(config.storage.outputDir);
+    const outputRootPrefix = outputRoot.endsWith(sep) ? outputRoot : outputRoot + sep;
+    const outputName = body.outputName.endsWith(".png")
+      ? body.outputName
+      : `${body.outputName}.png`;
+    const outputPath = resolve(outputRoot, "pages", outputName);
+
+    if (!outputPath.startsWith(outputRootPrefix)) {
+      return errors.badRequest(c, "Invalid file path", ErrorCodes.PATH_TRAVERSAL);
+    }
+
+    const prefixBase = basename(outputName, extname(outputName));
+    const composeResult = await service.composeStoryboard(body.storyboardId, {
+      templateId: body.templateId,
+      pageSize: body.pageSize,
+      outputPrefix: prefixBase,
+    });
+
+    if (!composeResult.success) {
+      return errors.badRequest(c, composeResult.error ?? "Failed to compose storyboard");
+    }
+
+    const imagePaths = composeResult.pages
+      .filter((page) => page.outputPath)
+      .map((page) => page.outputPath as string);
+
+    const stitchResult = await service.stitchPages({
+      imagePaths,
+      outputPath,
+    });
+
+    if (!stitchResult.success) {
+      return errors.badRequest(c, stitchResult.error ?? "Failed to stitch pages");
+    }
+
+    const downloadUrl = `/api/composition/download?path=${encodeURIComponent(outputPath)}`;
+    return c.json({ ...stitchResult, downloadUrl }, 201);
+  }
+);
 
 compositionRoutes.get("/download", validateQuery(downloadQuerySchema), async (c) => {
   const { path } = c.req.valid("query");

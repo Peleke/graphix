@@ -216,6 +216,39 @@ export const compositionPaths: Record<string, any> = {
       },
     },
   },
+  "/composition/export-storyboard": {
+    post: {
+      tags: ["Composition"],
+      summary: "Export storyboard as stitched PNG",
+      description: "Composes storyboard pages and stitches them into a single PNG.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ExportStoryboard" },
+          },
+        },
+      },
+      responses: {
+        "201": {
+          description: "Storyboard exported",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
+    },
+  },
   "/composition/download": {
     get: {
       tags: ["Composition"],

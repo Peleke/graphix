@@ -9,7 +9,7 @@ import { join } from "path";
 import { config } from "../config/index.js";
 import { getPanelService, getStoryboardService, getGeneratedImageService } from "../services/index.js";
 import { PageRenderer, renderPage, renderGrid, type PanelImage, type RenderOptions } from "./renderer.js";
-import { exportPage, exportBatch, prepareForPrint, type ExportOptions, type ExportResult } from "./export.js";
+import { exportPage, exportBatch, prepareForPrint, stitchImages, type ExportOptions, type ExportResult } from "./export.js";
 import { getTemplate, listTemplates, PAGE_SIZES, type PageTemplate, type PageSize } from "./templates.js";
 import type { Panel } from "../db/index.js";
 
@@ -307,6 +307,19 @@ export class CompositionService {
       format: request.format,
       quality: request.quality,
       dpi: request.dpi,
+    });
+  }
+
+  /**
+   * Stitch multiple page images into a single PNG.
+   */
+  async stitchPages(options: {
+    imagePaths: string[];
+    outputPath: string;
+  }): Promise<ExportResult> {
+    return stitchImages(options.imagePaths, options.outputPath, {
+      direction: "vertical",
+      gap: 0,
     });
   }
 

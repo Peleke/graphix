@@ -214,4 +214,20 @@ describe("REST /api/composition", () => {
       expect(res.status).toBe(400);
     });
   });
+
+  // ============================================================================
+  // POST /api/composition/export-storyboard
+  // ============================================================================
+
+  describe("POST /api/composition/export-storyboard", () => {
+    it("returns 400 when required fields are missing", async () => {
+      const res = await app.request("/api/composition/export-storyboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+    });
+  });
 });

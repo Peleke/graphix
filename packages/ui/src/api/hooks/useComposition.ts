@@ -51,6 +51,14 @@ export interface ExportPageInput {
   trimMarks?: boolean;
 }
 
+export interface ExportStoryboardInput {
+  storyboardId: string;
+  templateId?: string;
+  pageSize?: string;
+  outputName: string;
+  format: "png-all";
+}
+
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -146,6 +154,25 @@ export function useExportPage() {
 
       if (error) {
         throw new Error(error.error?.message || "Failed to export page");
+      }
+
+      return data;
+    },
+  });
+}
+
+/**
+ * Export storyboard as stitched PNG
+ */
+export function useExportStoryboard() {
+  return useMutation({
+    mutationFn: async (input: ExportStoryboardInput) => {
+      const { data, error } = await apiClient.POST("/composition/export-storyboard", {
+        body: input,
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to export storyboard");
       }
 
       return data;
