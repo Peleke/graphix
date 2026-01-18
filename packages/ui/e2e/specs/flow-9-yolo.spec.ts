@@ -3,191 +3,113 @@
  *
  * E2E tests for autonomous AI generation scope, controls, and review.
  *
+ * STATUS: NOT IMPLEMENTED
+ * YOLO Mode (autonomous AI iteration) is not built yet.
+ * This is a post-MVP feature that requires significant infrastructure.
+ *
+ * These tests are SKIPPED until YOLO Mode is implemented.
+ *
  * @see _bmad-output/planning-artifacts/user-flows-spec.md - Flow 9
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
 
 test.describe('Flow 9: YOLO Mode', () => {
-  // ==========================================================================
-  // 9.1 Scope
-  // ==========================================================================
+  // ALL TESTS SKIPPED - YOLO Mode not implemented (post-MVP)
 
   test.describe('9.1 Scope', () => {
-    test('should support single panel YOLO', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // Single panel - iterate until quality
-      test.skip();
+    test.skip('should support single panel YOLO', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should support single page YOLO', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // Single page - generate all panels
-      test.skip();
+    test.skip('should support single page YOLO', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should support full story YOLO', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // Given I have a complete story outline
-      // When I say "Generate everything, I'm going grocery shopping"
-      // Then the system should generate all pages
-      // And all panels within each page
-      test.skip();
+    test.skip('should support full story YOLO', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should iterate on low-quality results', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // And iterate on low-quality results
-      test.skip();
+    test.skip('should iterate on low-quality results', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should allow returning to completed work', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // And I should return to completed work
-      test.skip();
+    test.skip('should allow returning to completed work', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
   });
-
-  // ==========================================================================
-  // 9.2 Controls
-  // ==========================================================================
 
   test.describe('9.2 Controls', () => {
-    test('should allow setting quality threshold', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // qualityThreshold: Stop when rating > X (default: 3)
-      test.skip();
+    test.skip('should allow setting quality threshold', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should default quality threshold to 3', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should allow setting max iterations', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should allow setting max iterations per panel', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // maxIterations: Per panel (default: 5)
-      test.skip();
+    test.skip('should allow setting time limit', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should default max iterations to 5', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should allow setting human checkpoint intervals', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should allow setting optional time limit', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // timeLimit?: Optional minutes
-      test.skip();
+    test.skip('should provide YOLO panel launch button', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should allow setting checkpoint interval', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // checkpointInterval?: Pause every N generations for review
-      test.skip();
+    test.skip('should provide YOLO page launch button', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should start YOLO mode', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
-    });
-
-    test('should stop/pause YOLO mode', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should provide YOLO story launch button', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
   });
-
-  // ==========================================================================
-  // 9.3 Review
-  // ==========================================================================
 
   test.describe('9.3 Review', () => {
-    test('should show full history like Cursor file review', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // UI: Full history, per-page/panel, like Cursor file review
-      test.skip();
+    test.skip('should show full history of YOLO iterations', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should show page-level review items', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // Page 1, Page 2, etc. with status
-      test.skip();
+    test.skip('should highlight best results', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should show panel-level review items', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // Panel 1: ✅ Approved (iteration 2)
-      // Panel 2: ⚠️ Needs Review (iteration 5)
-      test.skip();
+    test.skip('should allow quick approve/reject', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should show approved status with iteration count', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should allow reverting to any previous iteration', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should show needs review status', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
-    });
-
-    test('should show in-progress status', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
-    });
-
-    test('should allow viewing individual panel', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // [View] button
-      test.skip();
-    });
-
-    test('should allow approve all for a page', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      // [Approve All] button
-      test.skip();
-    });
-
-    test('should allow rejecting and re-running individual panel', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should show quality scores for each iteration', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
   });
 
-  // ==========================================================================
-  // YOLO Progress
-  // ==========================================================================
-
-  test.describe('YOLO Progress', () => {
-    test('should show current generation status', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+  test.describe('9.4 Integration', () => {
+    test.skip('should work with Panel Generator', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should show overall progress', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should work with Page Composer', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should update in real-time', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should work with Story Editor', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should pause at checkpoint interval', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should pause on checkpoint intervals', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
 
-    test('should respect time limit', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
-    });
-
-    test('should stop when quality threshold met for all panels', { tag: [tags.MVP, tags.FLOW_9] }, async ({ yoloPage }) => {
-      // TODO: Implement
-      test.skip();
+    test.skip('should notify user when complete', { tag: [tags.MVP, tags.FLOW_9] }, async () => {
+      // TODO: Implement when YOLO Mode is built
     });
   });
 });
