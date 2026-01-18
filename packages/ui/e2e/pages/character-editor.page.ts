@@ -469,6 +469,10 @@ export class CharacterEditorPage extends BasePage {
     await this.page.getByTestId('delete-character-modal').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     if (await confirmButton.isVisible().catch(() => false)) {
       await confirmButton.click();
+      await this.page.getByTestId('delete-character-modal').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      // Ensure UI reflects backend deletion
+      await this.page.reload();
+      await this.navigateToCharacters();
     }
   }
 
