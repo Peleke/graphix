@@ -146,6 +146,13 @@ export class DashboardPage extends BasePage {
     return this.page.locator('.new-project-card');
   }
 
+  /**
+   * Get a project card by exact name (avoids matching "(Copy)" variants)
+   */
+  private projectCardByName(name: string): Locator {
+    return this.page.getByLabel(`${name} project`, { exact: true });
+  }
+
   // ============================================================================
   // Navigation
   // ============================================================================
@@ -238,7 +245,7 @@ export class DashboardPage extends BasePage {
    * Open a project by clicking its card
    */
   async openProject(name: string): Promise<void> {
-    const projectCard = this.projectCards.filter({ hasText: name });
+    const projectCard = this.projectCardByName(name);
     await projectCard.dblclick();
   }
 
@@ -246,7 +253,7 @@ export class DashboardPage extends BasePage {
    * Click on a project card to select it
    */
   async selectProject(name: string): Promise<void> {
-    const projectCard = this.projectCards.filter({ hasText: name });
+    const projectCard = this.projectCardByName(name);
     await projectCard.click();
   }
 
@@ -254,7 +261,7 @@ export class DashboardPage extends BasePage {
    * Get the context menu for a project
    */
   getProjectMenuButton(name: string): Locator {
-    const projectCard = this.projectCards.filter({ hasText: name });
+    const projectCard = this.projectCardByName(name);
     return projectCard.getByTestId('project-menu-trigger');
   }
 
@@ -262,7 +269,7 @@ export class DashboardPage extends BasePage {
    * Open project context menu
    */
   async openProjectMenu(name: string): Promise<void> {
-    const projectCard = this.projectCards.filter({ hasText: name });
+    const projectCard = this.projectCardByName(name);
     await projectCard.hover();
     await this.getProjectMenuButton(name).click();
   }
@@ -333,7 +340,7 @@ export class DashboardPage extends BasePage {
   async expectProjectInList(name: string): Promise<void> {
     // Use expect with polling - this handles TanStack Query refresh timing
     await expect(async () => {
-      await expect(this.projectCards.filter({ hasText: name }).first()).toBeVisible();
+      await expect(this.projectCardByName(name)).toBeVisible();
     }).toPass({ timeout: 15000 });
   }
 
@@ -341,7 +348,7 @@ export class DashboardPage extends BasePage {
    * Assert project does not exist in list
    */
   async expectProjectNotInList(name: string): Promise<void> {
-    await expect(this.projectCards.filter({ hasText: name }).first()).toBeHidden();
+    await expect(this.projectCardByName(name)).toBeHidden();
   }
 
   /**
