@@ -124,7 +124,11 @@ export function useCreatePremise() {
         throw new Error(error.error?.message || "Failed to create premise");
       }
 
-      return data;
+      if (!data) return null;
+      return {
+        ...data.storyboard,
+        panels: data.panels ?? [],
+      };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
