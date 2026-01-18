@@ -209,6 +209,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
       let buffer = '';
       let fullContent = '';
       let metadata: ChatMessageMetadata = {};
+      let currentEvent = 'text'; // Default event type
       
       while (true) {
         const { done, value } = await reader.read();
@@ -216,63 +217,61 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
         
         buffer += decoder.decode(value, { stream: true });
         
-        // Parse SSE events
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        // SSE format: "event: type\ndata: content\n\n"
+        // Process complete events (ending with double newline)
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || ''; // Keep incomplete event in buffer
         
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            const eventType = line.slice(6).trim();
-            const dataLine = lines[lines.indexOf(line) + 1];
-            
-            if (dataLine?.startsWith('data:')) {
-              const data = dataLine.slice(5).trim();
-              
-              switch (eventType) {
-                case 'text':
-                  fullContent += data;
-                  setMessages(prev => prev.map(m => 
-                    m.id === assistantId
-                      ? { ...m, content: fullContent }
-                      : m
-                  ));
-                  break;
-                  
-                case 'metadata':
-                  try {
-                    metadata = JSON.parse(data);
-                  } catch {
-                    // Ignore parse errors
-                  }
-                  break;
-                  
-                case 'complete':
-                  // Update session state
-                  try {
-                    const completeData = JSON.parse(data);
-                    if (completeData.state) {
-                      setSession(prev => prev ? { ...prev, state: completeData.state } : prev);
-                    }
-                  } catch {
-                    // Ignore parse errors
-                  }
-                  break;
-                  
-                case 'error':
-                  throw new Error(data);
+        for (const event of events) {
+          if (!event.trim()) continue;
+          
+          const lines = event.split('\n');
+          let eventType = currentEvent;
+          let eventData = '';
+          
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventType = line.slice(6).trim();
+              currentEvent = eventType;
+            } else if (line.startsWith('data:')) {
+              eventData = line.slice(5); // Don't trim - preserve spaces in content
+            }
+          }
+          
+          // Handle the event
+          switch (eventType) {
+            case 'text':
+              if (eventData) {
+                fullContent += eventData;
+                setMessages(prev => prev.map(m => 
+                  m.id === assistantId
+                    ? { ...m, content: fullContent }
+                    : m
+                ));
               }
-            }
-          } else if (line.startsWith('data:')) {
-            // Handle data-only lines (text chunks)
-            const data = line.slice(5).trim();
-            if (data) {
-              fullContent += data;
-              setMessages(prev => prev.map(m => 
-                m.id === assistantId
-                  ? { ...m, content: fullContent }
-                  : m
-              ));
-            }
+              break;
+              
+            case 'metadata':
+              try {
+                metadata = JSON.parse(eventData);
+              } catch {
+                // Ignore parse errors
+              }
+              break;
+              
+            case 'complete':
+              try {
+                const completeData = JSON.parse(eventData);
+                if (completeData.state) {
+                  setSession(prev => prev ? { ...prev, state: completeData.state } : prev);
+                }
+              } catch {
+                // Ignore parse errors
+              }
+              break;
+              
+            case 'error':
+              throw new Error(eventData);
           }
         }
       }
