@@ -112,7 +112,15 @@ describe("LibSQLVectorStore", () => {
 
   describe("upsert", () => {
     it("inserts vectors with metadata", async () => {
-      mockExecute.mockResolvedValue({ rows: [{ count: 2 }] });
+      // Mock getIndexConfig (returns dimension matching vectors)
+      mockExecute.mockResolvedValueOnce({ rows: [{ dimension: 4, metric: "cosine" }] });
+      // Mock 2 inserts
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+      // Mock count query
+      mockExecute.mockResolvedValueOnce({ rows: [{ count: 2 }] });
+      // Mock updateCount
+      mockExecute.mockResolvedValueOnce({ rows: [] });
 
       const vectors = [
         createTestVector(4, 0),
@@ -130,11 +138,11 @@ describe("LibSQLVectorStore", () => {
         metadata,
       });
 
-      // 2 inserts + 1 count query + 1 count update
-      expect(mockExecute).toHaveBeenCalledTimes(4);
+      // 1 getIndexConfig + 2 inserts + 1 count query + 1 count update = 5
+      expect(mockExecute).toHaveBeenCalledTimes(5);
 
-      // Check first insert
-      expect(mockExecute.mock.calls[0]).toEqual([
+      // Check first insert (second call after getIndexConfig)
+      expect(mockExecute.mock.calls[1]).toEqual([
         {
           sql: expect.stringContaining("INSERT OR REPLACE INTO vector_test_index"),
           args: ["vec-1", JSON.stringify(vectors[0]), JSON.stringify(metadata[0])],
@@ -143,7 +151,14 @@ describe("LibSQLVectorStore", () => {
     });
 
     it("uses explicit IDs when provided", async () => {
-      mockExecute.mockResolvedValue({ rows: [{ count: 1 }] });
+      // Mock getIndexConfig
+      mockExecute.mockResolvedValueOnce({ rows: [{ dimension: 4, metric: "cosine" }] });
+      // Mock insert
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+      // Mock count
+      mockExecute.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      // Mock updateCount
+      mockExecute.mockResolvedValueOnce({ rows: [] });
 
       await store.upsert({
         indexName: "test_index",
@@ -152,7 +167,8 @@ describe("LibSQLVectorStore", () => {
         ids: ["explicit-id"],
       });
 
-      expect(mockExecute.mock.calls[0][0].args[0]).toBe("explicit-id");
+      // Second call (after getIndexConfig) is the insert
+      expect(mockExecute.mock.calls[1][0].args[0]).toBe("explicit-id");
     });
 
     it("throws if vectors and metadata length mismatch", async () => {
@@ -163,6 +179,44 @@ describe("LibSQLVectorStore", () => {
           metadata: [{ id: "vec-1" }],
         })
       ).rejects.toThrow("Vectors and metadata length mismatch: 2 vs 1");
+    });
+
+    it("validates vector dimension matches index configuration", async () => {
+      // Mock getIndexConfig returning dimension 1024
+      mockExecute.mockResolvedValueOnce({
+        rows: [{ dimension: 1024, metric: "cosine" }],
+      });
+
+      await expect(
+        store.upsert({
+          indexName: "test_index",
+          vectors: [[0.1, 0.2, 0.3]], // Only 3 dimensions, index expects 1024
+          metadata: [{ id: "vec-1" }],
+        })
+      ).rejects.toThrow("Vector dimension mismatch at index 0: expected 1024, got 3");
+    });
+
+    it("allows upsert when dimensions match", async () => {
+      // Mock getIndexConfig returning dimension 4
+      mockExecute.mockResolvedValueOnce({
+        rows: [{ dimension: 4, metric: "cosine" }],
+      });
+      // Mock upsert
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+      // Mock count
+      mockExecute.mockResolvedValueOnce({ rows: [{ count: 1 }] });
+      // Mock updateCount
+      mockExecute.mockResolvedValueOnce({ rows: [] });
+
+      // Should not throw - just await and check it completes
+      await store.upsert({
+        indexName: "test_index",
+        vectors: [createTestVector(4)],
+        metadata: [{ id: "vec-1", name: "Test" }],
+      });
+
+      // Verify upsert was called (second call after getIndexConfig)
+      expect(mockExecute.mock.calls[1][0].sql).toContain("INSERT OR REPLACE");
     });
   });
 

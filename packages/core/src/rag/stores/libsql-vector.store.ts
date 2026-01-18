@@ -136,6 +136,18 @@ export class LibSQLVectorStore implements VectorStore {
       );
     }
 
+    // Validate vector dimensions match index configuration
+    const indexConfig = await this.getIndexConfig(params.indexName);
+    if (indexConfig) {
+      for (let i = 0; i < params.vectors.length; i++) {
+        if (params.vectors[i].length !== indexConfig.dimension) {
+          throw new Error(
+            `Vector dimension mismatch at index ${i}: expected ${indexConfig.dimension}, got ${params.vectors[i].length}`
+          );
+        }
+      }
+    }
+
     // Batch upsert using INSERT OR REPLACE
     for (let i = 0; i < params.vectors.length; i++) {
       const id = params.ids?.[i] ?? params.metadata[i].id;
@@ -253,5 +265,35 @@ export class LibSQLVectorStore implements VectorStore {
       `,
       args: [currentCount, indexName],
     });
+  }
+
+  /**
+   * Get index configuration from metadata table.
+   * Returns null if index doesn't exist.
+   * 
+   * @security Used for dimension validation to prevent index corruption.
+   */
+  private async getIndexConfig(
+    indexName: string
+  ): Promise<{ dimension: number; metric: string } | null> {
+    const client = this.getClient();
+
+    try {
+      const result = await client.execute({
+        sql: `SELECT dimension, metric FROM vector_indexes WHERE name = ?`,
+        args: [indexName],
+      });
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return {
+        dimension: result.rows[0].dimension as number,
+        metric: (result.rows[0].metric as string) ?? "cosine",
+      };
+    } catch {
+      return null;
+    }
   }
 }
