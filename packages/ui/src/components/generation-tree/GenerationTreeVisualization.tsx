@@ -305,18 +305,6 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
   const layoutOptions = useTreeLayoutOptions();
   const hoveredNodeId = useHoveredNode();
   
-  // Early return if no tree data
-  if (!tree || !tree.rootId) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center", color: "#71717a" }}>
-        <p>No generation tree data available.</p>
-        <p style={{ fontSize: "0.875rem", marginTop: "0.5rem" }}>
-          Generate some images to see the tree visualization.
-        </p>
-      </div>
-    );
-  }
-  
   // Convert tree to D3 hierarchy
   const hierarchy = useMemo(() => {
     if (!tree) return null;
@@ -400,10 +388,15 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
     return pathIds.includes(sourceId) && pathIds.includes(targetId);
   }, [tree, actions, panelId]);
   
-  if (!tree || nodes.length === 0) {
+  if (!tree || !tree.rootId || nodes.length === 0) {
     return (
       <div className={className} style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#6b7280' }}>No generations yet. Start creating!</p>
+        <div style={{ textAlign: 'center', color: '#6b7280' }}>
+          <p>No generation tree data available.</p>
+          <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+            Generate some images to see the tree visualization.
+          </p>
+        </div>
       </div>
     );
   }

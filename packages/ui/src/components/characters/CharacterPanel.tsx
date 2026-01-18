@@ -5,7 +5,7 @@
  * filtering, and quick actions. ARRR! 🏴‍☠️
  */
 
-import React, { useCallback, useMemo, useEffect } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   useCharacterStore,
   useCharacterActions,
@@ -17,6 +17,7 @@ import {
 import { useCharacterSearch, useCharacterKeyboardNavigation, useFetchCharacters } from './hooks';
 import { CharacterCard } from './CharacterCard';
 import { CharacterEditor } from './CharacterEditor';
+import { Dialog } from '../ui';
 import type { CharacterPanelProps, Character, CharacterAction } from './types';
 import { css } from '../../../styled-system/css';
 
@@ -223,6 +224,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   const { value: searchValue, setValue: setSearchValue, hasValue } = useCharacterSearch();
   const editorState = useEditorState();
   const { fetchCharacters, isLoading } = useFetchCharacters(projectId);
+  const [pendingDelete, setPendingDelete] = useState<Character | null>(null);
   
   // Fetch characters on mount
   useEffect(() => {
@@ -239,9 +241,34 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   
   // Handle character actions
   const handleCharacterAction = useCallback((action: CharacterAction) => {
+    if (action.type === 'edit') {
+      actions.openEditor('edit', action.characterId);
+      onCharacterAction?.(action);
+      return;
+    }
+
+    if (action.type === 'delete') {
+      const target = actions.getCharacter(action.characterId);
+      if (target) {
+        setPendingDelete(target);
+        onCharacterAction?.(action);
+        return;
+      }
+    }
+
     actions.dispatchAction(action);
     onCharacterAction?.(action);
   }, [actions, onCharacterAction]);
+
+  const confirmDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    actions.removeCharacter(pendingDelete.id);
+    setPendingDelete(null);
+  }, [actions, pendingDelete]);
+
+  const cancelDelete = useCallback(() => {
+    setPendingDelete(null);
+  }, []);
   
   // Handle create new character
   const handleCreateCharacter = useCallback(() => {
@@ -380,6 +407,72 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
         isOpen={editorState.open}
         onClose={() => actions.closeEditor()}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Dialog
+        isOpen={!!pendingDelete}
+        onClose={cancelDelete}
+        role="alertdialog"
+        ariaLabelledby="delete-character-title"
+        ariaDescribedby="delete-character-description"
+        overlayTestId="delete-character-modal"
+        zIndex={1001}
+      >
+        <div
+          className={css({
+            backgroundColor: 'slate.900',
+            border: '1px solid',
+            borderColor: 'slate.700',
+            borderRadius: '12px',
+            padding: '20px',
+            width: '90%',
+            maxWidth: '420px',
+            color: 'slate.100',
+          })}
+        >
+            <h3
+              id="delete-character-title"
+              className={css({ margin: '0 0 8px 0', fontSize: '1rem' })}
+            >
+              Delete character?
+            </h3>
+            <p
+              id="delete-character-description"
+              className={css({ margin: '0 0 16px 0', color: 'slate.400', fontSize: '0.875rem' })}
+            >
+              This will remove "{pendingDelete?.name}" from the project.
+            </p>
+            <div className={css({ display: 'flex', justifyContent: 'flex-end', gap: '8px' })}>
+              <button
+                className={css({
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid',
+                  borderColor: 'slate.600',
+                  backgroundColor: 'transparent',
+                  color: 'slate.200',
+                  cursor: 'pointer',
+                })}
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+              <button
+                className={css({
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: 'red.600',
+                  color: 'white',
+                  cursor: 'pointer',
+                })}
+                onClick={confirmDelete}
+              >
+                Confirm
+              </button>
+            </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

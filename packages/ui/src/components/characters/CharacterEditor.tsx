@@ -9,6 +9,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { css } from '../../../styled-system/css';
+import { Dialog } from '../ui';
 import { useCharacterStore } from './store';
 import { Character, LoraConfig, ReferenceImageType } from './types';
 import { useColorPalette, usePromptFragments, useCharacterLoRA, useCreateCharacter, useUpdateCharacter } from './hooks';
@@ -87,10 +88,16 @@ export function CharacterEditor({
   // Sync form data with character
   useEffect(() => {
     if (character) {
+      const profile = character.profile ?? {};
+      const description =
+        profile.description ||
+        (Array.isArray((profile as { distinguishing?: string[] }).distinguishing)
+          ? (profile as { distinguishing?: string[] }).distinguishing?.[0] ?? ''
+          : '');
       setFormData({
         name: character.name,
-        species: character.species,
-        description: character.description,
+        species: profile.species ?? '',
+        description,
       });
       setIsDirty(false);
     } else {
@@ -149,10 +156,15 @@ export function CharacterEditor({
     try {
       if (characterId && character) {
         // Update existing character
+        const trimmedDescription = formData.description.trim();
         const updated = await updateCharacter(characterId, {
           name: formData.name.trim(),
-          species: formData.species.trim(),
-          description: formData.description.trim(),
+          profile: {
+            ...(character.profile ?? {}),
+            species: formData.species.trim(),
+            description: trimmedDescription || undefined,
+            distinguishing: trimmedDescription ? [trimmedDescription] : [],
+          } as any,
         });
         if (updated) {
           onSave?.(updated);
@@ -257,32 +269,22 @@ export function CharacterEditor({
   const isCreateMode = !characterId;
 
   return (
-    <div
-      className={css({
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      })}
-      data-testid="character-editor-overlay"
+    <Dialog
+      isOpen={isOpen}
+      onClose={handleCancel}
       role="dialog"
-      aria-modal="true"
-      aria-labelledby="editor-title"
+      ariaLabelledby="editor-title"
+      overlayTestId="character-editor-overlay"
+      zIndex={1000}
     >
       <div
         className={css({
-          backgroundColor: '#1a1a2e',
-          borderRadius: '12px',
           width: '90%',
           maxWidth: '800px',
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          border: '1px solid #333',
         })}
         data-testid="character-editor"
       >
@@ -662,32 +664,22 @@ export function CharacterEditor({
       </div>
 
       {/* Confirmation Dialog - Non-blocking replacement for window.confirm */}
-      {showConfirmClose && (
+      <Dialog
+        isOpen={showConfirmClose}
+        onClose={handleCancelClose}
+        role="alertdialog"
+        ariaLabelledby="confirm-close-title"
+        ariaDescribedby="confirm-close-description"
+        overlayTestId="confirm-close-dialog"
+        zIndex={1100}
+      >
         <div
           className={css({
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: '24px',
+            maxWidth: '400px',
+            border: '1px solid #ef4444',
           })}
-          data-testid="confirm-close-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="confirm-close-title"
-          aria-describedby="confirm-close-description"
         >
-          <div
-            className={css({
-              backgroundColor: '#1a1a2e',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '400px',
-              border: '1px solid #ef4444',
-            })}
-          >
             <h3
               id="confirm-close-title"
               className={css({ color: '#fff', fontSize: '1.25rem', marginBottom: '12px' })}
@@ -732,10 +724,9 @@ export function CharacterEditor({
                 Discard Changes
               </button>
             </div>
-          </div>
         </div>
-      )}
-    </div>
+      </Dialog>
+    </Dialog>
   );
 }
 

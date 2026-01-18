@@ -134,7 +134,7 @@ const cardStyles = {
     display: 'flex',
     alignItems: 'center',
     gap: '2px',
-    opacity: 0,
+    opacity: 1,
     transition: 'opacity 0.15s ease',
   }),
   
@@ -234,6 +234,10 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
     e.stopPropagation();
     onAction?.({ type: 'delete', characterId: character.id });
   }, [character.id, onAction]);
+
+  const handleDoubleClick = useCallback(() => {
+    onAction?.({ type: 'edit', characterId: character.id });
+  }, [character.id, onAction]);
   
   // Get thumbnail initial
   const getInitial = () => {
@@ -255,13 +259,14 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   
   const actionsClasses = [
     cardStyles.actions,
-    showActions && cardStyles.actionsVisible,
+    (showActions || isSelected) && cardStyles.actionsVisible,
   ].filter(Boolean).join(' ');
   
   return (
     <div
       className={containerClasses}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
       draggable={draggable}
