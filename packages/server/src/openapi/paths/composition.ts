@@ -216,4 +216,43 @@ export const compositionPaths: Record<string, any> = {
       },
     },
   },
+  "/composition/download": {
+    get: {
+      tags: ["Composition"],
+      summary: "Download exported file",
+      description: "Downloads an exported composition file by path.",
+      parameters: [
+        {
+          name: "path",
+          in: "query",
+          required: true,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        "200": {
+          description: "Export file",
+          content: {
+            "application/octet-stream": {
+              schema: { type: "string", format: "binary" },
+            },
+            "application/pdf": {
+              schema: { type: "string", format: "binary" },
+            },
+            "image/png": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+        "400": {
+          description: "Validation error",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Error" },
+            },
+          },
+        },
+      },
+    },
+  },
 };

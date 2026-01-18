@@ -12,6 +12,7 @@ import { ErrorCodes } from "../errors/types.js";
 import {
   validateBody,
   validateId,
+  validateQuery,
   nonEmptyString,
   uuidSchema,
 } from "../validation/index.js";
@@ -55,6 +56,10 @@ const exportPageSchema = z.object({
   dpi: z.number().int().positive().optional(),
   bleed: z.number().nonnegative().optional(),
   trimMarks: z.boolean().optional(),
+});
+
+const downloadQuerySchema = z.object({
+  path: nonEmptyString,
 });
 
 // ============================================================================
@@ -186,7 +191,47 @@ compositionRoutes.post("/export", validateBody(exportPageSchema), async (c) => {
     return errors.badRequest(c, result.error ?? "Failed to export page");
   }
 
-  return c.json(result, 201);
+  const downloadUrl = `/api/composition/download?path=${encodeURIComponent(outputPath)}`;
+  return c.json({ ...result, downloadUrl }, 201);
+});
+
+compositionRoutes.get("/download", validateQuery(downloadQuerySchema), async (c) => {
+  const { path } = c.req.valid("query");
+  const { readFile } = await import("fs/promises");
+  const { extname, resolve, sep } = await import("path");
+  const config = getConfig();
+
+  const outputRoot = resolve(config.storage.outputDir);
+  const outputRootPrefix = outputRoot.endsWith(sep) ? outputRoot : outputRoot + sep;
+  const resolvedPath = resolve(path);
+
+  if (!resolvedPath.startsWith(outputRootPrefix)) {
+    return errors.badRequest(c, "Invalid file path", ErrorCodes.PATH_TRAVERSAL);
+  }
+
+  try {
+    const fileBuffer = await readFile(resolvedPath);
+    const ext = extname(resolvedPath).toLowerCase();
+    const contentType =
+      ext === ".png"
+        ? "image/png"
+        : ext === ".jpg" || ext === ".jpeg"
+          ? "image/jpeg"
+          : ext === ".webp"
+            ? "image/webp"
+            : ext === ".pdf"
+              ? "application/pdf"
+              : "application/octet-stream";
+
+    return new Response(fileBuffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="export${ext}"`,
+      },
+    });
+  } catch (err) {
+    return errors.badRequest(c, "Export file not found", ErrorCodes.FILE_NOT_FOUND);
+  }
 });
 
 export { compositionRoutes };

@@ -67,27 +67,43 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
   const [status, setStatus] = useState<"idle" | "exporting" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [progressValue, setProgressValue] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("Preparing export");
 
   const panelIds = useMemo(() => storyboardFull?.panels?.map((p: any) => p.id) ?? [], [storyboardFull]);
+
+  const buildDownloadUrl = (outputPath: string | null | undefined) => {
+    if (!outputPath) return null;
+    return `/api/composition/download?path=${encodeURIComponent(outputPath)}`;
+  };
 
   const handleExport = async () => {
     setStatus("exporting");
     setError(null);
     setDownloadUrl(null);
+    setProgressValue(10);
+    setProgressLabel("Preparing export");
 
     try {
       if (format === "png-single") {
+        setProgressValue(35);
+        setProgressLabel("Composing page");
         const composeResult: any = await composePage.mutateAsync({
           storyboardId,
           templateId,
           panelIds,
           outputName: `${storyboardId}_page1.png`,
         });
-        setDownloadUrl(composeResult?.outputPath ?? null);
+        setProgressValue(90);
+        setProgressLabel("Finalizing download");
+        setDownloadUrl(buildDownloadUrl(composeResult?.outputPath ?? null));
+        setProgressValue(100);
         setStatus("done");
         return;
       }
 
+      setProgressValue(35);
+      setProgressLabel("Composing storyboard");
       const composed: any = await composeStoryboard.mutateAsync({
         storyboardId,
         templateId,
@@ -96,11 +112,16 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
       const firstOutput = composed?.pages?.[0]?.outputPath;
 
       if (format === "png-all") {
-        setDownloadUrl(firstOutput ?? null);
+        setProgressValue(90);
+        setProgressLabel("Finalizing download");
+        setDownloadUrl(buildDownloadUrl(firstOutput ?? null));
+        setProgressValue(100);
         setStatus("done");
         return;
       }
 
+      setProgressValue(70);
+      setProgressLabel("Exporting PDF");
       const exportResult: any = await exportPage.mutateAsync({
         inputPath: firstOutput ?? `${storyboardId}_page1.png`,
         outputPath: `${storyboardId}.pdf`,
@@ -108,7 +129,10 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
         dpi,
       });
 
-      setDownloadUrl(exportResult?.outputPath ?? null);
+      setProgressValue(90);
+      setProgressLabel("Finalizing download");
+      setDownloadUrl(buildDownloadUrl(exportResult?.outputPath ?? null));
+      setProgressValue(100);
       setStatus("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Export failed");
@@ -120,6 +144,8 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
     setStatus("idle");
     setError(null);
     setDownloadUrl(null);
+    setProgressValue(0);
+    setProgressLabel("Preparing export");
   };
 
   return (
@@ -172,9 +198,7 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
       <div className={styles.section}>
         <label>
           <input type="checkbox" checked disabled />
-          <span className={css({ marginLeft: "0.5rem" })}>
-            Metadata always included
-          </span>
+          <span className={css({ marginLeft: "0.5rem" })}>Metadata always included</span>
         </label>
       </div>
 
@@ -201,7 +225,29 @@ export function ExportDialog({ storyboardId, templateId = "six-grid" }: ExportDi
 
       {status === "exporting" && (
         <div data-testid="export-progress" className={styles.subtitle}>
-          Exporting...
+          {progressLabel}
+          <div
+            className={css({
+              marginTop: "0.5rem",
+              background: "#27272a",
+              borderRadius: "999px",
+              height: "8px",
+              overflow: "hidden",
+            })}
+          >
+            <div
+              role="progressbar"
+              aria-valuenow={progressValue}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className={css({
+                height: "100%",
+                width: `${progressValue}%`,
+                background: "#8b5cf6",
+                transition: "width 150ms ease",
+              })}
+            />
+          </div>
         </div>
       )}
       {status === "done" && (

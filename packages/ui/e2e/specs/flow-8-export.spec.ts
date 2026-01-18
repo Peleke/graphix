@@ -19,7 +19,7 @@ test.describe('Flow 8: Export', () => {
     await setupExport(api, page);
     await expect(page.getByTestId('export-dialog')).toBeVisible();
     await expect(page.getByTestId('export-format')).toBeVisible();
-    await expect(page.getByLabel(/include metadata/i)).toBeChecked();
+    await expect(page.getByLabel(/metadata always included/i)).toBeChecked();
   });
 
   test('should export single page as PNG', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_8] }, async ({ page, api }) => {

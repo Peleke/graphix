@@ -203,4 +203,15 @@ describe("REST /api/composition", () => {
       expect(res.status).toBe(400);
     });
   });
+
+  // ============================================================================
+  // GET /api/composition/download
+  // ============================================================================
+
+  describe("GET /api/composition/download", () => {
+    it("returns 400 for invalid path", async () => {
+      const res = await app.request("/api/composition/download?path=../etc/passwd");
+      expect(res.status).toBe(400);
+    });
+  });
 });
