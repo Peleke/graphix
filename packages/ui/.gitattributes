@@ -1,0 +1,13 @@
+# Git LFS configuration for visual regression snapshots
+# Baseline screenshots can bloat the repo - LFS keeps it manageable
+
+# Playwright visual regression snapshots
+e2e/snapshots/**/*.png filter=lfs diff=lfs merge=lfs -text
+e2e/snapshots/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+
+# Test result screenshots (failure artifacts)
+test-results/**/*.png filter=lfs diff=lfs merge=lfs -text
+
+# Any other large binary assets
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.sketch filter=lfs diff=lfs merge=lfs -text
