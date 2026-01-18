@@ -183,8 +183,8 @@ test.describe('Flow 2: Project Creation', () => {
       await dashboardPage.waitForLoad();
       await dashboardPage.expectProjectInList(projectName);
 
-      // Set up dialog handler to cancel
-      page.on('dialog', async dialog => {
+      // Set up dialog handler to cancel (use once to avoid listener buildup)
+      page.once('dialog', async dialog => {
         expect(dialog.type()).toBe('confirm');
         expect(dialog.message()).toContain(projectName);
         await dialog.dismiss(); // Cancel the delete
