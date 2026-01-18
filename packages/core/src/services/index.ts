@@ -336,6 +336,19 @@ export type {
   StreamChunk,
 } from "./chat-agent.service.js";
 
+// Project Bootstrap Service (creates projects from chat sessions)
+export {
+  ProjectBootstrapService,
+  createProjectBootstrapService,
+  getProjectBootstrapService,
+  resetProjectBootstrapService,
+} from "./project-bootstrap.service.js";
+export type {
+  BootstrapInput,
+  BootstrapResult,
+  BootstrapValidation,
+} from "./project-bootstrap.service.js";
+
 // Providers
 export { OllamaProvider } from "./providers/ollama.provider.js";
 export { ClaudeProvider } from "./providers/claude.provider.js";
