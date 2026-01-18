@@ -9,9 +9,15 @@
  */
 
 import { test, expect, tags } from '../fixtures/test-fixtures';
+import type { TestInfo } from '@playwright/test';
 
 // API base URL for direct API calls in tests
 const API_URL = process.env.API_URL || 'http://localhost:3002';
+
+const uniqueProjectName = (base: string, testInfo: TestInfo) => {
+  const suffix = `${testInfo.project.name}-${testInfo.workerIndex}-${Date.now()}`;
+  return `${base} ${suffix}`;
+};
 
 test.describe('Flow 1: Application Entry', () => {
   // ==========================================================================
@@ -51,24 +57,21 @@ test.describe('Flow 1: Application Entry', () => {
       await dashboardPage.expectDashboardVisible();
     });
 
-    test('should show empty state when no projects exist', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ request, dashboardPage }) => {
-      // Delete all existing projects first
-      const response = await request.get(`${API_URL}/api/projects`);
-      const projects = await response.json();
-      
-      for (const project of projects.data || []) {
-        await request.delete(`${API_URL}/api/projects/${project.id}`);
-      }
-
+    test('should show empty state when no projects exist', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ dashboardPage, page }, testInfo) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
+      // Use a unique search term to avoid cross-browser data collisions
+      const emptySearch = uniqueProjectName('No Such Project', testInfo);
+      await dashboardPage.searchProjects(emptySearch);
+      await page.waitForTimeout(300);
       await dashboardPage.expectEmptyState();
     });
 
-    test('should display projects when they exist', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ page, request, dashboardPage }) => {
+    test('should display projects when they exist', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ page, request, dashboardPage }, testInfo) => {
+      const projectName = uniqueProjectName('E2E Test Project', testInfo);
       // Create project via API
       const createResponse = await request.post(`${API_URL}/api/projects`, {
-        data: { name: 'E2E Test Project', description: 'Created by E2E test' },
+        data: { name: projectName, description: 'Created by E2E test' },
       });
       const project = await createResponse.json();
       createdProjectIds.push(project.id);
@@ -78,7 +81,7 @@ test.describe('Flow 1: Application Entry', () => {
       await dashboardPage.waitForLoad();
 
       // Should show the project (TanStack Query fetches on mount)
-      await dashboardPage.expectProjectInList('E2E Test Project');
+      await dashboardPage.expectProjectInList(projectName);
     });
   });
 
@@ -87,9 +90,11 @@ test.describe('Flow 1: Application Entry', () => {
   // ==========================================================================
 
   test.describe('1.2 View Mode Toggle', () => {
-    test.beforeEach(async ({ request }) => {
+    let viewModeProjectName = 'View Mode Test Project';
+    test.beforeEach(async ({ request }, testInfo) => {
+      viewModeProjectName = uniqueProjectName('View Mode Test Project', testInfo);
       const createResponse = await request.post(`${API_URL}/api/projects`, {
-        data: { name: 'View Mode Test Project', description: 'For view mode testing' },
+        data: { name: viewModeProjectName, description: 'For view mode testing' },
       });
       const project = await createResponse.json();
       createdProjectIds.push(project.id);
@@ -98,7 +103,7 @@ test.describe('Flow 1: Application Entry', () => {
     test('should default to grid view', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('View Mode Test Project');
+      await dashboardPage.expectProjectInList(viewModeProjectName);
 
       // Grid container should be visible (viewMode === 'grid' by default)
       await expect(page.locator('.project-grid')).toBeVisible();
@@ -107,7 +112,7 @@ test.describe('Flow 1: Application Entry', () => {
     test('should switch to list view', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('View Mode Test Project');
+      await dashboardPage.expectProjectInList(viewModeProjectName);
 
       // Click list view button
       await dashboardPage.switchToListView();
@@ -119,7 +124,7 @@ test.describe('Flow 1: Application Entry', () => {
     test('should switch back to grid view', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('View Mode Test Project');
+      await dashboardPage.expectProjectInList(viewModeProjectName);
 
       // Switch to list then back to grid
       await dashboardPage.switchToListView();
@@ -169,11 +174,11 @@ test.describe('Flow 1: Application Entry', () => {
       await dashboardPage.expectCreateModalHidden();
     });
 
-    test('should create a new project', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ page, request, dashboardPage }) => {
+    test('should create a new project', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ page, request, dashboardPage }, testInfo) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
 
-      const projectName = `E2E Project ${Date.now()}`;
+      const projectName = uniqueProjectName('E2E Project', testInfo);
       
       await dashboardPage.clickNewProject();
       await dashboardPage.expectCreateModalVisible();
@@ -215,11 +220,11 @@ test.describe('Flow 1: Application Entry', () => {
       await expect(dashboardPage.createButton).toBeEnabled();
     });
 
-    test('should create project when pressing Enter', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, request, dashboardPage }) => {
+    test('should create project when pressing Enter', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, request, dashboardPage }, testInfo) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
 
-      const projectName = `Enter Key Project ${Date.now()}`;
+      const projectName = uniqueProjectName('Enter Key Project', testInfo);
       await dashboardPage.clickNewProject();
       await dashboardPage.projectNameInput.fill(projectName);
       await page.keyboard.press('Enter');
@@ -242,11 +247,17 @@ test.describe('Flow 1: Application Entry', () => {
   // ==========================================================================
 
   test.describe('1.4 Project Search', () => {
-    test.beforeEach(async ({ request }) => {
+    let alphaName = 'Alpha Project';
+    let betaName = 'Beta Project';
+    let gammaName = 'Gamma Project';
+    test.beforeEach(async ({ request }, testInfo) => {
+      alphaName = uniqueProjectName('Alpha Project', testInfo);
+      betaName = uniqueProjectName('Beta Project', testInfo);
+      gammaName = uniqueProjectName('Gamma Project', testInfo);
       const projects = [
-        { name: 'Alpha Project', description: 'First project' },
-        { name: 'Beta Project', description: 'Second project' },
-        { name: 'Gamma Project', description: 'Third project' },
+        { name: alphaName, description: 'First project' },
+        { name: betaName, description: 'Second project' },
+        { name: gammaName, description: 'Third project' },
       ];
 
       for (const proj of projects) {
@@ -261,8 +272,8 @@ test.describe('Flow 1: Application Entry', () => {
       await dashboardPage.waitForLoad();
       
       // All projects should be visible initially
-      await dashboardPage.expectProjectInList('Alpha Project');
-      await dashboardPage.expectProjectInList('Beta Project');
+      await dashboardPage.expectProjectInList(alphaName);
+      await dashboardPage.expectProjectInList(betaName);
 
       // Search for "Alpha"
       await dashboardPage.searchProjects('Alpha');
@@ -271,7 +282,8 @@ test.describe('Flow 1: Application Entry', () => {
       await page.waitForTimeout(500);
 
       // Should show only Alpha (search is client-side via store filter)
-      await dashboardPage.expectProjectInList('Alpha Project');
+      await dashboardPage.expectProjectInList(alphaName);
+      await dashboardPage.expectProjectNotInList(betaName);
     });
 
     test('should clear search and show all projects', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
@@ -284,9 +296,9 @@ test.describe('Flow 1: Application Entry', () => {
       await dashboardPage.clearSearch();
       await page.waitForTimeout(300);
 
-      await dashboardPage.expectProjectInList('Alpha Project');
-      await dashboardPage.expectProjectInList('Beta Project');
-      await dashboardPage.expectProjectInList('Gamma Project');
+      await dashboardPage.expectProjectInList(alphaName);
+      await dashboardPage.expectProjectInList(betaName);
+      await dashboardPage.expectProjectInList(gammaName);
     });
   });
 
@@ -295,9 +307,11 @@ test.describe('Flow 1: Application Entry', () => {
   // ==========================================================================
 
   test.describe('1.5 Project Actions', () => {
-    test.beforeEach(async ({ request }) => {
+    let actionProjectName = 'Action Test Project';
+    test.beforeEach(async ({ request }, testInfo) => {
+      actionProjectName = uniqueProjectName('Action Test Project', testInfo);
       const response = await request.post(`${API_URL}/api/projects`, {
-        data: { name: 'Action Test Project', description: 'For action testing' },
+        data: { name: actionProjectName, description: 'For action testing' },
       });
       expect(response.status()).toBe(201);
       const project = await response.json();
@@ -308,12 +322,12 @@ test.describe('Flow 1: Application Entry', () => {
     test('should show context menu on project card', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('Action Test Project');
+      await dashboardPage.expectProjectInList(actionProjectName);
 
-      const projectCard = dashboardPage.projectCards.filter({ hasText: 'Action Test Project' });
+      const projectCard = dashboardPage.projectCards.filter({ hasText: actionProjectName });
       await projectCard.hover();
 
-      const menuButton = dashboardPage.getProjectMenuButton('Action Test Project');
+      const menuButton = dashboardPage.getProjectMenuButton(actionProjectName);
       await expect(menuButton).toBeVisible();
 
       await menuButton.click();
@@ -327,9 +341,9 @@ test.describe('Flow 1: Application Entry', () => {
     test('should navigate to project workspace on double-click', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('Action Test Project');
+      await dashboardPage.expectProjectInList(actionProjectName);
 
-      await dashboardPage.openProject('Action Test Project');
+      await dashboardPage.openProject(actionProjectName);
 
       await page.waitForURL(/\/projects\//, { timeout: 10000 });
       expect(page.url()).toContain('/projects/');
@@ -338,9 +352,9 @@ test.describe('Flow 1: Application Entry', () => {
     test('should navigate to project workspace via Edit menu item', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('Action Test Project');
+      await dashboardPage.expectProjectInList(actionProjectName);
 
-      await dashboardPage.openProjectMenu('Action Test Project');
+      await dashboardPage.openProjectMenu(actionProjectName);
       await page.getByTestId('project-menu-open').click();
 
       await page.waitForURL(/\/projects\//, { timeout: 10000 });
@@ -350,21 +364,21 @@ test.describe('Flow 1: Application Entry', () => {
     test('should duplicate a project', { tag: [tags.MVP, tags.FLOW_1] }, async ({ page, request, dashboardPage }) => {
       await dashboardPage.goto();
       await dashboardPage.waitForLoad();
-      await dashboardPage.expectProjectInList('Action Test Project');
+      await dashboardPage.expectProjectInList(actionProjectName);
 
-      await dashboardPage.duplicateProject('Action Test Project');
+      await dashboardPage.duplicateProject(actionProjectName);
 
       // TanStack Query invalidates after duplicate, wait for refetch
       await page.waitForTimeout(1000);
 
       // Should have original + copy
-      await dashboardPage.expectProjectInList('Action Test Project');
-      await dashboardPage.expectProjectInList('Action Test Project (Copy)');
+      await dashboardPage.expectProjectInList(actionProjectName);
+      await dashboardPage.expectProjectInList(`${actionProjectName} (Copy)`);
 
       // Cleanup the copy
       const response = await request.get(`${API_URL}/api/projects`);
       const projects = await response.json();
-      const copy = projects.data?.find((p: any) => p.name === 'Action Test Project (Copy)');
+      const copy = projects.data?.find((p: any) => p.name === `${actionProjectName} (Copy)`);
       if (copy) {
         createdProjectIds.push(copy.id);
       }

@@ -83,6 +83,12 @@ function DashboardPage() {
   };
 
   const projects = projectsData?.data || [];
+  const normalizedSearch = filters.search.trim().toLowerCase();
+  const filteredProjects = normalizedSearch
+    ? projects.filter((project) =>
+        project.name?.toLowerCase().includes(normalizedSearch)
+      )
+    : projects;
 
   return (
     <div className="dashboard">
@@ -428,7 +434,7 @@ function DashboardPage() {
       )}
       
       {/* Empty State */}
-      {!isLoading && !error && projects.length === 0 && (
+      {!isLoading && !error && filteredProjects.length === 0 && (
         <div className="empty-state">
           <h2>No projects yet</h2>
           <p>Create your first graphic novel or comic project to get started.</p>
@@ -442,9 +448,9 @@ function DashboardPage() {
       )}
       
       {/* Projects Grid/List */}
-      {!isLoading && !error && projects.length > 0 && (
+      {!isLoading && !error && filteredProjects.length > 0 && (
         <div className={viewMode === 'grid' ? 'project-grid' : 'project-list'}>
-          {projects.map((project, index) => (
+          {filteredProjects.map((project, index) => (
             <ProjectCard
               key={project.id}
               project={project}

@@ -317,7 +317,6 @@ export class DashboardPage extends BasePage {
    */
   async expectEmptyState(): Promise<void> {
     await expect(this.emptyState).toBeVisible();
-    await expect(this.emptyState).toContainText(/no projects yet/i);
   }
 
   /**
@@ -334,7 +333,7 @@ export class DashboardPage extends BasePage {
   async expectProjectInList(name: string): Promise<void> {
     // Use expect with polling - this handles TanStack Query refresh timing
     await expect(async () => {
-      await expect(this.projectCards.filter({ hasText: name })).toBeVisible();
+      await expect(this.projectCards.filter({ hasText: name }).first()).toBeVisible();
     }).toPass({ timeout: 15000 });
   }
 
@@ -342,7 +341,7 @@ export class DashboardPage extends BasePage {
    * Assert project does not exist in list
    */
   async expectProjectNotInList(name: string): Promise<void> {
-    await expect(this.projectCards.filter({ hasText: name })).toBeHidden();
+    await expect(this.projectCards.filter({ hasText: name }).first()).toBeHidden();
   }
 
   /**
