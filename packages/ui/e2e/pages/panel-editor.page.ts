@@ -14,17 +14,24 @@ export class PanelEditorPage extends BasePage {
   // ============================================================================
 
   /**
-   * Panel editor container
+   * Panel editor container (uses .panel-generator class)
    */
   get panelEditorContainer(): Locator {
-    return this.page.getByTestId('panel-editor-container');
+    return this.page.locator('.panel-generator');
   }
 
   /**
-   * Generate button
+   * Generate button (single)
    */
   get generateButton(): Locator {
-    return this.page.getByRole('button', { name: /generate/i }).first();
+    return this.page.getByRole('button', { name: 'Generate Single' });
+  }
+  
+  /**
+   * Generate variants button
+   */
+  get generateVariantsButton(): Locator {
+    return this.page.getByRole('button', { name: /Generate.*Variants/ });
   }
 
   /**
@@ -49,24 +56,38 @@ export class PanelEditorPage extends BasePage {
   }
 
   /**
-   * N-up grid (result display)
+   * N-up grid (result display) - uses .generations-grid class
    */
   get nUpGrid(): Locator {
-    return this.page.getByTestId('n-up-grid');
+    return this.page.locator('.generations-grid');
   }
 
   /**
-   * Generated images in the N-up grid
+   * Generated images in the N-up grid (generation cards)
    */
   get generatedImages(): Locator {
-    return this.nUpGrid.getByRole('img');
+    return this.page.locator('.generation-card');
   }
 
   /**
    * Selected image in N-up grid
    */
   get selectedImage(): Locator {
-    return this.nUpGrid.locator('[data-selected="true"]');
+    return this.page.locator('.generation-card.selected');
+  }
+
+  /**
+   * Rating stars on generation cards
+   */
+  get ratingStars(): Locator {
+    return this.page.locator('.rating-stars .star');
+  }
+
+  /**
+   * Variant count input
+   */
+  get variantCountInput(): Locator {
+    return this.page.getByRole('spinbutton');
   }
 
   /**
@@ -161,17 +182,59 @@ export class PanelEditorPage extends BasePage {
   }
 
   /**
-   * Prompt editor
+   * Positive prompt textarea
    */
-  get promptEditor(): Locator {
-    return this.page.getByTestId('prompt-editor');
+  get positivePromptInput(): Locator {
+    return this.page.getByPlaceholder(/positive prompt/i);
   }
 
   /**
-   * N-up count selector
+   * Negative prompt textarea
    */
-  get nUpSelector(): Locator {
-    return this.page.getByTestId('n-up-selector');
+  get negativePromptInput(): Locator {
+    return this.page.getByPlaceholder(/negative prompt/i);
+  }
+
+  /**
+   * Tab buttons
+   */
+  get tabButtons(): Locator {
+    return this.page.locator('.tab-button');
+  }
+
+  /**
+   * Versions tab
+   */
+  get versionsTab(): Locator {
+    return this.page.getByRole('button', { name: /Versions/ });
+  }
+
+  /**
+   * Error alert
+   */
+  get errorAlert(): Locator {
+    return this.page.locator('div').filter({ hasText: /⚠️/ }).first();
+  }
+
+  /**
+   * Loading spinner
+   */
+  get loadingSpinner(): Locator {
+    return this.page.locator('.spinner');
+  }
+
+  /**
+   * Character selection items
+   */
+  get characterItems(): Locator {
+    return this.page.locator('.character-item');
+  }
+
+  /**
+   * Control level options
+   */
+  get controlLevelOptions(): Locator {
+    return this.page.locator('.level-option');
   }
 
   // ============================================================================
