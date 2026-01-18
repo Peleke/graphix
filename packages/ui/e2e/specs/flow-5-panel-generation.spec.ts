@@ -35,7 +35,11 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
 
     await page.goto(`/projects/${testProject.id}`);
     await page.getByText('Storyboard', { exact: true }).click();
+    await expect(page.locator('.storyboard-item').first()).toBeVisible({ timeout: 10000 });
     await storyboardPage.selectPanel(1, 1);
+    await expect(page.locator('.panel-card').first()).toBeVisible({ timeout: 10000 });
+    await storyboardPage.selectPanel(1, 1);
+    await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
   }
   // ==========================================================================
   // Setup: Mock API responses for deterministic testing
