@@ -46,3 +46,9 @@ export * from "./config/index.js";
 
 // Utilities (Security, Upload, etc.)
 export * from "./utils/index.js";
+
+// Agents (Mastra-powered)
+export * from "./agents/index.js";
+
+// RAG (Vector store, embeddings)
+export * from "./rag/index.js";
