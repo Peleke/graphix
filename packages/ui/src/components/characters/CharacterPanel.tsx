@@ -374,19 +374,45 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       </div>
       
       {/* Search */}
-      <div className={panelStyles.searchContainer} data-testid="character-search-container">
+      <div
+        className={panelStyles.searchContainer}
+        style={{
+          padding: '16px',
+          backgroundColor: '#0f172a',
+        }}
+        data-testid="character-search-container"
+      >
         <input
           type="text"
           placeholder="Search characters..."
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           className={panelStyles.searchInput}
+          style={{
+            width: '100%',
+            padding: '9px 12px',
+            fontSize: '13px',
+            backgroundColor: '#0b1020',
+            border: '1px solid #1f2937',
+            borderRadius: '8px',
+            color: '#e2e8f0',
+          }}
           data-testid="character-search-input"
         />
       </div>
       
       {/* Character List */}
-      <div className={panelStyles.listContainer} data-testid="character-list">
+      <div
+        className={panelStyles.listContainer}
+        style={{
+          margin: '12px 16px',
+          padding: '12px',
+          backgroundColor: '#0b1020',
+          border: '1px solid #1f2937',
+          borderRadius: '12px',
+        }}
+        data-testid="character-list"
+      >
         {characters.length === 0 ? (
           <div
             className={panelStyles.emptyState}
@@ -400,7 +426,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
               color: '#cbd5e1',
               border: '1px dashed #334155',
               borderRadius: '12px',
-              backgroundColor: '#0b1020',
+              backgroundColor: '#0f172a',
               maxWidth: '720px',
               margin: '12px auto',
             }}

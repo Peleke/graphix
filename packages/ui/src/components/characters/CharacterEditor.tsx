@@ -288,7 +288,7 @@ export function CharacterEditor({
         })}
         style={{
           width: '90%',
-          maxWidth: '800px',
+          maxWidth: '720px',
           maxHeight: '90vh',
           overflow: 'hidden',
           display: 'flex',
@@ -342,6 +342,17 @@ export function CharacterEditor({
               padding: '4px',
               _hover: { color: '#fff' },
             })}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#0b1020',
+              border: '1px solid #1f2937',
+              color: '#cbd5e1',
+            }}
             aria-label="Close editor"
             data-testid="close-editor-button"
           >
@@ -755,6 +766,13 @@ export function CharacterEditor({
               cursor: 'pointer',
               _hover: { backgroundColor: '#0f172a', color: '#fff' },
             })}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '10px',
+              border: '1px solid #334155',
+              color: '#cbd5e1',
+              backgroundColor: 'transparent',
+            }}
             data-testid="cancel-button"
           >
             Cancel
@@ -772,6 +790,12 @@ export function CharacterEditor({
               _hover: { backgroundColor: '#8b5cf6' },
               _disabled: { opacity: 0.5, cursor: 'not-allowed' },
             })}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              backgroundColor: '#7c3aed',
+              color: '#fff',
+            }}
             data-testid="save-button"
           >
             {isSaving ? 'Saving...' : isCreateMode ? 'Create' : 'Save'}
