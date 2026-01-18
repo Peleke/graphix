@@ -41,6 +41,16 @@ export interface ComposeStoryboardInput {
   outputPrefix?: string;
 }
 
+export interface ExportPageInput {
+  inputPath: string;
+  outputPath: string;
+  format: "png" | "jpeg" | "webp" | "pdf" | "tiff";
+  quality?: number;
+  dpi?: number;
+  bleed?: number;
+  trimMarks?: boolean;
+}
+
 // ============================================================================
 // Hooks
 // ============================================================================
@@ -117,6 +127,25 @@ export function useComposeStoryboard() {
 
       if (error) {
         throw new Error(error.error?.message || "Failed to compose storyboard");
+      }
+
+      return data;
+    },
+  });
+}
+
+/**
+ * Export a composed page
+ */
+export function useExportPage() {
+  return useMutation({
+    mutationFn: async (input: ExportPageInput) => {
+      const { data, error } = await apiClient.POST("/composition/export", {
+        body: input,
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to export page");
       }
 
       return data;

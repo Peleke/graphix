@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as DemoGenerationTreeRouteImport } from './routes/demo/generation-tree'
 
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,36 +37,52 @@ const DemoGenerationTreeRoute = DemoGenerationTreeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/demo/generation-tree': typeof DemoGenerationTreeRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/demo/generation-tree': typeof DemoGenerationTreeRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/export': typeof ExportRoute
   '/demo/generation-tree': typeof DemoGenerationTreeRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demo/generation-tree' | '/projects/$projectId'
+  fullPaths: '/' | '/export' | '/demo/generation-tree' | '/projects/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo/generation-tree' | '/projects/$projectId'
-  id: '__root__' | '/' | '/demo/generation-tree' | '/projects/$projectId'
+  to: '/' | '/export' | '/demo/generation-tree' | '/projects/$projectId'
+  id:
+    | '__root__'
+    | '/'
+    | '/export'
+    | '/demo/generation-tree'
+    | '/projects/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ExportRoute: typeof ExportRoute
   DemoGenerationTreeRoute: typeof DemoGenerationTreeRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +109,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ExportRoute: ExportRoute,
   DemoGenerationTreeRoute: DemoGenerationTreeRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
 }
