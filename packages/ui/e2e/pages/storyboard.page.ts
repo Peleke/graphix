@@ -399,7 +399,21 @@ export class StoryboardPage extends BasePage {
       // Fill in name and create
       const input = modal.locator('input[type="text"]').first();
       await input.fill(`New Page ${Date.now()}`);
-      await modal.getByRole('button', { name: /create/i }).click();
+
+      const createButton = modal.getByRole('button', { name: /create/i });
+      if (await createButton.isVisible({ timeout: 500 }).catch(() => false)) {
+        await createButton.click();
+        return;
+      }
+
+      const primaryButton = modal.locator('.btn-primary').first();
+      if (await primaryButton.isVisible({ timeout: 500 }).catch(() => false)) {
+        await primaryButton.click();
+        return;
+      }
+
+      // Fallback: press Enter to submit
+      await this.page.keyboard.press('Enter');
     }
   }
 
