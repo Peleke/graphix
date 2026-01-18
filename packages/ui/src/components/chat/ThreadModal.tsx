@@ -32,12 +32,15 @@ interface ThreadModalProps {
 
 const overlayStyles = css({
   position: 'fixed',
-  inset: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1100,
+  zIndex: 10000,  // Very high to ensure it's above everything
   animation: 'fadeIn 0.15s ease',
 });
 
@@ -266,6 +269,11 @@ export function ThreadModal({
   };
 
   if (!isOpen) return null;
+
+  // Guard for SSR/tests where document.body might not exist
+  if (typeof document === 'undefined' || !document.body) {
+    return null;
+  }
 
   // Use portal to render at body level (escapes parent fixed positioning)
   return createPortal(

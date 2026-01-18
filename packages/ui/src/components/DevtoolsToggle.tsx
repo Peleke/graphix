@@ -12,27 +12,27 @@ const STORAGE_KEY = 'graphix-devtools-visible';
 
 const toggleStyles = css({
   position: 'fixed',
-  bottom: '8px',
+  bottom: '60px',  // Above the TanStack panels
   left: '8px',
   zIndex: 99999,
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
-  padding: '6px 10px',
-  backgroundColor: 'gray.900',
+  padding: '8px 12px',
+  backgroundColor: 'gray.800',
   border: '1px solid',
-  borderColor: 'gray.700',
-  borderRadius: '6px',
-  color: 'gray.400',
-  fontSize: '11px',
+  borderColor: 'gray.600',
+  borderRadius: '8px',
+  color: 'gray.200',
+  fontSize: '12px',
   fontFamily: 'monospace',
   cursor: 'pointer',
   transition: 'all 0.15s',
-  opacity: 0.7,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
   _hover: {
-    opacity: 1,
-    borderColor: 'gray.600',
-    color: 'gray.200',
+    backgroundColor: 'gray.700',
+    borderColor: 'gray.500',
+    color: 'white',
   },
 });
 
