@@ -411,6 +411,8 @@ export class CharacterEditorPage extends BasePage {
    */
   async save(): Promise<void> {
     await this.saveButton.click();
+    // Wait for dialog to close (indicates successful save)
+    await expect(this.characterEditor).toBeHidden({ timeout: 10000 });
     await this.waitForLoading();
   }
 

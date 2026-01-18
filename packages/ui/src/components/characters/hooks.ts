@@ -505,15 +505,20 @@ export function useCharacterSearch(debounceMs: number = 300) {
   }, [inputValue, debounceMs]);
 
   // Update store when debounced value changes
+  // NOTE: Only update if value actually changed to prevent infinite loops
   useEffect(() => {
-    actions.setFilters({ search: debouncedValue });
-  }, [debouncedValue, actions]);
+    if (filters.search !== debouncedValue) {
+      actions.setFilters({ search: debouncedValue });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedValue]);
 
   const clear = useCallback(() => {
     setInputValue('');
     setDebouncedValue('');
     actions.setFilters({ search: '' });
-  }, [actions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     value: inputValue,

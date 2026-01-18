@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 // Import setup module for side effect (enables Map/Set in immer)
 // This isolates the side effect to a single import point
@@ -775,11 +776,13 @@ export const usePanelState = () => {
 };
 
 export const useEditorState = () => {
-  return useCharacterStore((state) => ({
-    mode: state.editorMode,
-    open: state.editorOpen,
-    characterId: state.editingCharacterId,
-  }));
+  return useCharacterStore(
+    useShallow((state) => ({
+      mode: state.editorMode,
+      open: state.editorOpen,
+      characterId: state.editingCharacterId,
+    }))
+  );
 };
 
 export const useLoraBrowserState = () => {
@@ -791,20 +794,24 @@ export const useCharacterFilters = () => {
 };
 
 export const useCharacterSort = () => {
-  return useCharacterStore((state) => ({
-    sortBy: state.sortBy,
-    sortDirection: state.sortDirection,
-  }));
+  return useCharacterStore(
+    useShallow((state) => ({
+      sortBy: state.sortBy,
+      sortDirection: state.sortDirection,
+    }))
+  );
 };
 
 export const useCharacterLoading = () => {
-  return useCharacterStore((state) => ({
-    isLoading: state.isLoading,
-    isCreating: state.isCreating,
-    isUpdating: state.isUpdating,
-    isDeleting: state.isDeleting,
-    isUploadingReference: state.isUploadingReference,
-  }));
+  return useCharacterStore(
+    useShallow((state) => ({
+      isLoading: state.isLoading,
+      isCreating: state.isCreating,
+      isUpdating: state.isUpdating,
+      isDeleting: state.isDeleting,
+      isUploadingReference: state.isUploadingReference,
+    }))
+  );
 };
 
 export const useIsCharacterLoading = (characterId: string) => {
@@ -824,13 +831,13 @@ export const useLorasCatalog = () => {
 // ============================================================================
 
 export const useFilteredCharacters = (projectId: string) => {
-  return useCharacterStore((state) => 
-    state.actions.getFilteredCharacters(projectId)
+  return useCharacterStore(
+    useShallow((state) => state.actions.getFilteredCharacters(projectId))
   );
 };
 
 export const useCharactersByProject = (projectId: string) => {
-  return useCharacterStore((state) => 
-    state.actions.getCharactersByProject(projectId)
+  return useCharacterStore(
+    useShallow((state) => state.actions.getCharactersByProject(projectId))
   );
 };

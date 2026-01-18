@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { css } from '../../../styled-system/css';
 import { useCharacterStore } from './store';
 import { Character, LoraConfig, ReferenceImageType } from './types';
-import { useColorPalette, usePromptFragments, useCharacterLoRA } from './hooks';
+import { useColorPalette, usePromptFragments, useCharacterLoRA, useCreateCharacter, useUpdateCharacter } from './hooks';
 import { ReferenceGallery } from './ReferenceGallery';
 import { ColorPaletteDisplay } from './ColorPalette';
 import { LoRABrowser } from './LoRABrowser';
@@ -24,6 +24,8 @@ import { MAX_COLOR_PALETTE_SIZE, MAX_PROMPT_FRAGMENTS, MAX_DESCRIPTION_LENGTH } 
 export interface CharacterEditorProps {
   /** Character ID to edit (null for create mode) */
   characterId: string | null;
+  /** Project ID for creating new characters */
+  projectId: string;
   /** Called when editor should close */
   onClose: () => void;
   /** Called after successful save */
@@ -50,6 +52,7 @@ interface FormErrors {
 
 export function CharacterEditor({
   characterId,
+  projectId,
   onClose,
   onSave,
   isOpen,
@@ -57,9 +60,8 @@ export function CharacterEditor({
   const character = useCharacterStore((state) =>
     characterId ? state.characters.get(characterId) : null
   );
-  const updateCharacter = useCharacterStore((state) => state.updateCharacter);
-  const createCharacter = useCharacterStore((state) => state.createCharacter);
-  const activeProjectId = useCharacterStore((state) => state.activeProjectId);
+  const { createCharacter } = useCreateCharacter();
+  const { updateCharacter } = useUpdateCharacter();
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -147,27 +149,38 @@ export function CharacterEditor({
     try {
       if (characterId && character) {
         // Update existing character
-        updateCharacter(characterId, {
+        const updated = await updateCharacter(characterId, {
           name: formData.name.trim(),
           species: formData.species.trim(),
           description: formData.description.trim(),
         });
-        onSave?.(character);
-      } else if (activeProjectId) {
-        // Create new character
-        const newCharacter = createCharacter(activeProjectId, {
+        if (updated) {
+          onSave?.(updated);
+          setIsDirty(false);
+          onClose();
+        }
+      } else if (projectId) {
+        // Create new character - format data for API
+        const newCharacter = await createCharacter({
+          projectId,
           name: formData.name.trim(),
-          species: formData.species.trim(),
-          description: formData.description.trim(),
-        });
-        onSave?.(newCharacter);
+          profile: {
+            species: formData.species.trim(),
+            // description is stored in profile features for now
+            ...(formData.description.trim() ? { distinguishing: [formData.description.trim()] } : {}),
+          },
+          promptFragments: {},
+        } as any); // Cast to any since UI type differs from API
+        if (newCharacter) {
+          onSave?.(newCharacter);
+          setIsDirty(false);
+          onClose();
+        }
       }
-      setIsDirty(false);
-      onClose();
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, characterId, character, formData, validate, updateCharacter, createCharacter, activeProjectId, onSave, onClose]);
+  }, [isSaving, characterId, character, formData, validate, updateCharacter, createCharacter, projectId, onSave, onClose]);
 
   const handleCancel = useCallback(() => {
     if (isDirty) {

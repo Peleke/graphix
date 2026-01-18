@@ -12,9 +12,11 @@ import {
   useFilteredCharacters,
   usePanelState,
   useSelectedCharacter,
+  useEditorState,
 } from './store';
 import { useCharacterSearch, useCharacterKeyboardNavigation } from './hooks';
 import { CharacterCard } from './CharacterCard';
+import { CharacterEditor } from './CharacterEditor';
 import type { CharacterPanelProps, Character, CharacterAction } from './types';
 import { css } from '../../../styled-system/css';
 
@@ -219,6 +221,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   const selectedCharacter = useSelectedCharacter();
   const characters = useFilteredCharacters(projectId);
   const { value: searchValue, setValue: setSearchValue, hasValue } = useCharacterSearch();
+  const editorState = useEditorState();
   
   const isExpanded = panelState === 'expanded';
   
@@ -361,6 +364,14 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
           Add Character
         </button>
       </div>
+      
+      {/* Character Editor Modal */}
+      <CharacterEditor
+        characterId={editorState.characterId}
+        projectId={projectId}
+        isOpen={editorState.open}
+        onClose={() => actions.closeEditor()}
+      />
     </div>
   );
 };
