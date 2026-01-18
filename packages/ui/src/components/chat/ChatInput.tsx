@@ -5,20 +5,24 @@
  * Supports Enter to send, Shift+Enter for newline.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
+  maxLength?: number;
 }
+
+export const DEFAULT_MAX_LENGTH = 4000;
 
 export function ChatInput({ 
   onSend, 
   disabled = false, 
   placeholder = "Describe your story idea...",
-  autoFocus = false
+  autoFocus = false,
+  maxLength = DEFAULT_MAX_LENGTH
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -39,30 +43,47 @@ export function ChatInput({
     }
   }, [autoFocus]);
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (trimmed && !disabled) {
       onSend(trimmed);
       setValue('');
     }
-  };
+  }, [value, disabled, onSend]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
-  };
+  }, [handleSubmit]);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    // Enforce maxLength
+    if (newValue.length <= maxLength) {
+      setValue(newValue);
+    }
+  }, [maxLength]);
+
+  const isOverLimit = value.length >= maxLength;
+  const isNearLimit = value.length >= maxLength * 0.9;
 
   return (
     <div className="chat-input-container">
       <style>{`
         .chat-input-container {
           display: flex;
-          gap: 0.75rem;
+          flex-direction: column;
+          gap: 0.25rem;
           padding: 1rem;
           background: #18181b;
           border-top: 1px solid #27272a;
+        }
+
+        .chat-input-row {
+          display: flex;
+          gap: 0.75rem;
         }
 
         .chat-textarea {
@@ -93,6 +114,14 @@ export function ChatInput({
         .chat-textarea:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .chat-textarea.near-limit {
+          border-color: #f59e0b;
+        }
+
+        .chat-textarea.at-limit {
+          border-color: #ef4444;
         }
 
         .chat-send-button {
@@ -127,35 +156,72 @@ export function ChatInput({
           height: 20px;
         }
 
-        .input-hint {
+        .chat-input-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: 0.75rem;
           color: #52525b;
-          margin-top: 0.5rem;
-          text-align: center;
+          padding: 0 0.25rem;
+        }
+
+        .char-count {
+          color: #52525b;
+        }
+
+        .char-count.near-limit {
+          color: #f59e0b;
+        }
+
+        .char-count.at-limit {
+          color: #ef4444;
+        }
+
+        .input-hint {
+          color: #52525b;
         }
       `}</style>
 
-      <textarea
-        ref={textareaRef}
-        className="chat-textarea"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        disabled={disabled}
-        rows={1}
-      />
+      <div className="chat-input-row">
+        <textarea
+          ref={textareaRef}
+          className={`chat-textarea ${isOverLimit ? 'at-limit' : isNearLimit ? 'near-limit' : ''}`}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={1}
+          maxLength={maxLength}
+          aria-label="Chat message input"
+          aria-describedby="char-count input-hint"
+        />
 
-      <button
-        className="chat-send-button"
-        onClick={handleSubmit}
-        disabled={disabled || !value.trim()}
-        aria-label="Send message"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+        <button
+          className="chat-send-button"
+          onClick={handleSubmit}
+          disabled={disabled || !value.trim()}
+          aria-label="Send message"
+          type="button"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="chat-input-footer">
+        <span id="input-hint" className="input-hint">
+          Press Enter to send, Shift+Enter for new line
+        </span>
+        <span 
+          id="char-count" 
+          className={`char-count ${isOverLimit ? 'at-limit' : isNearLimit ? 'near-limit' : ''}`}
+          aria-live="polite"
+        >
+          {value.length}/{maxLength}
+        </span>
+      </div>
     </div>
   );
 }

@@ -153,6 +153,13 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
           align-items: center;
           justify-content: center;
           font-size: 0.875rem;
+          overflow: hidden;
+        }
+
+        .asset-thumbnail img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
 
         .asset-name {
@@ -200,7 +207,13 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
               <div key={match.id} className="asset-match">
                 <div className="asset-thumbnail">
                   {match.thumbnail ? (
-                    <img src={match.thumbnail} alt={match.name} />
+                    <img 
+                      src={match.thumbnail} 
+                      alt={match.name}
+                      width={32}
+                      height={32}
+                      loading="lazy"
+                    />
                   ) : (
                     match.name.charAt(0).toUpperCase()
                   )}
