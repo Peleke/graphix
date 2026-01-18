@@ -25,27 +25,22 @@ const MOCK_GENERATIONS = [
 ];
 
 test.describe('Flow 5: Panel Generation & Iteration', () => {
-  async function setupPanelGenerator({ page, api, testProject, storyboardPage, testInfo }: any) {
+  async function setupPanelGenerator({ page, api, testProject, testInfo }: any) {
     const storyboard = await api.createStoryboard(
       testProject.id,
       uniqueName('Storyboard', testInfo),
       'Flow 5 storyboard'
     );
-    await api.createPanel(storyboard.id, 'Test panel description');
+    const panel = await api.createPanel(storyboard.id, 'Test panel description');
 
-    await page.goto(`/projects/${testProject.id}`);
-    await page.getByText('Storyboard', { exact: true }).click();
-    await expect(page.locator('.storyboard-item').first()).toBeVisible({ timeout: 10000 });
-    await storyboardPage.selectPanel(1, 1);
-    await expect(page.locator('.panel-card').first()).toBeVisible({ timeout: 10000 });
-    await storyboardPage.selectPanel(1, 1);
+    await page.goto(`/projects/${testProject.id}?view=panel&panelId=${panel.id}&storyboardId=${storyboard.id}`);
     await expect(page.locator('.panel-generator')).toBeVisible({ timeout: 10000 });
   }
   // ==========================================================================
   // Setup: Mock API responses for deterministic testing
   // ==========================================================================
 
-  test.beforeEach(async ({ page, api, testProject, storyboardPage }, testInfo) => {
+  test.beforeEach(async ({ page, api, testProject }, testInfo) => {
     // Mock the generations endpoint to return test data
     await page.route('**/api/generations/panel/**', async (route) => {
       await route.fulfill({
@@ -113,7 +108,7 @@ test.describe('Flow 5: Panel Generation & Iteration', () => {
       });
     });
 
-    await setupPanelGenerator({ page, api, testProject, storyboardPage, testInfo });
+    await setupPanelGenerator({ page, api, testProject, testInfo });
   });
 
   // ==========================================================================
