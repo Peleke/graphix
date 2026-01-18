@@ -14,7 +14,7 @@ import {
   useSelectedCharacter,
   useEditorState,
 } from './store';
-import { useCharacterSearch, useCharacterKeyboardNavigation, useFetchCharacters } from './hooks';
+import { useCharacterSearch, useCharacterKeyboardNavigation, useFetchCharacters, useDeleteCharacter } from './hooks';
 import { CharacterCard } from './CharacterCard';
 import { CharacterEditor } from './CharacterEditor';
 import { Dialog } from '../ui';
@@ -251,6 +251,7 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   const { value: searchValue, setValue: setSearchValue, hasValue } = useCharacterSearch();
   const editorState = useEditorState();
   const { fetchCharacters, isLoading } = useFetchCharacters(projectId);
+  const { deleteCharacter } = useDeleteCharacter();
   const [pendingDelete, setPendingDelete] = useState<Character | null>(null);
   
   // Fetch characters on mount
@@ -287,11 +288,11 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
     onCharacterAction?.(action);
   }, [actions, onCharacterAction]);
 
-  const confirmDelete = useCallback(() => {
+  const confirmDelete = useCallback(async () => {
     if (!pendingDelete) return;
-    actions.removeCharacter(pendingDelete.id);
+    await deleteCharacter(pendingDelete.id);
     setPendingDelete(null);
-  }, [actions, pendingDelete]);
+  }, [deleteCharacter, pendingDelete]);
 
   const cancelDelete = useCallback(() => {
     setPendingDelete(null);
