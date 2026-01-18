@@ -24,45 +24,42 @@ export class CharacterEditorPage extends BasePage {
    * Character list container within CharacterPanel
    */
   get characterList(): Locator {
-    // The CharacterPanel has character cards inside a list container
-    return this.page.locator('[class*="listContainer"]');
+    return this.page.getByTestId('character-list');
   }
 
   /**
    * Character cards in the panel (uses CharacterCard component)
    */
   get characterCards(): Locator {
-    return this.page.locator('[role="button"][tabindex="0"]').filter({
-      has: this.page.locator('[class*="thumbnail"]'),
-    });
+    return this.page.locator('[data-testid^="character-card-"]');
   }
 
   /**
    * Create new character button (Add Character)
    */
   get createCharacterButton(): Locator {
-    return this.page.getByRole('button', { name: /add character/i });
+    return this.page.getByTestId('character-add-button');
   }
 
   /**
    * Search input in character panel
    */
   get searchInput(): Locator {
-    return this.page.getByPlaceholder(/search characters/i);
+    return this.page.getByTestId('character-search-input');
   }
 
   /**
    * Character count badge
    */
   get characterCountBadge(): Locator {
-    return this.page.locator('[class*="countBadge"]');
+    return this.page.getByTestId('character-count');
   }
 
   /**
    * Empty state message
    */
   get emptyState(): Locator {
-    return this.page.locator('[class*="emptyState"]');
+    return this.page.getByTestId('character-empty-state');
   }
 
   // ============================================================================
@@ -392,7 +389,7 @@ export class CharacterEditorPage extends BasePage {
    * Select a character from the list by name
    */
   async selectCharacter(name: string): Promise<void> {
-    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    const card = this.page.getByLabel(`${name} character`, { exact: true });
     await card.click();
   }
 
@@ -402,12 +399,12 @@ export class CharacterEditorPage extends BasePage {
   async editCharacter(name: string): Promise<void> {
     // Wait for network to settle (TanStack Query may need to fetch)
     await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    const card = this.page.getByLabel(`${name} character`, { exact: true });
     // Wait for the card to be visible
     await card.waitFor({ state: 'visible', timeout: 15000 });
     await card.hover();
     // Find the edit button within or near this card
-    await card.getByRole('button', { name: /edit/i }).click();
+    await card.getByTestId('character-edit-button').click();
     // Wait for editor to open
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
   }
@@ -440,9 +437,9 @@ export class CharacterEditorPage extends BasePage {
    * Delete a character by name
    */
   async deleteCharacter(name: string): Promise<void> {
-    const card = this.page.locator(`[role="button"]:has-text("${name}")`);
+    const card = this.page.getByLabel(`${name} character`, { exact: true });
     await card.hover();
-    await card.getByRole('button', { name: /delete/i }).click();
+    await card.getByTestId('character-delete-button').click();
     // Wait for and click confirmation
     await this.page.getByRole('button', { name: /confirm|yes/i }).click();
   }
@@ -500,14 +497,14 @@ export class CharacterEditorPage extends BasePage {
    * Assert character exists in list
    */
   async expectCharacterInList(name: string): Promise<void> {
-    await expect(this.page.locator(`[role="button"]:has-text("${name}")`)).toBeVisible();
+    await expect(this.page.getByLabel(`${name} character`, { exact: true })).toBeVisible();
   }
 
   /**
    * Assert character NOT in list
    */
   async expectCharacterNotInList(name: string): Promise<void> {
-    await expect(this.page.locator(`[role="button"]:has-text("${name}")`)).not.toBeVisible();
+    await expect(this.page.getByLabel(`${name} character`, { exact: true })).not.toBeVisible();
   }
 
   /**

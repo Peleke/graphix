@@ -268,6 +268,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
       role="button"
       tabIndex={0}
       aria-selected={isSelected}
+      aria-label={`${character.name} character`}
+      data-testid={`character-card-${character.id}`}
     >
       {/* Thumbnail */}
       <div className={thumbnailClasses}>
@@ -312,6 +314,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             onClick={handleEdit}
             aria-label="Edit character"
             title="Edit"
+            data-testid="character-edit-button"
           >
             <EditIcon />
           </button>
@@ -320,6 +323,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             onClick={handleDuplicate}
             aria-label="Duplicate character"
             title="Duplicate"
+            data-testid="character-duplicate-button"
           >
             <CopyIcon />
           </button>
@@ -328,6 +332,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             onClick={handleDelete}
             aria-label="Delete character"
             title="Delete"
+            data-testid="character-delete-button"
           >
             <TrashIcon />
           </button>

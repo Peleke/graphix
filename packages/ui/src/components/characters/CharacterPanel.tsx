@@ -5,7 +5,7 @@
  * filtering, and quick actions. ARRR! 🏴‍☠️
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect } from 'react';
 import {
   useCharacterStore,
   useCharacterActions,
@@ -14,7 +14,7 @@ import {
   useSelectedCharacter,
   useEditorState,
 } from './store';
-import { useCharacterSearch, useCharacterKeyboardNavigation } from './hooks';
+import { useCharacterSearch, useCharacterKeyboardNavigation, useFetchCharacters } from './hooks';
 import { CharacterCard } from './CharacterCard';
 import { CharacterEditor } from './CharacterEditor';
 import type { CharacterPanelProps, Character, CharacterAction } from './types';
@@ -222,6 +222,12 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
   const characters = useFilteredCharacters(projectId);
   const { value: searchValue, setValue: setSearchValue, hasValue } = useCharacterSearch();
   const editorState = useEditorState();
+  const { fetchCharacters, isLoading } = useFetchCharacters(projectId);
+  
+  // Fetch characters on mount
+  useEffect(() => {
+    fetchCharacters();
+  }, [fetchCharacters]);
   
   const isExpanded = panelState === 'expanded';
   
@@ -314,20 +320,21 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       </div>
       
       {/* Search */}
-      <div className={panelStyles.searchContainer}>
+      <div className={panelStyles.searchContainer} data-testid="character-search-container">
         <input
           type="text"
           placeholder="Search characters..."
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           className={panelStyles.searchInput}
+          data-testid="character-search-input"
         />
       </div>
       
       {/* Character List */}
-      <div className={panelStyles.listContainer}>
+      <div className={panelStyles.listContainer} data-testid="character-list">
         {characters.length === 0 ? (
-          <div className={panelStyles.emptyState}>
+          <div className={panelStyles.emptyState} data-testid="character-empty-state">
             <div className={panelStyles.emptyIcon}>
               <UserIcon />
             </div>
@@ -353,12 +360,13 @@ export const CharacterPanel: React.FC<CharacterPanelProps> = ({
       
       {/* Footer */}
       <div className={panelStyles.footer}>
-        <span className={panelStyles.countBadge}>
+        <span className={panelStyles.countBadge} data-testid="character-count">
           {characters.length} character{characters.length !== 1 ? 's' : ''}
         </span>
         <button 
           className={panelStyles.addButton}
           onClick={handleCreateCharacter}
+          data-testid="character-add-button"
         >
           <PlusIcon />
           Add Character
