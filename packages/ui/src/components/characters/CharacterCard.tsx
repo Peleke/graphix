@@ -214,8 +214,6 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   draggable = false,
   className,
 }) => {
-  const [showActions, setShowActions] = React.useState(false);
-  
   // Handle click
   const handleClick = useCallback(() => {
     onClick?.(character);
@@ -261,7 +259,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   
   const actionsClasses = [
     cardStyles.actions,
-    (showActions || isSelected) && cardStyles.actionsVisible,
+    (isSelected || !compact) && cardStyles.actionsVisible,
   ].filter(Boolean).join(' ');
   
   return (
@@ -269,8 +267,6 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
       className={containerClasses}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
       draggable={draggable}
       role="button"
       tabIndex={0}
