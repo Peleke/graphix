@@ -61,7 +61,7 @@ export function LoRACard({ lora, isSelected, onClick }: LoRACardProps) {
       })}
       aria-pressed={isSelected}
       data-testid="lora-card"
-      data-lora-id={lora.id}
+      data-lora-id={lora.filename}
     >
       {/* Preview (if available) */}
       {lora.previewUrl && (
@@ -218,12 +218,8 @@ export function LoRABrowser({
   // Get selected LoRA details
   const selectedLoraDetails = useMemo(() => {
     if (!selectedLora) return null;
-    if (selectedLora.id) {
-      return getLora(selectedLora.id);
-    }
-    // Fallback: match by filename/path
-    const all = Object.values(LORA_CATALOG);
-    return all.find((entry) => entry.filename === selectedLora.path) ?? null;
+    const filename = selectedLora.id || selectedLora.path;
+    return filename ? getLora(filename) ?? null : null;
   }, [selectedLora]);
 
   // ============================================================================
@@ -233,7 +229,7 @@ export function LoRABrowser({
   const handleSelectLora = useCallback((lora: LoraEntry) => {
     const strength = lora.defaultStrength;
     setLocalStrength(strength);
-    onSelect(lora.id, strength);
+    onSelect(lora.filename, strength);
   }, [onSelect]);
 
   const handleStrengthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {

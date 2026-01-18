@@ -408,7 +408,7 @@ export function useCharacterLoRA(characterId: string | null) {
     if (!characterId) return;
     
     const loraConfig: CharacterLoRA = {
-      id: loraEntry.id,
+      id: loraEntry.filename,
       path: loraEntry.filename,
       strength: strength ?? loraEntry.strength.recommended,
       triggerWords: loraEntry.trigger ? [loraEntry.trigger] : [],
