@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { css } from '../../../styled-system/css';
 import { useThreads } from '../../api/hooks/useThreads';
 
@@ -43,7 +44,7 @@ const overlayStyles = css({
 const modalStyles = css({
   width: '90%',
   maxWidth: '480px',
-  maxHeight: '70vh',
+  maxHeight: '80vh',
   backgroundColor: 'gray.900',
   border: '1px solid',
   borderColor: 'gray.700',
@@ -53,6 +54,12 @@ const modalStyles = css({
   display: 'flex',
   flexDirection: 'column',
   animation: 'slideUp 0.2s ease',
+  // Mobile-first: full width on small screens
+  '@media (max-width: 480px)': {
+    width: '95%',
+    maxHeight: '85vh',
+    borderRadius: '12px',
+  },
 });
 
 const headerStyles = css({
@@ -260,7 +267,8 @@ export function ThreadModal({
 
   if (!isOpen) return null;
 
-  return (
+  // Use portal to render at body level (escapes parent fixed positioning)
+  return createPortal(
     <div 
       className={overlayStyles} 
       onClick={onClose}
@@ -345,6 +353,7 @@ export function ThreadModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
