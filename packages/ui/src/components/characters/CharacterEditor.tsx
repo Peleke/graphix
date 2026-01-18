@@ -64,6 +64,9 @@ export function CharacterEditor({
   const safePromptFragments = Array.isArray(character?.promptFragments)
     ? character.promptFragments
     : [];
+  const safeColorPalette = Array.isArray(character?.colorPalette)
+    ? character.colorPalette
+    : [];
   const { createCharacter } = useCreateCharacter();
   const { updateCharacter } = useUpdateCharacter();
 
@@ -634,10 +637,10 @@ export function CharacterEditor({
               {!isCreateMode && character && (
                 <div className={css({ marginBottom: '16px' })}>
                   <label className={css({ display: 'block', color: '#888', marginBottom: '8px' })}>
-                    Color Palette ({character.colorPalette.length}/{MAX_COLOR_PALETTE_SIZE})
+                    Color Palette ({safeColorPalette.length}/{MAX_COLOR_PALETTE_SIZE})
                   </label>
                   <ColorPaletteDisplay
-                    colors={character.colorPalette}
+                    colors={safeColorPalette}
                     onAddColor={handleColorAdd}
                     onRemoveColor={handleColorRemove}
                     maxColors={MAX_COLOR_PALETTE_SIZE}

@@ -60,8 +60,10 @@ function normalizePromptFragments(promptFragments: unknown): string[] {
 function normalizeCharacter(character: Character): Character {
   return {
     ...character,
+    profile: character.profile ?? {},
     referenceImages: normalizeReferenceImages(character.referenceImages),
     promptFragments: normalizePromptFragments(character.promptFragments),
+    colorPalette: Array.isArray(character.colorPalette) ? character.colorPalette : [],
   };
 }
 
