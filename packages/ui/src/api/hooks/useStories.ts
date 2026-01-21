@@ -57,15 +57,15 @@ export function usePremises(projectId: string | null) {
     queryFn: async () => {
       if (!projectId) return [];
 
-      const { data, error } = await apiClient.GET("/narrative/premises", {
-        params: { query: { projectId } },
+      const { data, error } = await apiClient.GET("/narrative/projects/{projectId}/premises", {
+        params: { path: { projectId } },
       });
 
       if (error) {
         throw new Error(error.error?.message || "Failed to fetch premises");
       }
 
-      return data?.premises || [];
+      return data?.data || [];
     },
     enabled: !!projectId,
   });
@@ -77,15 +77,15 @@ export function useStories(premiseId: string | null) {
     queryFn: async () => {
       if (!premiseId) return [];
 
-      const { data, error } = await apiClient.GET("/narrative/stories", {
-        params: { query: { premiseId } },
+      const { data, error } = await apiClient.GET("/narrative/premises/{premiseId}/stories", {
+        params: { path: { premiseId } },
       });
 
       if (error) {
         throw new Error(error.error?.message || "Failed to fetch stories");
       }
 
-      return data?.stories || [];
+      return data?.data || [];
     },
     enabled: !!premiseId,
   });
@@ -97,8 +97,8 @@ export function useBeats(storyId: string | null) {
     queryFn: async () => {
       if (!storyId) return [];
 
-      const { data, error } = await apiClient.GET("/narrative/beats", {
-        params: { query: { storyId } },
+      const { data, error } = await apiClient.GET("/narrative/stories/{storyId}/beats", {
+        params: { path: { storyId } },
       });
 
       if (error) {
@@ -124,11 +124,8 @@ export function useCreatePremise() {
         throw new Error(error.error?.message || "Failed to create premise");
       }
 
-      if (!data) return null;
-      return {
-        ...data.storyboard,
-        panels: data.panels ?? [],
-      };
+      // API returns the premise directly
+      return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -143,8 +140,12 @@ export function useCreateStory() {
 
   return useMutation({
     mutationFn: async (input: CreateStoryInput) => {
-      const { data, error } = await apiClient.POST("/narrative/stories", {
-        body: input,
+      const { data, error } = await apiClient.POST("/narrative/premises/{premiseId}/stories", {
+        params: { path: { premiseId: input.premiseId } },
+        body: {
+          title: `Story from premise`,
+          structure: input.structure,
+        },
       });
 
       if (error) {

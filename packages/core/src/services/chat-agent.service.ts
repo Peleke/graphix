@@ -294,11 +294,15 @@ export class ChatAgentService {
 
     // Generate response
     let responseText: string;
+    let usedFallback = false;
     try {
       responseText = await this.generateResponse(updatedMemory, content);
     } catch (error) {
       console.error("LLM generation failed, using fallback:", error);
-      responseText = this.getFallbackResponse(nextPhase);
+      usedFallback = true;
+      // Provide a more helpful fallback that indicates the AI isn't working
+      const fallbackBase = this.getFallbackResponse(nextPhase);
+      responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
     }
 
     // Build metadata
@@ -382,11 +386,15 @@ export class ChatAgentService {
     // Generate response (for now, non-streaming then yield)
     // TODO: Implement true streaming when model adapter supports it
     let responseText: string;
+    let usedFallback = false;
     try {
       responseText = await this.generateResponse(updatedMemory, content);
     } catch (error) {
       console.error("LLM generation failed, using fallback:", error);
-      responseText = this.getFallbackResponse(nextPhase);
+      usedFallback = true;
+      // Provide a more helpful fallback that indicates the AI isn't working
+      const fallbackBase = this.getFallbackResponse(nextPhase);
+      responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
     }
 
     // Stream the response character by character (simulated)
@@ -445,6 +453,14 @@ export class ChatAgentService {
   ): Promise<string> {
     const service = getTextGenerationService();
     const systemPrompt = buildSystemPrompt(memory);
+
+    // Log provider info for debugging
+    const status = await service.getStatus();
+    console.log(`[ChatAgent] Using provider: ${status.provider}, model: ${status.model}, available: ${status.available}`);
+    if (!status.available) {
+      console.error(`[ChatAgent] Provider not available: ${status.error}`);
+      throw new Error(`Text generation provider not available: ${status.error}`);
+    }
 
     const result = await service.generate(userMessage, {
       systemPrompt,

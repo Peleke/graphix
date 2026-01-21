@@ -250,12 +250,25 @@ export class TextGenerationService {
    * Resolve configuration from explicit config, environment variables, and defaults.
    */
   private resolveConfig(explicitConfig?: Partial<TextGenerationConfig>): TextGenerationConfig {
-    // Determine provider: explicit > env > auto-detect
-    let provider: TextProvider = explicitConfig?.provider ?? "ollama";
+    // Determine provider: explicit > env > auto-detect based on available keys
+    let provider: TextProvider;
 
-    const envProvider = process.env.TEXT_PROVIDER as TextProvider | undefined;
-    if (!explicitConfig?.provider && envProvider) {
-      provider = envProvider;
+    if (explicitConfig?.provider) {
+      provider = explicitConfig.provider;
+    } else {
+      const envProvider = process.env.TEXT_PROVIDER as TextProvider | undefined;
+      if (envProvider) {
+        provider = envProvider;
+      } else {
+        // Auto-detect: prefer Claude if API key is available, else try Ollama
+        if (process.env.ANTHROPIC_API_KEY) {
+          provider = "claude";
+        } else if (process.env.OPENAI_API_KEY) {
+          provider = "openai";
+        } else {
+          provider = "ollama";
+        }
+      }
     }
 
     return {
