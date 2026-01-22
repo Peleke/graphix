@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getGeneratedImageService } from "@graphix/core";
+import { getGeneratedImageService, getStorageProvider } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import {
   validateBody,
@@ -286,7 +286,7 @@ generationRoutes.delete(
 );
 
 // Serve image file by generation ID
-// This endpoint serves the actual image file for local development
+// Uses storage provider abstraction (local, Supabase, S3, etc.)
 generationRoutes.get("/:id/image", validateId(), async (c) => {
   const service = getGeneratedImageService();
   const { id } = c.req.valid("param");
@@ -296,39 +296,26 @@ generationRoutes.get("/:id/image", validateId(), async (c) => {
     return c.json({ error: "Generation not found" }, 404);
   }
 
-  // In production, redirect to cloudUrl if available
+  // If we have a cloud URL, redirect to it
   if (generation.cloudUrl) {
     return c.redirect(generation.cloudUrl, 302);
   }
 
-  // For local dev, serve the file
-  const { readFile } = await import("fs/promises");
-  const { extname, normalize, resolve } = await import("path");
-  const { config } = await import("@graphix/core");
-
-  // SECURITY: Validate path is within allowed output directory
-  const outputDir = resolve(config.outputDir);
-  const normalizedPath = resolve(generation.localPath);
-  if (!normalizedPath.startsWith(outputDir)) {
-    console.error(`Path traversal attempt blocked: ${generation.localPath}`);
-    return c.json({ error: "Invalid file path" }, 403);
-  }
-
+  // Use storage provider to read the file
   try {
-    const fileBuffer = await readFile(normalizedPath);
-    const ext = extname(normalizedPath).toLowerCase();
-    const contentType = ext === ".png" ? "image/png" : 
-                       ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
-                       ext === ".webp" ? "image/webp" : "application/octet-stream";
+    const storage = getStorageProvider();
+    const fileBuffer = await storage.read(generation.localPath);
+    const contentType = storage.getContentType(generation.localPath);
 
     return new Response(fileBuffer, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000", // Cache for 1 year (immutable images)
+        "Cache-Control": "public, max-age=31536000",
       },
     });
   } catch (err) {
-    return c.json({ error: "Failed to read image file" }, 500);
+    console.error(`Failed to read image: ${generation.localPath}`, err);
+    return c.json({ error: "Failed to read image file" }, 404);
   }
 });
 
@@ -344,30 +331,17 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
 
   // Use thumbnail if available, otherwise fall back to main image
   const imagePath = generation.thumbnailPath || generation.localPath;
-  
-  // In production, could redirect to a thumbnail CDN URL
+
+  // If we have a cloud URL and no thumbnail, redirect
   if (generation.cloudUrl && !generation.thumbnailPath) {
     return c.redirect(generation.cloudUrl, 302);
   }
 
-  const { readFile } = await import("fs/promises");
-  const { extname, resolve } = await import("path");
-  const { config } = await import("@graphix/core");
-
-  // SECURITY: Validate path is within allowed output directory
-  const outputDir = resolve(config.outputDir);
-  const normalizedPath = resolve(imagePath);
-  if (!normalizedPath.startsWith(outputDir)) {
-    console.error(`Path traversal attempt blocked: ${imagePath}`);
-    return c.json({ error: "Invalid file path" }, 403);
-  }
-
+  // Use storage provider to read the file
   try {
-    const fileBuffer = await readFile(normalizedPath);
-    const ext = extname(normalizedPath).toLowerCase();
-    const contentType = ext === ".png" ? "image/png" : 
-                       ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : 
-                       ext === ".webp" ? "image/webp" : "application/octet-stream";
+    const storage = getStorageProvider();
+    const fileBuffer = await storage.read(imagePath);
+    const contentType = storage.getContentType(imagePath);
 
     return new Response(fileBuffer, {
       headers: {
@@ -376,7 +350,8 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
       },
     });
   } catch (err) {
-    return c.json({ error: "Failed to read thumbnail file" }, 500);
+    console.error(`Failed to read thumbnail: ${imagePath}`, err);
+    return c.json({ error: "Failed to read thumbnail file" }, 404);
   }
 });
 

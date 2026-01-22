@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { getStoryboardService, getPanelService } from "@graphix/core";
+import { getStoryboardService, getPanelService, getGeneratedImageService } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import {
   validateBody,

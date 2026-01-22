@@ -52,3 +52,6 @@ export * from "./agents/index.js";
 
 // RAG (Vector store, embeddings)
 export * from "./rag/index.js";
+
+// Storage (Local, Supabase, GCP, S3)
+export * from "./storage/index.js";

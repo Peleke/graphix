@@ -119,6 +119,7 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
         
         .view-content {
           flex: 1;
+          min-height: 0;
           display: flex;
           overflow: hidden;
         }
@@ -132,6 +133,7 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
         
         .storyboard-main {
           flex: 1;
+          min-height: 0;
           padding: 1.5rem;
           overflow-y: auto;
         }
@@ -353,9 +355,9 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
                         }}
                       >
                         <div className="panel-thumb">
-                          {panel.selectedGeneration?.thumbnailPath ? (
-                            <img 
-                              src={panel.selectedGeneration.thumbnailPath} 
+                          {panel.selectedGeneration ? (
+                            <img
+                              src={panel.selectedGeneration.cloudUrl || `${import.meta.env.VITE_API_URL || ''}/api/generations/${panel.selectedGeneration.id}/image`}
                               alt={panel.name || "Panel"}
                               style={{ width: "100%", height: "100%", objectFit: "cover" }}
                             />
