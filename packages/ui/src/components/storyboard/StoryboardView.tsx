@@ -323,7 +323,7 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
               >
                 <div className="storyboard-name">{sb.name}</div>
                 <div className="storyboard-meta">
-                  {sb.panelCount || 0} panels
+                  {sb.panels?.length ?? sb.panelCount ?? "–"} panels
                 </div>
               </div>
             ))
@@ -368,7 +368,7 @@ export function StoryboardView({ projectId, onPanelSelect, onStoryboardSelect }:
                         <div className="panel-info">
                           <div className="panel-name">{panel.name || `Panel ${panel.position}`}</div>
                           <div className="panel-meta">
-                            {panel.generationCount || 0} generations
+                            {panel.selectedGeneration ? "1 generation" : "No generations"}
                           </div>
                         </div>
                       </div>
