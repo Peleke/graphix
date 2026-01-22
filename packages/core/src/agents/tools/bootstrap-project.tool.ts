@@ -117,7 +117,7 @@ export const bootstrapProjectTool = createTool({
       // Build character profile (arrays for all descriptor fields)
       const profile = {
         species: char.visualTraits?.species ?? "unknown",
-        bodyType: "standard",
+        bodyType: "average",
         features: char.description ? [char.description] : [],
         ageDescriptors: [],
         clothing: [],
