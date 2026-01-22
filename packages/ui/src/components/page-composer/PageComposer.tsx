@@ -326,17 +326,41 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
         }
 
         .panel-slot .slot-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
           font-size: 0.75rem;
           color: #d4d4d8;
           text-align: center;
-          padding: 0.25rem;
+          padding: 0.5rem;
+          gap: 0.25rem;
+        }
+
+        .panel-slot .slot-placeholder svg {
+          opacity: 0.5;
         }
 
         .panel-slot img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          border-radius: 6px;
+        }
+
+        .panel-slot.has-image {
+          border-style: solid;
+          border-color: #10b981;
+        }
+
+        .panel-slot.awaiting-assignment {
+          animation: pulse-border 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-border {
+          0%, 100% { border-color: #8b5cf6; }
+          50% { border-color: #c4b5fd; }
         }
         
         .section {
@@ -575,39 +599,78 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
           {/* Panel List */}
           {storyboard && storyboard.panels && (
             <div className="section">
-              <div className="section-title">Panels</div>
+              <div className="section-title">Panels {activeSlotId && <span style={{ color: "#8b5cf6", fontWeight: "normal" }}>(click to assign)</span>}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {storyboard.panels.map((panel: any) => (
-                  <div
-                    key={panel.id}
-                    onClick={() => {
-                      setSelectedPanelId(panel.id);
-                      if (activeSlotId) {
-                        assignPanelToSlot(panel.id, activeSlotId);
-                      }
-                    }}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData("panelId", panel.id);
-                    }}
-                    data-testid="panel-list-item"
-                    data-selected={selectedPanelId === panel.id}
-                    style={{
-                      padding: "0.75rem",
-                      background: selectedPanelId === panel.id ? "#8b5cf6" : "#27272a",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                      {panel.name || `Panel ${panel.position}`}
+                {storyboard.panels.map((panel: any) => {
+                  const panelImageUrl = panel.selectedGeneration?.id
+                    ? `/api/generations/${panel.selectedGeneration.id}/image`
+                    : null;
+                  const isAssigned = Object.values(slotAssignments).includes(panel.id);
+                  return (
+                    <div
+                      key={panel.id}
+                      onClick={() => {
+                        setSelectedPanelId(panel.id);
+                        if (activeSlotId) {
+                          assignPanelToSlot(panel.id, activeSlotId);
+                        }
+                      }}
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData("panelId", panel.id);
+                      }}
+                      data-testid="panel-list-item"
+                      data-selected={selectedPanelId === panel.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.5rem",
+                        background: selectedPanelId === panel.id ? "#8b5cf6" : "#27272a",
+                        border: isAssigned ? "2px solid #10b981" : "2px solid transparent",
+                        borderRadius: "8px",
+                        cursor: activeSlotId ? "pointer" : "grab",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {/* Thumbnail preview */}
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          borderRadius: "6px",
+                          background: "#3f3f46",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {panelImageUrl ? (
+                          <img
+                            src={panelImageUrl}
+                            alt={panel.name || `Panel ${panel.position}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="#71717a">
+                            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.875rem", color: selectedPanelId === panel.id ? "#fff" : "#fafafa" }}>
+                          {panel.name || `Panel ${panel.position}`}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: selectedPanelId === panel.id ? "rgba(255,255,255,0.7)" : "#71717a", marginTop: "0.125rem" }}>
+                          {panel.selectedGeneration ? "✓ Has image" : "No image"}
+                          {isAssigned && " • Assigned"}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "#71717a", marginTop: "0.25rem" }}>
-                      {panel.selectedGeneration ? "✓ Has image" : "No image"}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -640,14 +703,21 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
                 {selectedTemplate.slots?.map((slot: any) => {
                   const assignedPanelId = slotAssignments[slot.id];
                   const panel = getPanelById(assignedPanelId);
-                  const imageUrl =
-                    panel?.selectedGeneration?.thumbnailPath ??
-                    panel?.selectedGeneration?.localPath ??
-                    null;
+                  // Use API endpoint to serve images instead of filesystem paths
+                  const imageUrl = panel?.selectedGeneration?.id
+                    ? `/api/generations/${panel.selectedGeneration.id}/image`
+                    : null;
+                  const slotClasses = [
+                    "panel-slot",
+                    activeSlotId === slot.id ? "selected" : "",
+                    imageUrl ? "has-image" : "",
+                    activeSlotId === slot.id && !assignedPanelId ? "awaiting-assignment" : "",
+                  ].filter(Boolean).join(" ");
+
                   return (
                     <div
                       key={slot.id}
-                      className={`panel-slot ${activeSlotId === slot.id ? "selected" : ""}`}
+                      className={slotClasses}
                       data-testid="panel-slot"
                       data-selected={activeSlotId === slot.id}
                       style={{
@@ -680,7 +750,10 @@ export function PageComposer({ storyboardId, projectId }: PageComposerProps) {
                         <img src={imageUrl} alt={`Slot ${slot.id}`} />
                       ) : (
                         <div className="slot-placeholder" data-testid="slot-placeholder">
-                          {assignedPanelId ? "No image" : "Empty slot"}
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="#71717a">
+                            <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm16 14V6H4v12h16zM6 17l5-5 2 2 4-5 5 6H6z"/>
+                          </svg>
+                          <span>{assignedPanelId ? "Panel assigned (no image)" : "Click to assign panel"}</span>
                         </div>
                       )}
                     </div>

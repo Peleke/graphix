@@ -387,7 +387,40 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
     const pathIds = path.map(n => n.id);
     return pathIds.includes(sourceId) && pathIds.includes(targetId);
   }, [tree, actions, panelId]);
-  
+
+  // Zoom controls - must be defined before any early returns to maintain hooks order
+  const handleZoomIn = useCallback(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.transition().duration(300).call(
+      d3.zoom<SVGSVGElement, unknown>().scaleBy as any,
+      1.3
+    );
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.transition().duration(300).call(
+      d3.zoom<SVGSVGElement, unknown>().scaleBy as any,
+      0.7
+    );
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    const g = svg.select<SVGGElement>('.tree-container');
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 3])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform.toString());
+      });
+    const initialTransform = d3.zoomIdentity.translate(width / 2, 50).scale(0.8);
+    svg.transition().duration(500).call(zoom.transform, initialTransform);
+  }, [width]);
+
+  // Early return for empty state - AFTER all hooks
   if (!tree || !tree.rootId || nodes.length === 0) {
     return (
       <div className={className} style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -400,15 +433,107 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
       </div>
     );
   }
-  
+
   return (
-    <svg
-      ref={svgRef}
-      width={width}
-      height={height}
-      className={className}
-      style={{ background: '#0f172a', borderRadius: 8 }}
-    >
+    <div style={{ position: 'relative', width, height }}>
+      {/* Zoom Controls */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        background: 'rgba(15, 23, 42, 0.9)',
+        borderRadius: 8,
+        padding: 4,
+        border: '1px solid #374151',
+      }}>
+        <button
+          onClick={handleZoomIn}
+          title="Zoom In"
+          style={{
+            width: 32,
+            height: 32,
+            border: 'none',
+            borderRadius: 6,
+            background: '#1f2937',
+            color: '#9ca3af',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+            fontWeight: 'bold',
+          }}
+        >
+          +
+        </button>
+        <button
+          onClick={handleZoomOut}
+          title="Zoom Out"
+          style={{
+            width: 32,
+            height: 32,
+            border: 'none',
+            borderRadius: 6,
+            background: '#1f2937',
+            color: '#9ca3af',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+            fontWeight: 'bold',
+          }}
+        >
+          −
+        </button>
+        <button
+          onClick={handleZoomReset}
+          title="Reset View"
+          style={{
+            width: 32,
+            height: 32,
+            border: 'none',
+            borderRadius: 6,
+            background: '#1f2937',
+            color: '#9ca3af',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 12,
+          }}
+        >
+          ⟲
+        </button>
+      </div>
+
+      {/* Instructions */}
+      <div style={{
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 10,
+        background: 'rgba(15, 23, 42, 0.9)',
+        borderRadius: 8,
+        padding: '6px 10px',
+        border: '1px solid #374151',
+        fontSize: 11,
+        color: '#6b7280',
+      }}>
+        Drag to pan • Scroll to zoom
+      </div>
+
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className={className}
+        style={{ background: '#0f172a', borderRadius: 8, cursor: 'grab' }}
+      >
       {/* Gradient definitions */}
       <defs>
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
@@ -494,6 +619,7 @@ export const GenerationTreeVisualization: React.FC<GenerationTreeVisualizationPr
         </text>
       </g>
     </svg>
+    </div>
   );
 };
 
