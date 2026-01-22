@@ -229,6 +229,11 @@ export function getNextPhase(memory: ChatWorkingMemory): ElicitationPhase {
   // Check what we have and might skip
   const nextPhase = phases[currentIndex + 1];
 
+  // Special case: only advance from confirmation to complete if user confirmed
+  if (phase === "confirmation" && nextPhase === "complete") {
+    return gathered.confirmed === true ? "complete" : "confirmation";
+  }
+
   // Skip phases that already have data or were explicitly skipped
   if (shouldSkipPhase(nextPhase, gathered, skipped)) {
     // Recursively find next non-skipped phase
@@ -340,6 +345,9 @@ export function getSuggestionsForPhase(
       return ["Short (1-10 pages)", "Medium (11-30 pages)", "Long (31+ pages)"];
     case "confirmation":
       return ["Create Project", "Make changes", "Start over"];
+    case "complete":
+      // User confirmed - show Create Project button to actually create it
+      return ["Create Project"];
     default:
       return [];
   }

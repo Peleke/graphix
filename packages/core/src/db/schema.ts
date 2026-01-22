@@ -1147,6 +1147,7 @@ export type ChatWorkingMemory = {
     arc?: string;
     style?: string;
     pageCount?: number;
+    confirmed?: boolean;
   };
   skipped: string[];
 };
