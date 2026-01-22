@@ -147,7 +147,7 @@ export class ProjectBootstrapService {
     for (const char of input.characters) {
       const profile = {
         species: char.visualTraits?.species ?? "unknown",
-        bodyType: "standard",
+        bodyType: "average",
         features: char.description ? [char.description] : [],
         ageDescriptors: [],
         clothing: [],

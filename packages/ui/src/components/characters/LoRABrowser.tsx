@@ -1,16 +1,13 @@
 /**
  * LoRABrowser Component
- * 
+ *
  * Browse and select LoRAs to associate with a character.
  * Displays LoRAs grouped by category with search and filtering.
- * 
- * ARRR! Choose yer style, ye scurvy dog! 🎭🏴‍☠️
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { css } from '../../../styled-system/css';
-import { LoraConfig } from './types';
-import { LORA_CATALOG, getLora, listLorasByCategory, type LoraEntry } from '@graphix/core/generation/models';
+import type { LoraConfig } from './types';
+import { LORA_CATALOG, getLora, type LoraEntry } from '@graphix/core/generation/models';
 
 // ============================================================================
 // Types
@@ -39,79 +36,328 @@ export interface LoRACardProps {
 type LoraCategory = 'all' | 'style' | 'character' | 'concept' | 'effect';
 
 // ============================================================================
+// Styles
+// ============================================================================
+
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  } as React.CSSProperties,
+
+  selectedDisplay: {
+    padding: '16px',
+    backgroundColor: '#262637',
+    borderRadius: '12px',
+    border: '1px solid #8b5cf6',
+  } as React.CSSProperties,
+
+  selectedHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '12px',
+  } as React.CSSProperties,
+
+  selectedTitle: {
+    margin: 0,
+    color: '#cdd6f4',
+    fontSize: '15px',
+    fontWeight: 600,
+  } as React.CSSProperties,
+
+  removeButton: {
+    padding: '6px 12px',
+    backgroundColor: 'rgba(243, 139, 168, 0.15)',
+    border: '1px solid rgba(243, 139, 168, 0.3)',
+    borderRadius: '6px',
+    color: '#f38ba8',
+    fontSize: '12px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  } as React.CSSProperties,
+
+  removeButtonHover: {
+    backgroundColor: 'rgba(243, 139, 168, 0.25)',
+    borderColor: '#f38ba8',
+  } as React.CSSProperties,
+
+  strengthLabel: {
+    display: 'block',
+    color: '#a6adc8',
+    fontSize: '13px',
+    marginBottom: '8px',
+  } as React.CSSProperties,
+
+  strengthSlider: {
+    width: '100%',
+    height: '6px',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    accentColor: '#8b5cf6',
+  } as React.CSSProperties,
+
+  triggerSection: {
+    marginTop: '12px',
+  } as React.CSSProperties,
+
+  triggerLabel: {
+    color: '#6c7086',
+    fontSize: '12px',
+    marginBottom: '6px',
+  } as React.CSSProperties,
+
+  triggerContainer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+  } as React.CSSProperties,
+
+  triggerWord: {
+    padding: '3px 8px',
+    backgroundColor: '#313244',
+    borderRadius: '4px',
+    color: '#cdd6f4',
+    fontSize: '11px',
+    fontFamily: 'monospace',
+  } as React.CSSProperties,
+
+  filterRow: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+  } as React.CSSProperties,
+
+  searchInput: {
+    flex: 1,
+    minWidth: '180px',
+    padding: '10px 14px',
+    backgroundColor: '#1e1e2e',
+    border: '1px solid #313244',
+    borderRadius: '8px',
+    color: '#cdd6f4',
+    fontSize: '13px',
+    outline: 'none',
+    transition: 'border-color 0.15s ease',
+  } as React.CSSProperties,
+
+  searchInputFocus: {
+    borderColor: '#8b5cf6',
+  } as React.CSSProperties,
+
+  categoryTabs: {
+    display: 'flex',
+    gap: '4px',
+    flexWrap: 'wrap',
+  } as React.CSSProperties,
+
+  categoryTab: {
+    padding: '8px 12px',
+    backgroundColor: 'transparent',
+    border: '1px solid #313244',
+    borderRadius: '6px',
+    color: '#6c7086',
+    fontSize: '12px',
+    fontWeight: 500,
+    textTransform: 'capitalize',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  } as React.CSSProperties,
+
+  categoryTabActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+    color: '#fff',
+  } as React.CSSProperties,
+
+  categoryTabHover: {
+    color: '#cdd6f4',
+    borderColor: '#8b5cf6',
+  } as React.CSSProperties,
+
+  categorySection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  } as React.CSSProperties,
+
+  categoryHeader: {
+    color: '#a6adc8',
+    fontSize: '13px',
+    fontWeight: 500,
+    textTransform: 'capitalize',
+    margin: 0,
+    paddingBottom: '8px',
+    borderBottom: '1px solid #313244',
+  } as React.CSSProperties,
+
+  loraGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+    gap: '12px',
+  } as React.CSSProperties,
+
+  loraCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '12px',
+    backgroundColor: '#1e1e2e',
+    border: '1px solid #313244',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'all 0.2s ease',
+  } as React.CSSProperties,
+
+  loraCardHover: {
+    backgroundColor: '#262637',
+    borderColor: '#45475a',
+    transform: 'translateY(-2px)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+  } as React.CSSProperties,
+
+  loraCardSelected: {
+    backgroundColor: '#2d2b55',
+    borderColor: '#8b5cf6',
+    boxShadow: '0 0 0 1px rgba(139, 92, 246, 0.3)',
+  } as React.CSSProperties,
+
+  loraPreview: {
+    width: '100%',
+    aspectRatio: '1',
+    borderRadius: '6px',
+    overflow: 'hidden',
+    marginBottom: '10px',
+    backgroundColor: '#313244',
+  } as React.CSSProperties,
+
+  loraPreviewImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  } as React.CSSProperties,
+
+  loraName: {
+    margin: 0,
+    color: '#cdd6f4',
+    fontSize: '13px',
+    fontWeight: 600,
+    marginBottom: '6px',
+  } as React.CSSProperties,
+
+  loraBadge: {
+    display: 'inline-block',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    color: '#fff',
+    fontSize: '10px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    marginBottom: '6px',
+  } as React.CSSProperties,
+
+  loraDescription: {
+    margin: 0,
+    color: '#6c7086',
+    fontSize: '11px',
+    lineHeight: 1.4,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+  } as React.CSSProperties,
+
+  loraStrength: {
+    margin: '6px 0 0 0',
+    color: '#45475a',
+    fontSize: '10px',
+  } as React.CSSProperties,
+
+  emptyState: {
+    textAlign: 'center',
+    padding: '40px 20px',
+    color: '#6c7086',
+  } as React.CSSProperties,
+
+  emptyText: {
+    margin: 0,
+    fontSize: '14px',
+  } as React.CSSProperties,
+
+  clearButton: {
+    marginTop: '12px',
+    padding: '10px 20px',
+    backgroundColor: '#8b5cf6',
+    border: 'none',
+    borderRadius: '8px',
+    color: '#fff',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  } as React.CSSProperties,
+};
+
+const categoryColors: Record<string, string> = {
+  style: '#8b5cf6',
+  character: '#a6e3a1',
+  concept: '#fab387',
+  effect: '#f38ba8',
+};
+
+function getCategoryColor(category: string): string {
+  return categoryColors[category] || '#8b5cf6';
+}
+
+// ============================================================================
 // LoRACard Component
 // ============================================================================
 
 export function LoRACard({ lora, isSelected, onClick }: LoRACardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const cardStyle: React.CSSProperties = {
+    ...styles.loraCard,
+    ...(isHovered && !isSelected ? styles.loraCardHover : {}),
+    ...(isSelected ? styles.loraCardSelected : {}),
+  };
+
+  const defaultStrength = lora.defaultStrength ?? 0.8;
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={css({
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '12px',
-        backgroundColor: isSelected ? '#3730a3' : '#1a1a2e',
-        border: isSelected ? '2px solid #6366f1' : '1px solid #333',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'all 0.2s ease',
-        _hover: { backgroundColor: isSelected ? '#4338ca' : '#2a2a4a' },
-      })}
+      style={cardStyle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       aria-pressed={isSelected}
       data-testid="lora-card"
       data-lora-id={lora.filename}
     >
-      {/* Preview (if available) */}
+      {/* Preview */}
       {lora.previewUrl && (
-        <div
-          className={css({
-            width: '100%',
-            aspectRatio: '1',
-            borderRadius: '4px',
-            overflow: 'hidden',
-            marginBottom: '8px',
-            backgroundColor: '#0f0f1a',
-          })}
-        >
+        <div style={styles.loraPreview}>
           <img
             src={lora.previewUrl}
             alt={`${lora.name} preview`}
-            className={css({
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            })}
+            style={styles.loraPreviewImg}
           />
         </div>
       )}
 
       {/* Name */}
-      <h4
-        className={css({
-          margin: 0,
-          color: '#fff',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          marginBottom: '4px',
-        })}
-      >
-        {lora.name}
-      </h4>
+      <h4 style={styles.loraName}>{lora.name}</h4>
 
       {/* Category Badge */}
       <span
-        className={css({
-          display: 'inline-block',
-          padding: '2px 6px',
+        style={{
+          ...styles.loraBadge,
           backgroundColor: getCategoryColor(lora.category),
-          borderRadius: '4px',
-          color: '#fff',
-          fontSize: '0.65rem',
-          textTransform: 'uppercase',
-          marginBottom: '4px',
-        })}
+        }}
         data-testid="lora-category-badge"
       >
         {lora.category}
@@ -119,45 +365,15 @@ export function LoRACard({ lora, isSelected, onClick }: LoRACardProps) {
 
       {/* Description */}
       {lora.description && (
-        <p
-          className={css({
-            margin: 0,
-            color: '#888',
-            fontSize: '0.75rem',
-            lineHeight: 1.4,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-          })}
-        >
-          {lora.description}
-        </p>
+        <p style={styles.loraDescription}>{lora.description}</p>
       )}
 
       {/* Default Strength */}
-      <p
-        className={css({
-          margin: '4px 0 0 0',
-          color: '#666',
-          fontSize: '0.7rem',
-        })}
-      >
-        Default: {(lora.defaultStrength * 100).toFixed(0)}%
+      <p style={styles.loraStrength}>
+        Default: {(defaultStrength * 100).toFixed(0)}%
       </p>
     </button>
   );
-}
-
-function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    style: '#8b5cf6',
-    character: '#10b981',
-    concept: '#f59e0b',
-    effect: '#ef4444',
-  };
-  return colors[category] || '#6366f1';
 }
 
 // ============================================================================
@@ -173,6 +389,9 @@ export function LoRABrowser({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<LoraCategory>('all');
   const [localStrength, setLocalStrength] = useState(selectedLora?.strength ?? 0.8);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [hoveredTab, setHoveredTab] = useState<string | null>(null);
+  const [removeHovered, setRemoveHovered] = useState(false);
 
   // Get all LoRAs as array
   const allLoras = useMemo(() => Object.values(LORA_CATALOG), []);
@@ -181,12 +400,10 @@ export function LoRABrowser({
   const filteredLoras = useMemo(() => {
     let result = allLoras;
 
-    // Filter by category
     if (categoryFilter !== 'all') {
       result = result.filter((lora) => lora.category === categoryFilter);
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -207,12 +424,15 @@ export function LoRABrowser({
       return { [categoryFilter]: filteredLoras };
     }
 
-    return filteredLoras.reduce((acc, lora) => {
-      const cat = lora.category;
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(lora);
-      return acc;
-    }, {} as Record<string, LoraEntry[]>);
+    return filteredLoras.reduce(
+      (acc, lora) => {
+        const cat = lora.category;
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(lora);
+        return acc;
+      },
+      {} as Record<string, LoraEntry[]>
+    );
   }, [filteredLoras, categoryFilter]);
 
   // Get selected LoRA details
@@ -222,28 +442,34 @@ export function LoRABrowser({
     return filename ? getLora(filename) ?? null : null;
   }, [selectedLora]);
 
-  // ============================================================================
   // Handlers
-  // ============================================================================
+  const handleSelectLora = useCallback(
+    (lora: LoraEntry) => {
+      const strength = lora.defaultStrength ?? 0.8;
+      setLocalStrength(strength);
+      onSelect(lora.filename, strength);
+    },
+    [onSelect]
+  );
 
-  const handleSelectLora = useCallback((lora: LoraEntry) => {
-    const strength = lora.defaultStrength;
-    setLocalStrength(strength);
-    onSelect(lora.filename, strength);
-  }, [onSelect]);
-
-  const handleStrengthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setLocalStrength(value);
-  }, []);
+  const handleStrengthChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = parseFloat(e.target.value);
+      setLocalStrength(value);
+    },
+    []
+  );
 
   const handleStrengthCommit = useCallback(() => {
     onStrengthChange(localStrength);
   }, [localStrength, onStrengthChange]);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchQuery(e.target.value);
+    },
+    []
+  );
 
   const handleCategoryChange = useCallback((category: LoraCategory) => {
     setCategoryFilter(category);
@@ -256,46 +482,20 @@ export function LoRABrowser({
     }
   }, [selectedLora]);
 
-  // ============================================================================
-  // Render
-  // ============================================================================
-
   return (
-    <div
-      className={css({
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-      })}
-      data-testid="lora-browser"
-    >
+    <div style={styles.container} data-testid="lora-browser">
       {/* Selected LoRA Display */}
       {selectedLora && selectedLoraDetails && (
-        <div
-          className={css({
-            padding: '16px',
-            backgroundColor: '#2a2a4a',
-            borderRadius: '8px',
-            border: '1px solid #6366f1',
-          })}
-          data-testid="selected-lora-display"
-        >
-          <div className={css({ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' })}>
+        <div style={styles.selectedDisplay} data-testid="selected-lora-display">
+          <div style={styles.selectedHeader}>
             <div>
-              <h4 className={css({ margin: 0, color: '#fff', fontSize: '1rem' })}>
-                {selectedLoraDetails.name}
-              </h4>
+              <h4 style={styles.selectedTitle}>{selectedLoraDetails.name}</h4>
               <span
-                className={css({
-                  display: 'inline-block',
-                  padding: '2px 6px',
+                style={{
+                  ...styles.loraBadge,
                   backgroundColor: getCategoryColor(selectedLoraDetails.category),
-                  borderRadius: '4px',
-                  color: '#fff',
-                  fontSize: '0.65rem',
-                  textTransform: 'uppercase',
-                  marginTop: '4px',
-                })}
+                  marginTop: '6px',
+                }}
               >
                 {selectedLoraDetails.category}
               </span>
@@ -303,16 +503,12 @@ export function LoRABrowser({
             <button
               type="button"
               onClick={onRemove}
-              className={css({
-                padding: '6px 12px',
-                backgroundColor: '#ef4444',
-                border: 'none',
-                borderRadius: '4px',
-                color: '#fff',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                _hover: { backgroundColor: '#dc2626' },
-              })}
+              style={{
+                ...styles.removeButton,
+                ...(removeHovered ? styles.removeButtonHover : {}),
+              }}
+              onMouseEnter={() => setRemoveHovered(true)}
+              onMouseLeave={() => setRemoveHovered(false)}
               data-testid="remove-lora-button"
             >
               Remove
@@ -321,10 +517,7 @@ export function LoRABrowser({
 
           {/* Strength Slider */}
           <div>
-            <label
-              htmlFor="lora-strength"
-              className={css({ display: 'block', color: '#888', fontSize: '0.875rem', marginBottom: '8px' })}
-            >
+            <label htmlFor="lora-strength" style={styles.strengthLabel}>
               Strength: {(localStrength * 100).toFixed(0)}%
             </label>
             <input
@@ -337,117 +530,91 @@ export function LoRABrowser({
               onChange={handleStrengthChange}
               onMouseUp={handleStrengthCommit}
               onTouchEnd={handleStrengthCommit}
-              className={css({
-                width: '100%',
-                cursor: 'pointer',
-              })}
+              style={styles.strengthSlider}
               data-testid="lora-strength-slider"
             />
           </div>
 
           {/* Trigger Words */}
-          {selectedLoraDetails.triggerWords && selectedLoraDetails.triggerWords.length > 0 && (
-            <div className={css({ marginTop: '12px' })}>
-              <p className={css({ color: '#888', fontSize: '0.75rem', marginBottom: '4px' })}>
-                Trigger words:
-              </p>
-              <div className={css({ display: 'flex', flexWrap: 'wrap', gap: '4px' })}>
-                {selectedLoraDetails.triggerWords.map((word, index) => (
-                  <span
-                    key={index}
-                    className={css({
-                      padding: '2px 8px',
-                      backgroundColor: '#1a1a2e',
-                      borderRadius: '4px',
-                      color: '#fff',
-                      fontSize: '0.75rem',
-                      fontFamily: 'monospace',
-                    })}
-                  >
-                    {word}
-                  </span>
-                ))}
+          {selectedLoraDetails.triggerWords &&
+            selectedLoraDetails.triggerWords.length > 0 && (
+              <div style={styles.triggerSection}>
+                <p style={styles.triggerLabel}>Trigger words:</p>
+                <div style={styles.triggerContainer}>
+                  {selectedLoraDetails.triggerWords.map((word, index) => (
+                    <span key={index} style={styles.triggerWord}>
+                      {word}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
 
       {/* Search & Filter */}
-      <div className={css({ display: 'flex', gap: '8px', flexWrap: 'wrap' })}>
+      <div style={styles.filterRow}>
         <input
           type="search"
           placeholder="Search LoRAs..."
           value={searchQuery}
           onChange={handleSearchChange}
-          className={css({
-            flex: 1,
-            minWidth: '200px',
-            padding: '10px 12px',
-            backgroundColor: '#0f0f1a',
-            border: '1px solid #333',
-            borderRadius: '8px',
-            color: '#fff',
-            fontSize: '0.875rem',
-            _focus: { outline: 'none', borderColor: '#6366f1' },
-          })}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          style={{
+            ...styles.searchInput,
+            ...(searchFocused ? styles.searchInputFocus : {}),
+          }}
           aria-label="Search LoRAs"
           data-testid="lora-search-input"
         />
-        
-        <div className={css({ display: 'flex', gap: '4px' })} role="tablist" aria-label="Filter by category">
-          {(['all', 'style', 'character', 'concept', 'effect'] as LoraCategory[]).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              role="tab"
-              aria-selected={categoryFilter === cat}
-              onClick={() => handleCategoryChange(cat)}
-              className={css({
-                padding: '8px 12px',
-                backgroundColor: categoryFilter === cat ? '#4f46e5' : 'transparent',
-                border: '1px solid',
-                borderColor: categoryFilter === cat ? '#4f46e5' : '#333',
-                borderRadius: '4px',
-                color: categoryFilter === cat ? '#fff' : '#888',
-                fontSize: '0.75rem',
-                textTransform: 'capitalize',
-                cursor: 'pointer',
-                _hover: { color: '#fff', borderColor: '#6366f1' },
-              })}
-              data-testid={`category-filter-${cat}`}
-            >
-              {cat}
-            </button>
-          ))}
+
+        <div
+          style={styles.categoryTabs}
+          role="tablist"
+          aria-label="Filter by category"
+        >
+          {(['all', 'style', 'character', 'concept', 'effect'] as LoraCategory[]).map(
+            (cat) => {
+              const isActive = categoryFilter === cat;
+              const isHovered = hoveredTab === cat;
+
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => handleCategoryChange(cat)}
+                  onMouseEnter={() => setHoveredTab(cat)}
+                  onMouseLeave={() => setHoveredTab(null)}
+                  style={{
+                    ...styles.categoryTab,
+                    ...(isActive ? styles.categoryTabActive : {}),
+                    ...(isHovered && !isActive ? styles.categoryTabHover : {}),
+                  }}
+                  data-testid={`category-filter-${cat}`}
+                >
+                  {cat}
+                </button>
+              );
+            }
+          )}
         </div>
       </div>
 
       {/* LoRA Grid */}
       {filteredLoras.length > 0 ? (
-        <div className={css({ display: 'flex', flexDirection: 'column', gap: '16px' })}>
+        <div style={styles.categorySection}>
           {Object.entries(groupedLoras).map(([category, loras]) => (
             <div key={category} data-testid={`lora-category-${category}`}>
               {categoryFilter === 'all' && (
-                <h3
-                  className={css({
-                    color: '#888',
-                    fontSize: '0.875rem',
-                    textTransform: 'capitalize',
-                    marginBottom: '8px',
-                    borderBottom: '1px solid #333',
-                    paddingBottom: '4px',
-                  })}
-                >
+                <h3 style={styles.categoryHeader}>
                   {category} ({loras.length})
                 </h3>
               )}
               <div
-                className={css({
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                  gap: '12px',
-                })}
+                style={styles.loraGrid}
                 role="list"
                 aria-label={`${category} LoRAs`}
               >
@@ -465,28 +632,13 @@ export function LoRABrowser({
           ))}
         </div>
       ) : (
-        <div
-          className={css({
-            textAlign: 'center',
-            padding: '32px',
-            color: '#666',
-          })}
-          data-testid="no-loras-found"
-        >
-          <p>No LoRAs found matching your search.</p>
+        <div style={styles.emptyState} data-testid="no-loras-found">
+          <p style={styles.emptyText}>No LoRAs found matching your search.</p>
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className={css({
-                marginTop: '8px',
-                padding: '8px 16px',
-                backgroundColor: '#4f46e5',
-                border: 'none',
-                borderRadius: '4px',
-                color: '#fff',
-                cursor: 'pointer',
-              })}
+              style={styles.clearButton}
             >
               Clear search
             </button>

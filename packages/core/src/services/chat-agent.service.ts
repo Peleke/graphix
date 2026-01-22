@@ -293,16 +293,23 @@ export class ChatAgentService {
     updatedMemory.phase = nextPhase;
 
     // Generate response
+    // Use canned response when transitioning to 'complete' phase to avoid LLM loop
     let responseText: string;
     let usedFallback = false;
-    try {
-      responseText = await this.generateResponse(updatedMemory, content);
-    } catch (error) {
-      console.error("LLM generation failed, using fallback:", error);
+    if (nextPhase === "complete") {
+      // User confirmed, use canned response
+      responseText = this.getFallbackResponse(nextPhase);
       usedFallback = true;
-      // Provide a more helpful fallback that indicates the AI isn't working
-      const fallbackBase = this.getFallbackResponse(nextPhase);
-      responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
+    } else {
+      try {
+        responseText = await this.generateResponse(updatedMemory, content);
+      } catch (error) {
+        console.error("LLM generation failed, using fallback:", error);
+        usedFallback = true;
+        // Provide a more helpful fallback that indicates the AI isn't working
+        const fallbackBase = this.getFallbackResponse(nextPhase);
+        responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
+      }
     }
 
     // Build metadata
@@ -383,18 +390,24 @@ export class ChatAgentService {
     const nextPhase = getNextPhase(updatedMemory);
     updatedMemory.phase = nextPhase;
 
-    // Generate response (for now, non-streaming then yield)
-    // TODO: Implement true streaming when model adapter supports it
+    // Generate response
+    // Use canned response when transitioning to 'complete' phase to avoid LLM loop
     let responseText: string;
     let usedFallback = false;
-    try {
-      responseText = await this.generateResponse(updatedMemory, content);
-    } catch (error) {
-      console.error("LLM generation failed, using fallback:", error);
+    if (nextPhase === "complete") {
+      // User confirmed, use canned response
+      responseText = this.getFallbackResponse(nextPhase);
       usedFallback = true;
-      // Provide a more helpful fallback that indicates the AI isn't working
-      const fallbackBase = this.getFallbackResponse(nextPhase);
-      responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
+    } else {
+      try {
+        responseText = await this.generateResponse(updatedMemory, content);
+      } catch (error) {
+        console.error("LLM generation failed, using fallback:", error);
+        usedFallback = true;
+        // Provide a more helpful fallback that indicates the AI isn't working
+        const fallbackBase = this.getFallbackResponse(nextPhase);
+        responseText = `${fallbackBase}\n\n_(AI assistant is temporarily unavailable. Using guided mode.)_`;
+      }
     }
 
     // Stream the response character by character (simulated)
@@ -549,6 +562,29 @@ export class ChatAgentService {
         const pageMatch = lower.match(/(\d+)\s*page/);
         if (pageMatch) {
           updates.pageCount = parseInt(pageMatch[1], 10);
+        }
+        break;
+
+      case "confirmation":
+        // Detect affirmative responses to proceed with project creation
+        const affirmativePatterns = [
+          /^yes/i,
+          /^yep/i,
+          /^yeah/i,
+          /^correct/i,
+          /^that'?s? (right|correct|good|it)/i,
+          /^looks? good/i,
+          /^perfect/i,
+          /^let'?s? (go|do it|create|start)/i,
+          /^create project/i,
+          /^proceed/i,
+          /^confirmed?/i,
+          /^absolutely/i,
+          /^definitely/i,
+        ];
+
+        if (affirmativePatterns.some(pattern => pattern.test(lower.trim()))) {
+          updates.confirmed = true;
         }
         break;
     }

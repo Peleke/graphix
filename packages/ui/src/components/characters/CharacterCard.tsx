@@ -1,174 +1,12 @@
 /**
  * CharacterCard Component
- * 
+ *
  * Compact card displaying character thumbnail, name, species,
- * and quick action buttons. ARRR! 🏴‍☠️
+ * and quick action buttons.
  */
 
 import React, { useCallback } from 'react';
 import type { CharacterCardProps, CharacterAction } from './types';
-import { css } from '../../../styled-system/css';
-
-// ============================================================================
-// Styles
-// ============================================================================
-
-const cardStyles = {
-  container: css({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '10px 12px',
-    marginBottom: '4px',
-    backgroundColor: 'transparent',
-    border: '1px solid transparent',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    _hover: {
-      backgroundColor: 'slate.800',
-      borderColor: 'slate.700',
-    },
-  }),
-  
-  containerSelected: css({
-    backgroundColor: 'violet.950/50',
-    borderColor: 'violet.600/50',
-    _hover: {
-      backgroundColor: 'violet.950/60',
-      borderColor: 'violet.500/60',
-    },
-  }),
-  
-  containerCompact: css({
-    padding: '6px 10px',
-    gap: '8px',
-  }),
-  
-  thumbnail: css({
-    flexShrink: 0,
-    width: '44px',
-    height: '44px',
-    borderRadius: '8px',
-    backgroundColor: 'slate.700',
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    border: '1px solid',
-    borderColor: 'slate.600',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'slate.500',
-    fontSize: '16px',
-    overflow: 'hidden',
-  }),
-  
-  thumbnailCompact: css({
-    width: '32px',
-    height: '32px',
-    borderRadius: '6px',
-  }),
-  
-  thumbnailImage: css({
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  }),
-  
-  content: css({
-    flex: 1,
-    minWidth: 0,
-  }),
-  
-  name: css({
-    fontSize: '13px',
-    fontWeight: '500',
-    color: 'slate.100',
-    marginBottom: '2px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  }),
-  
-  meta: css({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: '11px',
-    color: 'slate.500',
-  }),
-  
-  species: css({
-    textTransform: 'capitalize',
-  }),
-  
-  badges: css({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  }),
-  
-  badge: css({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '2px 4px',
-    fontSize: '10px',
-    fontWeight: '500',
-    borderRadius: '4px',
-    backgroundColor: 'slate.700',
-    color: 'slate.400',
-  }),
-  
-  badgeLora: css({
-    backgroundColor: 'amber.900/50',
-    color: 'amber.400',
-  }),
-  
-  badgeRefs: css({
-    backgroundColor: 'sky.900/50',
-    color: 'sky.400',
-  }),
-  
-  actions: css({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '2px',
-    opacity: 1,
-    transition: 'opacity 0.15s ease',
-    visibility: 'visible',
-    pointerEvents: 'auto',
-  }),
-  
-  actionsVisible: css({
-    opacity: 1,
-  }),
-  
-  actionButton: css({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '26px',
-    height: '26px',
-    borderRadius: '4px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: 'slate.500',
-    cursor: 'pointer',
-    transition: 'all 0.1s ease',
-    _hover: {
-      backgroundColor: 'slate.700',
-      color: 'slate.300',
-    },
-  }),
-  
-  actionButtonDanger: css({
-    _hover: {
-      backgroundColor: 'red.900/50',
-      color: 'red.400',
-    },
-  }),
-};
 
 // ============================================================================
 // Icons
@@ -194,12 +32,153 @@ const TrashIcon = () => (
   </svg>
 );
 
-const UserPlaceholderIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
-  </svg>
-);
+// ============================================================================
+// Styles (inline to avoid broken Panda CSS)
+// ============================================================================
+
+const styles = {
+  container: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '12px 14px',
+    marginBottom: '8px',
+    backgroundColor: '#1e1e2e',
+    border: '1px solid #313244',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  } as React.CSSProperties,
+
+  containerHover: {
+    backgroundColor: '#262637',
+    borderColor: '#8b5cf6',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.15)',
+  } as React.CSSProperties,
+
+  containerSelected: {
+    backgroundColor: '#2d2b55',
+    borderColor: '#8b5cf6',
+    boxShadow: '0 0 0 1px rgba(139, 92, 246, 0.3)',
+  } as React.CSSProperties,
+
+  thumbnail: {
+    flexShrink: 0,
+    width: '48px',
+    height: '48px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: 700,
+    color: '#fff',
+    background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+    border: '2px solid #45475a',
+  } as React.CSSProperties,
+
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    borderRadius: '8px',
+  } as React.CSSProperties,
+
+  content: {
+    flex: 1,
+    minWidth: 0,
+  } as React.CSSProperties,
+
+  name: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#cdd6f4',
+    marginBottom: '3px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  } as React.CSSProperties,
+
+  meta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12px',
+    color: '#a6adc8',
+  } as React.CSSProperties,
+
+  species: {
+    textTransform: 'capitalize',
+    backgroundColor: '#313244',
+    padding: '2px 8px',
+    borderRadius: '4px',
+  } as React.CSSProperties,
+
+  speciesHint: {
+    color: '#6c7086',
+    fontStyle: 'italic',
+  } as React.CSSProperties,
+
+  badges: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  } as React.CSSProperties,
+
+  badge: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2px 6px',
+    fontSize: '10px',
+    fontWeight: 600,
+    borderRadius: '4px',
+    backgroundColor: '#313244',
+    color: '#a6adc8',
+  } as React.CSSProperties,
+
+  badgeLora: {
+    backgroundColor: 'rgba(250, 179, 135, 0.15)',
+    color: '#fab387',
+  } as React.CSSProperties,
+
+  badgeRefs: {
+    backgroundColor: 'rgba(137, 180, 250, 0.15)',
+    color: '#89b4fa',
+  } as React.CSSProperties,
+
+  actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  } as React.CSSProperties,
+
+  actionButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px',
+    height: '30px',
+    borderRadius: '6px',
+    backgroundColor: '#313244',
+    border: 'none',
+    color: '#a6adc8',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  } as React.CSSProperties,
+
+  actionButtonHover: {
+    backgroundColor: '#45475a',
+    color: '#cdd6f4',
+    transform: 'scale(1.05)',
+  } as React.CSSProperties,
+
+  actionButtonDangerHover: {
+    backgroundColor: 'rgba(243, 139, 168, 0.2)',
+    color: '#f38ba8',
+  } as React.CSSProperties,
+};
 
 // ============================================================================
 // Component
@@ -214,59 +193,54 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   draggable = false,
   className,
 }) => {
-  // Handle click
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
+
+  // Handle click - open editor directly for better UX
   const handleClick = useCallback(() => {
     onClick?.(character);
-  }, [character, onClick]);
-  
+    // Also trigger edit on single click for easier access
+    onAction?.({ type: 'edit', characterId: character.id });
+  }, [character, onClick, onAction]);
+
   // Handle action button clicks
   const handleEdit = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onAction?.({ type: 'edit', characterId: character.id });
   }, [character.id, onAction]);
-  
+
   const handleDuplicate = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onAction?.({ type: 'duplicate', characterId: character.id });
   }, [character.id, onAction]);
-  
+
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onAction?.({ type: 'delete', characterId: character.id });
   }, [character.id, onAction]);
 
-  const handleDoubleClick = useCallback(() => {
-    onAction?.({ type: 'edit', characterId: character.id });
-  }, [character.id, onAction]);
-  
-  // Get thumbnail initial
-  const getInitial = () => {
-    return character.name.charAt(0).toUpperCase();
+  // Compute container style
+  const containerStyle: React.CSSProperties = {
+    ...styles.container,
+    ...(isHovered && !isSelected ? styles.containerHover : {}),
+    ...(isSelected ? styles.containerSelected : {}),
+    ...(compact ? { padding: '8px 10px', gap: '10px' } : {}),
   };
-  
-  // Build container classes
-  const containerClasses = [
-    cardStyles.container,
-    isSelected && cardStyles.containerSelected,
-    compact && cardStyles.containerCompact,
-    className,
-  ].filter(Boolean).join(' ');
-  
-  const thumbnailClasses = [
-    cardStyles.thumbnail,
-    compact && cardStyles.thumbnailCompact,
-  ].filter(Boolean).join(' ');
-  
-  const actionsClasses = [
-    cardStyles.actions,
-    (isSelected || !compact) && cardStyles.actionsVisible,
-  ].filter(Boolean).join(' ');
-  
+
+  // Compute thumbnail style
+  const thumbnailStyle: React.CSSProperties = {
+    ...styles.thumbnail,
+    ...(compact ? { width: '36px', height: '36px', fontSize: '14px' } : {}),
+  };
+
+  const hasValidSpecies = character.profile.species && character.profile.species !== 'unknown';
+
   return (
     <div
-      className={containerClasses}
+      style={containerStyle}
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       draggable={draggable}
       role="button"
       tabIndex={0}
@@ -275,70 +249,69 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
       data-testid={`character-card-${character.id}`}
     >
       {/* Thumbnail */}
-      <div className={thumbnailClasses}>
+      <div style={thumbnailStyle}>
         {character.thumbnailPath ? (
-          <img 
-            src={character.thumbnailPath} 
+          <img
+            src={character.thumbnailPath}
             alt={character.name}
-            className={cardStyles.thumbnailImage}
+            style={styles.thumbnailImage}
           />
         ) : (
-          <UserPlaceholderIcon />
+          character.name.charAt(0).toUpperCase()
         )}
       </div>
-      
+
       {/* Content */}
-      <div className={cardStyles.content}>
-        <div className={cardStyles.name}>{character.name}</div>
-        <div className={cardStyles.meta}>
-          {character.profile.species && (
-            <span className={cardStyles.species}>{character.profile.species}</span>
+      <div style={styles.content}>
+        <div style={styles.name}>{character.name}</div>
+        <div style={styles.meta}>
+          {hasValidSpecies ? (
+            <span style={styles.species}>{character.profile.species}</span>
+          ) : (
+            <span style={{ ...styles.species, ...styles.speciesHint }}>
+              Click to edit
+            </span>
           )}
-          <div className={cardStyles.badges}>
+          <div style={styles.badges}>
             {character.lora && (
-              <span className={`${cardStyles.badge} ${cardStyles.badgeLora}`}>
+              <span style={{ ...styles.badge, ...styles.badgeLora }}>
                 LoRA
               </span>
             )}
             {character.referenceImages.length > 0 && (
-              <span className={`${cardStyles.badge} ${cardStyles.badgeRefs}`}>
+              <span style={{ ...styles.badge, ...styles.badgeRefs }}>
                 {character.referenceImages.length} ref{character.referenceImages.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
         </div>
       </div>
-      
+
       {/* Actions */}
       {!compact && (
-        <div
-          className={actionsClasses}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '2px',
-            opacity: 1,
-            visibility: 'visible',
-            pointerEvents: 'auto',
-          }}
-        >
+        <div style={styles.actions}>
           <button
-            className={cardStyles.actionButton}
+            style={{
+              ...styles.actionButton,
+              ...(hoveredButton === 'edit' ? styles.actionButtonHover : {}),
+            }}
             onClick={handleEdit}
+            onMouseEnter={() => setHoveredButton('edit')}
+            onMouseLeave={() => setHoveredButton(null)}
             aria-label="Edit character"
             title="Edit"
             data-testid="character-edit-button"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
           >
             <EditIcon />
           </button>
           <button
-            className={cardStyles.actionButton}
+            style={{
+              ...styles.actionButton,
+              ...(hoveredButton === 'duplicate' ? styles.actionButtonHover : {}),
+            }}
             onClick={handleDuplicate}
+            onMouseEnter={() => setHoveredButton('duplicate')}
+            onMouseLeave={() => setHoveredButton(null)}
             aria-label="Duplicate character"
             title="Duplicate"
             data-testid="character-duplicate-button"
@@ -346,8 +319,13 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             <CopyIcon />
           </button>
           <button
-            className={`${cardStyles.actionButton} ${cardStyles.actionButtonDanger}`}
+            style={{
+              ...styles.actionButton,
+              ...(hoveredButton === 'delete' ? styles.actionButtonDangerHover : {}),
+            }}
             onClick={handleDelete}
+            onMouseEnter={() => setHoveredButton('delete')}
+            onMouseLeave={() => setHoveredButton(null)}
             aria-label="Delete character"
             title="Delete"
             data-testid="character-delete-button"
