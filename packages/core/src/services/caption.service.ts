@@ -16,6 +16,7 @@ import {
   type CaptionType,
   type CaptionPosition,
   type CaptionStyle,
+  type TipTapContent,
 } from "../db/index.js";
 import {
   sanitizeText,
@@ -105,6 +106,7 @@ export interface CreateCaptionInput {
   panelId: string;
   type: CaptionType;
   text: string;
+  richText?: TipTapContent;
   characterId?: string;
   position: CaptionPosition;
   tailDirection?: CaptionPosition;
@@ -115,6 +117,7 @@ export interface CreateCaptionInput {
 export interface UpdateCaptionInput {
   type?: CaptionType;
   text?: string;
+  richText?: TipTapContent | null;
   characterId?: string | null;
   position?: CaptionPosition;
   tailDirection?: CaptionPosition | null;
@@ -195,6 +198,11 @@ export class CaptionService {
       zIndex = (maxResult?.maxZIndex ?? -1) + 1;
     }
 
+    // Validate richText if provided
+    if (data.richText) {
+      this.validateTipTapContent(data.richText);
+    }
+
     // Create caption
     const [caption] = await this.db
       .insert(panelCaptions)
@@ -202,6 +210,7 @@ export class CaptionService {
         panelId: data.panelId,
         type: data.type,
         text: sanitizedText,
+        richText: data.richText,
         characterId: data.characterId,
         position: data.position,
         tailDirection: data.tailDirection,
@@ -310,6 +319,14 @@ export class CaptionService {
       }
       // Merge with existing style
       updates.style = { ...existing.style, ...data.style };
+    }
+
+    // Validate and apply richText
+    if (data.richText !== undefined) {
+      if (data.richText !== null) {
+        this.validateTipTapContent(data.richText);
+      }
+      updates.richText = data.richText;
     }
 
     // Apply zIndex
@@ -434,6 +451,65 @@ export class CaptionService {
     if (position.y < 0 || position.y > 100) {
       throw new Error("Position y must be between 0 and 100 (percentage)");
     }
+  }
+
+  /**
+   * Validate TipTap content structure
+   */
+  private validateTipTapContent(content: TipTapContent): void {
+    if (!content || typeof content !== "object") {
+      throw new Error("Rich text content must be a valid TipTap document");
+    }
+
+    if (content.type !== "doc") {
+      throw new Error("Rich text content must have type 'doc'");
+    }
+
+    if (!Array.isArray(content.content)) {
+      throw new Error("Rich text content must have a content array");
+    }
+
+    // Validate content doesn't exceed reasonable size (50KB as JSON for captions)
+    const jsonSize = JSON.stringify(content).length;
+    if (jsonSize > 50000) {
+      throw new Error("Rich text content exceeds maximum size (50KB)");
+    }
+  }
+
+  /**
+   * Extract plain text from TipTap content
+   */
+  static extractPlainText(content: TipTapContent | null | undefined): string {
+    if (!content || !content.content) return "";
+
+    const extractText = (nodes: TipTapContent["content"]): string => {
+      return nodes
+        .map((node) => {
+          if (node.text) return node.text;
+          if (node.content) return extractText(node.content);
+          return "";
+        })
+        .join("");
+    };
+
+    return extractText(content.content);
+  }
+
+  /**
+   * Create TipTap content from plain text
+   */
+  static createFromPlainText(text: string): TipTapContent {
+    return {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: text
+            ? [{ type: "text", text }]
+            : [],
+        },
+      ],
+    };
   }
 }
 

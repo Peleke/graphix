@@ -124,6 +124,7 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
 
   test.describe('2.6 Elicitation Flow', () => {
     test('should progress through elicitation when user provides details', { tag: [tags.MVP, tags.FLOW_2] }, async ({ page }) => {
+      test.slow(); // AI exchanges take significant time
       await page.goto(BASE_URL);
       await page.waitForLoadState('domcontentloaded');
 
@@ -133,18 +134,20 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
         await chatTrigger.click();
       }
 
-      await page.waitForTimeout(500);
+      // Wait for chat session to be ready
+      const textarea = page.locator('.chat-textarea');
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Send initial concept
-      const textarea = page.locator('.chat-textarea');
       await textarea.fill('A romantic comedy about two otters named Oliver and Olivia');
       await textarea.press('Enter');
-      await page.waitForTimeout(3000);
+      // Wait for AI response to complete
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Continue conversation with more details
       await textarea.fill('They live on a luxury yacht in the Mediterranean');
       await textarea.press('Enter');
-      await page.waitForTimeout(3000);
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Verify multiple exchanges happened
       const messages = page.locator('.chat-message');
@@ -190,6 +193,7 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
 
   test.describe('2.7 Project Bootstrap', () => {
     test('should show Create Project option after elicitation', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_2] }, async ({ page }) => {
+      test.slow(); // Multiple AI exchanges take significant time
       await page.goto(BASE_URL);
       await page.waitForLoadState('domcontentloaded');
 
@@ -199,10 +203,15 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
         await chatTrigger.click();
       }
 
-      await page.waitForTimeout(500);
+      // Wait for chat session to be ready
+      const textarea = page.locator('.chat-textarea');
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Fast-track through elicitation using suggestions
       for (let i = 0; i < 8; i++) {
+        // Wait for AI response to complete before checking suggestions
+        await expect(textarea).toBeEnabled({ timeout: 60000 });
+
         const suggestions = page.locator('.suggestion-chip');
         const count = await suggestions.count();
 
@@ -217,7 +226,6 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
 
           // Click last suggestion (often "skip" or "proceed")
           await suggestions.last().click();
-          await page.waitForTimeout(2000);
         }
       }
 
@@ -228,6 +236,7 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
     });
 
     test('should create project when user confirms', { tag: [tags.MVP, tags.PRIORITY_HIGH, tags.FLOW_2, tags.SLOW] }, async ({ page, request }) => {
+      test.slow(); // Multiple AI exchanges and navigation takes time
       await page.goto(BASE_URL);
       await page.waitForLoadState('domcontentloaded');
 
@@ -237,16 +246,21 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
         await chatTrigger.click();
       }
 
-      await page.waitForTimeout(500);
+      // Wait for chat session to be ready
+      const textarea = page.locator('.chat-textarea');
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Describe a project
-      const textarea = page.locator('.chat-textarea');
       await textarea.fill('I want to create a simple comic called "Otter Tales" with two characters named Oliver and Olivia');
       await textarea.press('Enter');
-      await page.waitForTimeout(4000);
+      // Wait for AI response to complete
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
 
       // Skip through to get to confirmation
       for (let i = 0; i < 10; i++) {
+        // Wait for AI response before checking suggestions
+        await expect(textarea).toBeEnabled({ timeout: 60000 });
+
         const suggestions = page.locator('.suggestion-chip');
         const count = await suggestions.count();
 
@@ -255,6 +269,7 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
           const createBtn = suggestions.filter({ hasText: /create project|ready|let's do it/i });
           if (await createBtn.isVisible()) {
             await createBtn.click();
+            // Wait for navigation or next response
             await page.waitForTimeout(3000);
 
             // Check if we navigated to a project page
@@ -277,7 +292,6 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
           } else {
             await suggestions.first().click();
           }
-          await page.waitForTimeout(2000);
         }
       }
 
@@ -513,9 +527,15 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
     });
 
     test('should show Add Character button in footer', { tag: [tags.MVP, tags.FLOW_2] }, async ({ page, api }) => {
-      // Create a project
+      // Create a project with a character (footer button only shows when characters exist)
       const project = await api.createProject('Footer Test', 'Testing footer button');
       createdProjectIds.push(project.id);
+
+      await api.createCharacter(project.id, {
+        name: 'FooterTest',
+        species: 'bear',
+        appearance: 'Brown fur',
+      });
 
       // Navigate to project
       await page.goto(`${BASE_URL}/projects/${project.id}`);
@@ -525,7 +545,7 @@ test.describe('Flow 2: Chat-Based Project Creation', () => {
       await page.click('.nav-item:has-text("Characters")');
       await page.waitForTimeout(1000);
 
-      // Verify Add Character button is visible
+      // Verify Add Character button is visible in footer
       const addButton = page.getByTestId('character-add-button');
       await expect(addButton).toBeVisible({ timeout: 5000 });
     });

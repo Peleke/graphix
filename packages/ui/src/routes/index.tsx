@@ -269,22 +269,34 @@ function DashboardPage() {
         .error-state,
         .empty-state {
           text-align: center;
-          padding: 4rem 2rem;
+          padding: 5rem 2rem;
           color: #71717a;
         }
-        
+
         .error-state {
           color: #ef4444;
         }
-        
-        .empty-state h2 {
-          font-size: 1.25rem;
-          color: #a1a1aa;
-          margin-bottom: 0.5rem;
+
+        .empty-state {
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, transparent 50%);
+          border-radius: 24px;
+          border: 1px dashed #27272a;
         }
-        
+
+        .empty-state h2 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #e4e4e7;
+          margin-bottom: 0.75rem;
+        }
+
         .empty-state p {
-          margin-bottom: 1.5rem;
+          margin-bottom: 2rem;
+          font-size: 1rem;
+          max-width: 400px;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.6;
         }
         
         .spinner {
@@ -366,7 +378,7 @@ function DashboardPage() {
         }
         
         .new-project-card {
-          background: #18181b;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(99, 102, 241, 0.03) 100%);
           border: 2px dashed #3f3f46;
           border-radius: 12px;
           padding: 2rem;
@@ -376,13 +388,39 @@ function DashboardPage() {
           justify-content: center;
           min-height: 200px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
           color: #71717a;
+          position: relative;
+          overflow: hidden;
         }
-        
+
+        .new-project-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+          background-size: 20px 20px;
+          opacity: 0.5;
+        }
+
         .new-project-card:hover {
           border-color: #8b5cf6;
-          color: #a78bfa;
+          color: #c4b5fd;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.06) 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 32px rgba(139, 92, 246, 0.15);
+        }
+
+        .new-project-card svg {
+          position: relative;
+          z-index: 1;
+        }
+
+        .new-project-card span {
+          position: relative;
+          z-index: 1;
         }
 
         /* Chat-to-Start Input Bar */
@@ -391,8 +429,8 @@ function DashboardPage() {
           bottom: 0;
           left: 0;
           right: 0;
-          padding: 1rem 2rem 1.5rem;
-          background: linear-gradient(to top, #09090b 0%, #09090b 60%, transparent 100%);
+          padding: 1.25rem 2rem 2rem;
+          background: linear-gradient(to top, #09090b 0%, #09090b 70%, transparent 100%);
           display: flex;
           justify-content: center;
           z-index: 100;
@@ -401,54 +439,69 @@ function DashboardPage() {
         .chat-trigger {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 1rem;
           width: 100%;
-          max-width: 600px;
-          padding: 0.875rem 1.25rem;
-          background: #18181b;
-          border: 1px solid #27272a;
-          border-radius: 12px;
-          color: #71717a;
+          max-width: 640px;
+          padding: 1rem 1.5rem;
+          background: linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(24, 24, 27, 0.9) 100%);
+          border: 1px solid #3f3f46;
+          border-radius: 16px;
+          color: #a1a1aa;
           font-size: 0.9375rem;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s ease;
+          box-shadow:
+            0 4px 24px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(139, 92, 246, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
         }
 
         .chat-trigger:hover {
           border-color: #8b5cf6;
-          color: #a1a1aa;
+          color: #e4e4e7;
+          transform: translateY(-2px);
+          box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(139, 92, 246, 0.3),
+            0 0 24px rgba(139, 92, 246, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         .chat-trigger-icon {
-          width: 24px;
-          height: 24px;
+          width: 32px;
+          height: 32px;
           background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-          border-radius: 6px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
         }
 
         .chat-trigger-text {
           flex: 1;
           text-align: left;
+          font-weight: 500;
         }
 
         .chat-trigger-hint {
           font-size: 0.75rem;
-          color: #52525b;
+          color: #71717a;
           display: flex;
           align-items: center;
-          gap: 0.25rem;
+          gap: 0.375rem;
         }
 
         .kbd {
-          padding: 0.125rem 0.375rem;
+          padding: 0.25rem 0.5rem;
           background: #27272a;
-          border-radius: 4px;
-          font-family: monospace;
+          border: 1px solid #3f3f46;
+          border-radius: 6px;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
           font-size: 0.6875rem;
+          color: #a1a1aa;
         }
       `}</style>
       
@@ -545,7 +598,7 @@ function DashboardPage() {
               key={project.id}
               project={project}
               viewMode={viewMode}
-              onClick={() => actions.selectProject(project.id)}
+              onClick={handleOpenProject}
               onDoubleClick={handleOpenProject}
               onOpen={handleOpenProject}
               onDelete={handleDeleteProject}

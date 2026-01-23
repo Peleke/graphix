@@ -6,7 +6,7 @@
  */
 
 import { getComfyUIClient, type GenerationResult } from "./comfyui-client.js";
-import { getModelResolver } from "./models/index.js";
+import { getModelResolver, listControlNetsByFamily } from "./models/index.js";
 
 // ============================================================================
 // Types
@@ -526,6 +526,22 @@ export class ControlNetStackClient {
   listControlTypesForModel(model: string): ControlType[] {
     const resolver = getModelResolver();
     return resolver.listAvailableControlTypes(model);
+  }
+
+  /**
+   * List control types available for a specific model family
+   */
+  listControlTypesForFamily(family: string): ControlType[] {
+    const controlnets = listControlNetsByFamily(family);
+    const types = new Set<ControlType>();
+
+    for (const cn of controlnets) {
+      for (const type of cn.controlTypes) {
+        types.add(type);
+      }
+    }
+
+    return Array.from(types);
   }
 
   /**

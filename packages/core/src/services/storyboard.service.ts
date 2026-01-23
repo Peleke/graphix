@@ -4,7 +4,7 @@
  * CRUD operations for storyboards with panel management.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql, count } from "drizzle-orm";
 import { getDefaultDatabase, type Database } from "../db/index.js";
 import {
   storyboards,
@@ -112,14 +112,27 @@ export class StoryboardService {
   }
 
   /**
-   * Get all storyboards for a project
+   * Get all storyboards for a project with panel counts
    */
-  async getByProject(projectId: string): Promise<Storyboard[]> {
-    return await this.db
-      .select()
+  async getByProject(projectId: string): Promise<(Storyboard & { panelCount: number })[]> {
+    const results = await this.db
+      .select({
+        id: storyboards.id,
+        projectId: storyboards.projectId,
+        name: storyboards.name,
+        description: storyboards.description,
+        createdAt: storyboards.createdAt,
+        updatedAt: storyboards.updatedAt,
+        panelCount: sql<number>`(SELECT COUNT(*) FROM panels WHERE panels.storyboard_id = storyboards.id)`.as('panelCount'),
+      })
       .from(storyboards)
       .where(eq(storyboards.projectId, projectId))
       .orderBy(storyboards.name);
+
+    return results.map(r => ({
+      ...r,
+      panelCount: Number(r.panelCount) || 0,
+    }));
   }
 
   /**

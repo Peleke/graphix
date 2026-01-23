@@ -9,7 +9,7 @@ import { createGraphixClient } from "@graphix/client";
 // Create a singleton client instance
 export const apiClient = createGraphixClient({
   baseUrl: import.meta.env.VITE_API_URL || "/api",
-  timeout: 30000,
+  timeout: 300000, // 5 minutes for ComfyUI generation
 });
 
 // Re-export types for convenience

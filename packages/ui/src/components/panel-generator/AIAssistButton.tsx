@@ -2,10 +2,11 @@
  * AI Assist Button
  *
  * A sparkle icon button that triggers AI-powered prompt generation.
- * Shows loading state during generation and opens suggestion modal.
+ * Uses a portal to render dropdown outside of clipping containers.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export interface AIAssistButtonProps {
   /** Called when AI generation should start */
@@ -37,8 +38,68 @@ export function AIAssistButton({
   const [showDropdown, setShowDropdown] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isGenerating = externalIsGenerating ?? internalIsGenerating;
+
+  // Position dropdown relative to button
+  useEffect(() => {
+    if (showDropdown && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const dropdownWidth = 320;
+      const dropdownHeight = 280; // Approximate max height
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+
+      // Check if there's room below the button
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const showBelow = spaceBelow >= dropdownHeight || spaceBelow >= spaceAbove;
+
+      // Calculate left position - try to align right edge with button, but stay in viewport
+      let left = Math.max(16, rect.right - dropdownWidth);
+      if (left + dropdownWidth > viewportWidth - 16) {
+        left = viewportWidth - dropdownWidth - 16;
+      }
+
+      if (showBelow) {
+        // Position below the button
+        setDropdownPosition({
+          top: rect.bottom + 8,
+          left,
+        });
+      } else {
+        // Position above the button
+        setDropdownPosition({
+          top: rect.top - dropdownHeight - 8,
+          left,
+        });
+      }
+    }
+  }, [showDropdown]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!showDropdown) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setShowDropdown(false);
+        setSuggestion(null);
+        setError(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
 
   const handleClick = useCallback(async () => {
     if (isGenerating || disabled) return;
@@ -46,7 +107,7 @@ export function AIAssistButton({
     setInternalIsGenerating(true);
     setError(null);
     setSuggestion(null);
-    setShowDropdown(true); // Show dropdown immediately with loading state
+    setShowDropdown(true);
 
     try {
       const result = await onGenerate();
@@ -94,14 +155,89 @@ export function AIAssistButton({
 
   const sizeClasses = size === "sm" ? "ai-assist-btn-sm" : "ai-assist-btn-md";
 
-  return (
-    <div className={`ai-assist-container ${className}`}>
-      <style>{`
-        .ai-assist-container {
-          position: relative;
-          display: inline-flex;
-        }
+  const dropdown = showDropdown
+    ? createPortal(
+        <div
+          ref={dropdownRef}
+          className="ai-assist-dropdown"
+          style={{
+            position: "fixed",
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+          }}
+          data-testid="ai-assist-dropdown"
+        >
+          <div className="ai-assist-header">
+            <span className="ai-assist-title">
+              <span>✨</span>
+              AI Suggestion
+            </span>
+            <button
+              className="ai-assist-close"
+              onClick={handleClose}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
 
+          <div className="ai-assist-content">
+            {isGenerating ? (
+              <div className="ai-assist-loading">
+                <div className="ai-assist-loading-spinner" />
+                <span className="ai-assist-loading-text">Generating...</span>
+              </div>
+            ) : error ? (
+              <>
+                <div className="ai-assist-error">{error}</div>
+                <div className="ai-assist-actions">
+                  <button
+                    className="ai-assist-action-btn secondary"
+                    onClick={handleClose}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="ai-assist-action-btn primary"
+                    onClick={handleRegenerate}
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </>
+            ) : suggestion ? (
+              <>
+                <div className="ai-assist-suggestion">{suggestion}</div>
+                <div className="ai-assist-actions">
+                  <button
+                    className="ai-assist-action-btn secondary"
+                    onClick={handleRegenerate}
+                  >
+                    Regenerate
+                  </button>
+                  <button
+                    className="ai-assist-action-btn primary"
+                    onClick={handleAccept}
+                    data-testid="ai-assist-use-button"
+                  >
+                    Use This
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="ai-assist-loading">
+                <span className="ai-assist-loading-text">Waiting for response...</span>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <style>{`
         .ai-assist-btn {
           display: flex;
           align-items: center;
@@ -162,16 +298,13 @@ export function AIAssistButton({
         }
 
         .ai-assist-dropdown {
-          position: absolute;
-          bottom: calc(100% + 8px);
-          right: 0;
           width: 320px;
           max-width: calc(100vw - 32px);
           background: #27272a;
           border: 1px solid #3f3f46;
           border-radius: 12px;
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-          z-index: 9999;
+          z-index: 99999;
           overflow: hidden;
         }
 
@@ -200,7 +333,7 @@ export function AIAssistButton({
           cursor: pointer;
           padding: 0.25rem;
           border-radius: 4px;
-          font-size: 1rem;
+          font-size: 1.25rem;
           line-height: 1;
         }
 
@@ -302,8 +435,9 @@ export function AIAssistButton({
       `}</style>
 
       <button
+        ref={buttonRef}
         type="button"
-        className={`ai-assist-btn ${sizeClasses}`}
+        className={`ai-assist-btn ${sizeClasses} ${className}`}
         onClick={handleClick}
         disabled={disabled || isGenerating}
         title={title}
@@ -312,78 +446,12 @@ export function AIAssistButton({
         {isGenerating ? (
           <div className="ai-assist-spinner" />
         ) : (
-          <span className="ai-assist-sparkle">&#10024;</span>
+          <span className="ai-assist-sparkle">✨</span>
         )}
       </button>
 
-      {showDropdown && (
-        <div className="ai-assist-dropdown" data-testid="ai-assist-dropdown">
-          <div className="ai-assist-header">
-            <span className="ai-assist-title">
-              <span>&#10024;</span>
-              AI Suggestion
-            </span>
-            <button
-              className="ai-assist-close"
-              onClick={handleClose}
-              aria-label="Close"
-            >
-              &times;
-            </button>
-          </div>
-
-          <div className="ai-assist-content">
-            {isGenerating ? (
-              <div className="ai-assist-loading">
-                <div className="ai-assist-loading-spinner" />
-                <span className="ai-assist-loading-text">Generating...</span>
-              </div>
-            ) : error ? (
-              <>
-                <div className="ai-assist-error">{error}</div>
-                <div className="ai-assist-actions">
-                  <button
-                    className="ai-assist-action-btn secondary"
-                    onClick={handleClose}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="ai-assist-action-btn primary"
-                    onClick={handleRegenerate}
-                  >
-                    Try Again
-                  </button>
-                </div>
-              </>
-            ) : suggestion ? (
-              <>
-                <div className="ai-assist-suggestion">{suggestion}</div>
-                <div className="ai-assist-actions">
-                  <button
-                    className="ai-assist-action-btn secondary"
-                    onClick={handleRegenerate}
-                  >
-                    Regenerate
-                  </button>
-                  <button
-                    className="ai-assist-action-btn primary"
-                    onClick={handleAccept}
-                    data-testid="ai-assist-use-button"
-                  >
-                    Use This
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="ai-assist-loading">
-                <span className="ai-assist-loading-text">Waiting for response...</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      {dropdown}
+    </>
   );
 }
 

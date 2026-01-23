@@ -40,6 +40,25 @@ export interface CaptionStyle {
   effectPreset?: string;
 }
 
+// TipTap rich text content format
+export interface TipTapContent {
+  type: "doc";
+  content: TipTapNode[];
+}
+
+export interface TipTapNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TipTapNode[];
+  marks?: TipTapMark[];
+  text?: string;
+}
+
+export interface TipTapMark {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+
 export type CaptionType = "speech" | "thought" | "narration" | "sfx" | "whisper";
 
 export interface CreateCaptionInput {
@@ -229,6 +248,40 @@ export function useGenerateCaptions() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: captionKeys.byPanel(variables.panelId) });
+    },
+  });
+}
+
+// ============================================================================
+// AI Suggestion Types
+// ============================================================================
+
+export interface SuggestedCaption {
+  type: CaptionType;
+  text: string;
+  speakerDescription?: string;
+  confidence: number;
+}
+
+/**
+ * AI suggest captions from visual description
+ */
+export function useSuggestCaptions() {
+  return useMutation({
+    mutationFn: async ({ visualDescription }: { visualDescription: string }) => {
+      const { data, error } = await apiClient.POST("/text-generation/suggest-captions", {
+        body: { visualDescription },
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to suggest captions");
+      }
+
+      return data as {
+        captions: SuggestedCaption[];
+        count: number;
+        provider: string;
+      };
     },
   });
 }

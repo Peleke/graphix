@@ -1,11 +1,42 @@
 /**
  * ChatMessage Component
- * 
+ *
  * Renders a single chat message bubble with role-based styling.
- * Supports streaming indicator and suggestion chips.
+ * Supports streaming indicator, suggestion chips, and basic markdown.
  */
 
+import { useMemo } from 'react';
 import { type ChatMessage as ChatMessageType } from './types';
+
+/**
+ * Simple markdown renderer for chat messages.
+ * Converts basic markdown to HTML.
+ */
+function renderMarkdown(text: string): string {
+  return text
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold and italic
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Lists
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    // Paragraphs (double newlines)
+    .replace(/\n\n+/g, '</p><p>')
+    // Single newlines to <br>
+    .replace(/\n/g, '<br />')
+    // Wrap in paragraph
+    .replace(/^(.+)$/, '<p>$1</p>')
+    // Clean up empty paragraphs
+    .replace(/<p><\/p>/g, '')
+    // Wrap consecutive <li> in <ul>
+    .replace(/(<li>.*?<\/li>)(\s*<br \/>)*(<li>)/g, '$1$3')
+    .replace(/(<li>[\s\S]*?<\/li>)(?![\s\S]*<li>)/g, '<ul>$1</ul>');
+}
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -15,6 +46,12 @@ interface ChatMessageProps {
 export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+
+  // Render markdown for assistant messages
+  const renderedContent = useMemo(() => {
+    if (isUser || isSystem) return null;
+    return renderMarkdown(message.content);
+  }, [message.content, isUser, isSystem]);
 
   return (
     <div className={`chat-message ${message.role}`}>
@@ -67,12 +104,45 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
         }
 
         .message-content {
-          white-space: pre-wrap;
           word-break: break-word;
+        }
+
+        .message-content p {
+          margin: 0 0 0.75rem 0;
+        }
+
+        .message-content p:last-child {
+          margin-bottom: 0;
+        }
+
+        .message-content h1, .message-content h2, .message-content h3 {
+          margin: 1rem 0 0.5rem 0;
+          font-weight: 600;
+        }
+
+        .message-content h1 { font-size: 1.25rem; }
+        .message-content h2 { font-size: 1.125rem; }
+        .message-content h3 { font-size: 1rem; }
+
+        .message-content ul {
+          margin: 0.5rem 0;
+          padding-left: 1.25rem;
+        }
+
+        .message-content li {
+          margin-bottom: 0.25rem;
         }
 
         .message-content strong {
           font-weight: 600;
+        }
+
+        .message-content em {
+          font-style: italic;
+        }
+
+        .message-content-raw {
+          white-space: pre-wrap;
         }
 
         .streaming-indicator {
@@ -174,8 +244,12 @@ export function ChatMessage({ message, onSuggestionClick }: ChatMessageProps) {
       `}</style>
 
       <div className="message-bubble">
-        <div className="message-content">
-          {message.content}
+        <div className={`message-content ${isUser || isSystem ? 'message-content-raw' : ''}`}>
+          {renderedContent ? (
+            <div dangerouslySetInnerHTML={{ __html: renderedContent }} />
+          ) : (
+            message.content
+          )}
           {message.isStreaming && (
             <span className="streaming-indicator">
               <span className="streaming-dot" />

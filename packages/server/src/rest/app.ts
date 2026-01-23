@@ -31,6 +31,7 @@ import { textGenerationRoutes } from "./routes/text-generation.js";
 import { generatedTextRoutes } from "./routes/generated-texts.js";
 import { uploadRoutes } from "./routes/uploads.js";
 import { chatRoutes } from "./routes/chat.js";
+import { modelsRoutes } from "./routes/models.js";
 import { openapi } from "../openapi/index.js";
 import { getDefaultConnection, checkDatabaseHealth, getConfig } from "@graphix/core";
 
@@ -95,6 +96,7 @@ api.route("/text", textGenerationRoutes);
 api.route("/generated-texts", generatedTextRoutes);
 api.route("/uploads", uploadRoutes);
 api.route("/chat", chatRoutes);
+api.route("/models", modelsRoutes);
 
 // OpenAPI documentation (Swagger UI at /api/docs, spec at /api/docs/spec.json)
 api.route("/docs", openapi);

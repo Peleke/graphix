@@ -1,2 +1,2 @@
 export { ControlNetPanel } from "./ControlNetPanel";
-export { useControlNetSettings } from "./useControlNetSettings";
+export { useControlNetSettings, type ControlNetMode, type ControlNetSettings } from "./useControlNetSettings";

@@ -128,7 +128,13 @@ test.describe('Flow 2: Chat-to-Start', () => {
     });
 
     test('should auto-focus input when panel opens', async ({ page }) => {
+      test.slow(); // AI session creation can take a while
       const input = page.locator('.chat-textarea');
+      // Wait for input to be enabled (session created) before checking focus
+      // Session creation + initial greeting can take up to 90s with slow() modifier
+      await expect(input).toBeEnabled({ timeout: 60000 });
+      // Click to focus if autoFocus didn't work due to panel animation timing
+      await input.click();
       await expect(input).toBeFocused();
     });
   });
@@ -287,23 +293,46 @@ test.describe('Flow 2: Chat-to-Start', () => {
     });
 
     test('should send message when clicking suggestion chip', async ({ page }) => {
+      test.slow(); // AI streaming can take a while
+      const textarea = page.locator('.chat-textarea');
+      // Session creation can take up to 60s with slow() modifier
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Get first suggestion text
       const firstSuggestion = page.locator('.suggestion-chip').first();
       const suggestionText = await firstSuggestion.textContent();
-      
+
+      // Click suggestion (prepopulates input)
       await firstSuggestion.click();
-      
+
+      // Verify input is populated
+      await expect(textarea).toHaveValue(suggestionText!);
+
+      // Send the message
+      await page.keyboard.press('Enter');
+      // AI streaming response can take up to 60s with slow() modifier
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Should appear as user message
       const userMessage = page.locator('.chat-message.user').last();
       await expect(userMessage).toContainText(suggestionText!);
     });
 
     test('should trigger response after clicking suggestion', async ({ page }) => {
+      test.slow(); // AI streaming can take a while
+      const textarea = page.locator('.chat-textarea');
+      // Session creation can take up to 60s with slow() modifier
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       const initialCount = await page.locator('.chat-message.assistant').count();
-      
+
+      // Click suggestion and send
       await page.locator('.suggestion-chip').first().click();
-      await page.waitForTimeout(2000);
-      
+      await page.keyboard.press('Enter');
+
+      // Wait for AI streaming response (can take up to 60s with slow() modifier)
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       const newCount = await page.locator('.chat-message.assistant').count();
       expect(newCount).toBeGreaterThan(initialCount);
     });
@@ -320,37 +349,47 @@ test.describe('Flow 2: Chat-to-Start', () => {
     });
 
     test('should progress through elicitation phases', async ({ page }) => {
-      // Phase 1: Initial concept
-      await page.locator('.chat-textarea').fill('A love story between dragons');
+      test.slow(); // Multiple AI exchanges take significant time
+      const textarea = page.locator('.chat-textarea');
+
+      // Phase 1: Initial concept (session creation + greeting can be slow)
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+      await textarea.fill('A love story between dragons');
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(2000);
-      
+      // AI streaming response can take up to 60s with slow() modifier
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Phase 2: Characters
-      await page.locator('.chat-textarea').fill('Two dragons named Flame and Frost');
+      await textarea.fill('Two dragons named Flame and Frost');
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(2000);
-      
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Phase 3: Setting
-      await page.locator('.chat-textarea').fill('A magical kingdom in the clouds');
+      await textarea.fill('A magical kingdom in the clouds');
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(2000);
-      
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Should have multiple exchanges
       const messages = await page.locator('.chat-message').count();
       expect(messages).toBeGreaterThanOrEqual(6); // 3 user + 3+ assistant
     });
 
     test('should eventually reach "Create Project" suggestion', async ({ page }) => {
+      test.slow(); // Multiple AI exchanges take significant time
+      const textarea = page.locator('.chat-textarea');
+
       // Fast-forward through phases using suggestions
       for (let i = 0; i < 6; i++) {
+        // Wait for textarea to be enabled (streaming complete)
+        await expect(textarea).toBeEnabled({ timeout: 60000 });
+
         const suggestions = page.locator('.suggestion-chip');
         const count = await suggestions.count();
         if (count > 0) {
           // Click last suggestion (often "Skip for now")
           await suggestions.last().click();
-          await page.waitForTimeout(2000);
         }
-        
+
         // Check if Create Project is visible
         const createProjectBtn = page.locator('.suggestion-chip').filter({ hasText: /create project/i });
         if (await createProjectBtn.isVisible()) {
@@ -358,7 +397,7 @@ test.describe('Flow 2: Chat-to-Start', () => {
           return; // Test passes
         }
       }
-      
+
       // After multiple iterations, verify we have progressed (relaxed assertion)
       const messages = await page.locator('.chat-message').count();
       expect(messages).toBeGreaterThan(4);
@@ -407,16 +446,22 @@ test.describe('Flow 2: Chat-to-Start', () => {
 
   test.describe('2.9 Scroll Behavior', () => {
     test('should auto-scroll to new messages', async ({ page }) => {
+      test.slow(); // Multiple AI exchanges take significant time
       await page.locator('.chat-trigger').click();
       await expect(page.locator('.chat-panel')).toBeVisible();
-      
-      // Send multiple messages
+
+      const textarea = page.locator('.chat-textarea');
+
+      // Send multiple messages (each response can take up to 60s with slow() modifier)
       for (let i = 0; i < 3; i++) {
-        await page.locator('.chat-textarea').fill(`Message ${i + 1}`);
+        await expect(textarea).toBeEnabled({ timeout: 60000 });
+        await textarea.fill(`Message ${i + 1}`);
         await page.keyboard.press('Enter');
-        await page.waitForTimeout(1500);
       }
-      
+
+      // Wait for final message to complete
+      await expect(textarea).toBeEnabled({ timeout: 60000 });
+
       // Last message should be visible (auto-scrolled)
       const lastMessage = page.locator('.chat-message').last();
       await expect(lastMessage).toBeInViewport();

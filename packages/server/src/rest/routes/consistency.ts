@@ -426,6 +426,28 @@ consistencyRoutes.get("/control-types", async (c) => {
 });
 
 /**
+ * GET /consistency/control-types/family/:family
+ * List ControlNet control types compatible with a specific model family
+ */
+consistencyRoutes.get("/control-types/family/:family", async (c) => {
+  const { family } = c.req.param();
+  const controlStack = getControlNetStack();
+
+  // Get control types filtered by model family
+  const types = controlStack.listControlTypesForFamily(family);
+  const typeInfo = types.map((type) => ({
+    type,
+    ...controlStack.getRecommendedStrength(type),
+  }));
+
+  return c.json({
+    family,
+    count: types.length,
+    types: typeInfo,
+  });
+});
+
+/**
  * POST /consistency/controlnet/preview
  * Preprocess a reference image for ControlNet and return a preview
  */

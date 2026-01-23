@@ -1,8 +1,10 @@
 /**
  * Graphix UI Entry Point
- * 
+ *
  * Initializes React, TanStack Router, and TanStack Query.
  */
+
+import './index.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

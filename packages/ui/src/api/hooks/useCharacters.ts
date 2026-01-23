@@ -79,7 +79,8 @@ export function useCharacters(projectId: string | null) {
         throw new Error(error.error?.message || "Failed to fetch characters");
       }
 
-      return data || [];
+      // API returns { characters: [...] }, extract the array
+      return (data as any)?.characters || [];
     },
     enabled: !!projectId,
   });

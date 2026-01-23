@@ -254,6 +254,9 @@ export const tags = {
   FLOW_7: '@flow-7',
   FLOW_8: '@flow-8',
   FLOW_9: '@flow-9',
+  FLOW_10: '@flow-10',
+  FLOW_11: '@flow-11',
+  FLOW_12: '@flow-12',
 
   // Feature tags
   ONBOARDING: '@onboarding',

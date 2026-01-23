@@ -44,11 +44,26 @@ export const projects = sqliteTable(
   (table) => [index("projects_name_idx").on(table.name)]
 );
 
+export type ControlNetConditionSettings = {
+  type: string;
+  strength?: number;
+  startPercent?: number;
+  endPercent?: number;
+  preprocessorOptions?: Record<string, unknown>;
+};
+
+export type ControlNetDefaults = {
+  presetId?: string;
+  controls?: ControlNetConditionSettings[];
+  mode?: "simple" | "standard" | "advanced";
+};
+
 export type ProjectSettings = {
   defaultModel: string;
   defaultLoras: Array<{ name: string; strength: number; strengthClip?: number }>;
   defaultNegative: string;
   resolution: { width: number; height: number };
+  defaultControlNet?: ControlNetDefaults;
 };
 
 export type Project = typeof projects.$inferSelect;
@@ -182,6 +197,10 @@ export const panels = sqliteTable(
       .references(() => storyboards.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     description: text("description").default(""),
+    // Panel type: image (default), text (narrative-only), or mixed (image + text)
+    type: text("type").$type<PanelType>().default("image").notNull(),
+    // Rich text content for text panels (TipTap JSON format)
+    textContent: text("text_content", { mode: "json" }).$type<TipTapContent>(),
     // JSON: { cameraAngle, mood, lighting }
     direction: text("direction", { mode: "json" }).$type<PanelDirection>(),
     // JSON: array of character IDs
@@ -202,6 +221,31 @@ export type PanelDirection = {
   lighting: string;
 };
 
+// Panel type enum
+export type PanelType = "image" | "text" | "mixed";
+
+// TipTap rich text content format
+export type TipTapContent = {
+  type: "doc";
+  content: TipTapNode[];
+};
+
+export type TipTapNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TipTapNode[];
+  marks?: TipTapMark[];
+  text?: string;
+};
+
+export type TipTapMark = {
+  type: string;
+  attrs?: Record<string, unknown>;
+};
+
+// Text panel style presets
+export type TextPanelPreset = "narration" | "chapter_title" | "credits" | "dialogue_page" | "custom";
+
 export type Panel = typeof panels.$inferSelect;
 export type NewPanel = typeof panels.$inferInsert;
 
@@ -218,6 +262,8 @@ export const panelCaptions = sqliteTable(
       .references(() => panels.id, { onDelete: "cascade" }),
     type: text("type").notNull().$type<CaptionType>(),
     text: text("text").notNull(),
+    // Rich text content in TipTap JSON format (optional, falls back to plain text)
+    richText: text("rich_text", { mode: "json" }).$type<TipTapContent>(),
     characterId: text("character_id").references(() => characters.id, {
       onDelete: "set null",
     }),

@@ -15,6 +15,9 @@ import {
   type PanelDescriptionContext,
   type DialogueContext,
   type RefineTextContext,
+  getPanelService,
+  getStoryboardService,
+  getCharacterService,
 } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import {
@@ -45,7 +48,15 @@ const generateTextSchema = z.object({
   stopSequences: z.array(z.string()).optional(),
 });
 
-/** Panel description request schema */
+/** Panel description request schema (ID-based for frontend) */
+const panelDescriptionByIdSchema = z.object({
+  panelId: z.string().min(1, "panelId is required"),
+  storyboardId: z.string().optional(),
+  characterIds: z.array(z.string()).optional(),
+  style: z.enum(["concise", "detailed", "cinematic"]).optional(),
+});
+
+/** Panel description request schema (context-based for direct use) */
 const panelDescriptionSchema = z.object({
   setting: z.string().max(MAX_DESCRIPTION_LENGTH, `setting exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`).optional(),
   action: z.string().max(MAX_DESCRIPTION_LENGTH, `action exceeds maximum length of ${MAX_DESCRIPTION_LENGTH} characters`).optional(),
@@ -219,20 +230,64 @@ textGenerationRoutes.post(
  * POST /panel-description
  *
  * Generate a panel description for a comic/storyboard.
+ * Accepts panelId and looks up context from the database.
  */
 textGenerationRoutes.post(
   "/panel-description",
-  validateBody(panelDescriptionSchema),
+  validateBody(panelDescriptionByIdSchema),
   async (c) => {
-    const context = c.req.valid("json") as PanelDescriptionContext;
+    const { panelId, storyboardId, characterIds, style } = c.req.valid("json");
 
     try {
+      // Look up panel, storyboard, and characters
+      const panelService = getPanelService();
+      const storyboardService = getStoryboardService();
+      const characterService = getCharacterService();
+
+      const panel = await panelService.getById(panelId);
+      if (!panel) {
+        return errors.notFound(c, "Panel not found");
+      }
+
+      // Get storyboard for setting/theme context
+      let setting: string | undefined;
+      if (storyboardId) {
+        const storyboard = await storyboardService.getById(storyboardId);
+        if (storyboard) {
+          setting = storyboard.description || storyboard.name;
+        }
+      }
+
+      // Get character details
+      const characters: Array<{ name: string; description?: string }> = [];
+      if (characterIds && characterIds.length > 0) {
+        for (const charId of characterIds) {
+          const char = await characterService.getById(charId);
+          if (char) {
+            characters.push({
+              name: char.name,
+              description: char.profile?.features?.join(", ") || undefined,
+            });
+          }
+        }
+      }
+
+      // Build context for the service
+      const context: PanelDescriptionContext = {
+        setting,
+        action: panel.description || undefined,
+        characters: characters.length > 0 ? characters : undefined,
+        mood: style === "cinematic" ? "dramatic" : style === "detailed" ? "rich" : undefined,
+      };
+
       const service = getTextGenerationService();
       const description = await service.generatePanelDescription(context);
 
       return c.json({
-        description,
+        text: description,
+        confidence: 0.85,
         provider: service.getProvider(),
+        model: "text-generation",
       });
     } catch (error) {
       console.error("Error generating panel description:", error);

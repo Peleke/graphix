@@ -14,8 +14,13 @@ import {
   type Panel,
   type NewPanel,
   type PanelDirection,
+  type PanelType,
+  type TipTapContent,
   type GeneratedImage,
 } from "../db/index.js";
+
+// Valid panel types
+const VALID_PANEL_TYPES: PanelType[] = ["image", "text", "mixed"];
 
 // Valid camera angles
 const VALID_CAMERA_ANGLES = [
@@ -75,6 +80,8 @@ export class PanelService {
     description?: string;
     direction?: Partial<PanelDirection>;
     characterIds?: string[];
+    type?: PanelType;
+    textContent?: TipTapContent;
   }): Promise<Panel> {
     // Validate storyboard exists
     const [storyboard] = await this.db
@@ -83,6 +90,12 @@ export class PanelService {
       .where(eq(storyboards.id, data.storyboardId));
     if (!storyboard) {
       throw new Error(`Storyboard not found: ${data.storyboardId}`);
+    }
+
+    // Validate panel type if provided
+    const panelType = data.type ?? "image";
+    if (!VALID_PANEL_TYPES.includes(panelType)) {
+      throw new Error(`Invalid panel type: ${panelType}. Valid types: ${VALID_PANEL_TYPES.join(", ")}`);
     }
 
     // Determine position
@@ -102,7 +115,7 @@ export class PanelService {
         .where(and(eq(panels.storyboardId, data.storyboardId), gte(panels.position, position)));
     }
 
-    // Validate direction if provided
+    // Validate direction if provided (only relevant for image/mixed panels)
     const direction = data.direction
       ? this.validateAndBuildDirection(data.direction)
       : null;
@@ -112,6 +125,11 @@ export class PanelService {
       throw new Error("Panel description must be 5000 characters or less");
     }
 
+    // Validate text content if provided
+    if (data.textContent) {
+      this.validateTipTapContent(data.textContent);
+    }
+
     const now = new Date();
     const [panel] = await this.db
       .insert(panels)
@@ -119,6 +137,8 @@ export class PanelService {
         storyboardId: data.storyboardId,
         position,
         description,
+        type: panelType,
+        textContent: data.textContent,
         direction,
         characterIds: data.characterIds ?? [],
         selectedOutputId: null,
@@ -447,6 +467,133 @@ export class PanelService {
   }
 
   /**
+   * Update panel type
+   */
+  async updateType(id: string, type: PanelType): Promise<Panel> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error(`Panel not found: ${id}`);
+    }
+
+    if (!VALID_PANEL_TYPES.includes(type)) {
+      throw new Error(`Invalid panel type: ${type}. Valid types: ${VALID_PANEL_TYPES.join(", ")}`);
+    }
+
+    const [updated] = await this.db
+      .update(panels)
+      .set({
+        type,
+        updatedAt: new Date(),
+      })
+      .where(eq(panels.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Update panel text content (for text/mixed panels)
+   */
+  async updateTextContent(
+    id: string,
+    textContent: TipTapContent | null
+  ): Promise<Panel> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error(`Panel not found: ${id}`);
+    }
+
+    if (textContent) {
+      this.validateTipTapContent(textContent);
+    }
+
+    const [updated] = await this.db
+      .update(panels)
+      .set({
+        textContent,
+        updatedAt: new Date(),
+      })
+      .where(eq(panels.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
+   * Update panel with all fields
+   */
+  async update(
+    id: string,
+    data: {
+      description?: string;
+      direction?: Partial<PanelDirection>;
+      type?: PanelType;
+      textContent?: TipTapContent | null;
+      characterIds?: string[];
+    }
+  ): Promise<Panel> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error(`Panel not found: ${id}`);
+    }
+
+    const updates: Partial<NewPanel> = {
+      updatedAt: new Date(),
+    };
+
+    if (data.description !== undefined) {
+      const description = data.description.trim();
+      if (description.length > 5000) {
+        throw new Error("Panel description must be 5000 characters or less");
+      }
+      updates.description = description;
+    }
+
+    if (data.direction !== undefined) {
+      updates.direction = this.validateAndBuildDirection({
+        ...existing.direction,
+        ...data.direction,
+      });
+    }
+
+    if (data.type !== undefined) {
+      if (!VALID_PANEL_TYPES.includes(data.type)) {
+        throw new Error(`Invalid panel type: ${data.type}. Valid types: ${VALID_PANEL_TYPES.join(", ")}`);
+      }
+      updates.type = data.type;
+    }
+
+    if (data.textContent !== undefined) {
+      if (data.textContent) {
+        this.validateTipTapContent(data.textContent);
+      }
+      updates.textContent = data.textContent;
+    }
+
+    if (data.characterIds !== undefined) {
+      // Validate all characters exist
+      for (const charId of data.characterIds) {
+        const [character] = await this.db
+          .select()
+          .from(characters)
+          .where(eq(characters.id, charId));
+        if (!character) {
+          throw new Error(`Character not found: ${charId}`);
+        }
+      }
+      updates.characterIds = data.characterIds;
+    }
+
+    const [updated] = await this.db
+      .update(panels)
+      .set(updates)
+      .where(eq(panels.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  /**
    * Validate and build direction object
    */
   private validateAndBuildDirection(data: Partial<PanelDirection>): PanelDirection {
@@ -469,6 +616,48 @@ export class PanelService {
     }
 
     return direction;
+  }
+
+  /**
+   * Validate TipTap content structure
+   */
+  private validateTipTapContent(content: TipTapContent): void {
+    if (!content || typeof content !== "object") {
+      throw new Error("Text content must be a valid TipTap document");
+    }
+
+    if (content.type !== "doc") {
+      throw new Error("Text content must have type 'doc'");
+    }
+
+    if (!Array.isArray(content.content)) {
+      throw new Error("Text content must have a content array");
+    }
+
+    // Validate content doesn't exceed reasonable size (100KB as JSON)
+    const jsonSize = JSON.stringify(content).length;
+    if (jsonSize > 100000) {
+      throw new Error("Text content exceeds maximum size (100KB)");
+    }
+  }
+
+  /**
+   * Extract plain text from TipTap content
+   */
+  static extractPlainText(content: TipTapContent | null | undefined): string {
+    if (!content || !content.content) return "";
+
+    const extractText = (nodes: TipTapContent["content"]): string => {
+      return nodes
+        .map((node) => {
+          if (node.text) return node.text;
+          if (node.content) return extractText(node.content);
+          return "";
+        })
+        .join("");
+    };
+
+    return extractText(content.content);
   }
 }
 

@@ -16,6 +16,7 @@ import type {
 export const controlNetKeys = {
   all: ["controlnet"] as const,
   types: () => [...controlNetKeys.all, "types"] as const,
+  typesByFamily: (family: string) => [...controlNetKeys.all, "types", family] as const,
   presets: () => [...controlNetKeys.all, "presets"] as const,
 };
 
@@ -44,6 +45,25 @@ export function useControlNetTypes() {
       }
       return data as { count: number; types: ControlNetTypeInfo[] };
     },
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Fetch ControlNet types filtered by model family
+ */
+export function useControlNetTypesForFamily(family: string | null) {
+  return useQuery({
+    queryKey: controlNetKeys.typesByFamily(family ?? ""),
+    queryFn: async () => {
+      if (!family) throw new Error("No family provided");
+      const response = await fetch(`/api/consistency/control-types/family/${encodeURIComponent(family)}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch ControlNet types for family");
+      }
+      return response.json() as Promise<{ family: string; count: number; types: ControlNetTypeInfo[] }>;
+    },
+    enabled: !!family,
     staleTime: 1000 * 60 * 5,
   });
 }

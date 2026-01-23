@@ -101,8 +101,13 @@ export class ProjectBootstrapService {
       throw new Error(`Session not found: ${sessionId}`);
     }
 
+    // Debug: log working memory
+    console.log("[Bootstrap] Working memory:", JSON.stringify(session.workingMemory, null, 2));
+
     // Validate gathered data
     const validation = this.validateWorkingMemory(session.workingMemory);
+    console.log("[Bootstrap] Validation result:", JSON.stringify(validation, null, 2));
+
     if (!validation.valid || !validation.input) {
       throw new Error(`Cannot bootstrap: ${validation.errors.join(", ")}`);
     }
@@ -204,11 +209,6 @@ export class ProjectBootstrapService {
     const errors: string[] = [];
     const gathered = memory.gathered;
 
-    // Check if we can create (has minimum requirements)
-    if (!canCreateProject(memory)) {
-      errors.push("Not enough information gathered");
-    }
-
     // Extract project name from concept or use default
     let name = "New Project";
     if (gathered.concept) {
@@ -216,20 +216,35 @@ export class ProjectBootstrapService {
       name = this.extractProjectName(gathered.concept);
     }
 
-    // Validate characters
-    const characters = gathered.characters ?? [];
+    // Validate characters - auto-create default if skipped
+    let characters = gathered.characters ?? [];
     if (characters.length === 0) {
-      errors.push("At least one character is required");
+      // Try to extract character names from concept/arc if user skipped character phase
+      const extractedNames = this.extractCharacterNamesFromText(
+        [gathered.concept, gathered.arc, gathered.setting].filter(Boolean).join(" ")
+      );
+      if (extractedNames.length > 0) {
+        characters = extractedNames.map(name => ({ name }));
+      } else {
+        // Create default character so project creation can proceed
+        characters = [{ name: "Main Character" }];
+      }
     }
 
-    // Check for duplicate character names
-    const charNames = new Set<string>();
-    for (const char of characters) {
+    // Dedupe characters by name (case-insensitive)
+    const seenNames = new Set<string>();
+    characters = characters.filter(char => {
       const lowerName = char.name.toLowerCase();
-      if (charNames.has(lowerName)) {
-        errors.push(`Duplicate character name: ${char.name}`);
+      if (seenNames.has(lowerName)) {
+        return false;
       }
-      charNames.add(lowerName);
+      seenNames.add(lowerName);
+      return true;
+    });
+
+    // Need at least a concept to proceed
+    if (!gathered.concept) {
+      errors.push("A story concept is required");
     }
 
     if (errors.length > 0) {
@@ -291,6 +306,61 @@ export class ProjectBootstrapService {
     }
 
     return "New Project";
+  }
+
+  /**
+   * Extract character names from text (concept, arc, setting).
+   * Looks for capitalized words that look like names.
+   */
+  private extractCharacterNamesFromText(text: string): string[] {
+    if (!text) return [];
+
+    // Common words to skip - includes sentence starters, conjunctions, articles, pronouns
+    const skipWords = new Set([
+      // Articles and determiners
+      'the', 'this', 'that', 'these', 'those', 'some', 'any', 'each', 'every',
+      // Conjunctions and connectors
+      'and', 'but', 'for', 'nor', 'yet', 'both', 'either', 'neither',
+      'also', 'however', 'therefore', 'moreover', 'furthermore', 'meanwhile',
+      'although', 'though', 'because', 'since', 'while', 'whereas',
+      // Common sentence starters
+      'seriously', 'actually', 'basically', 'honestly', 'obviously', 'clearly',
+      'certainly', 'definitely', 'probably', 'perhaps', 'maybe', 'unfortunately',
+      'fortunately', 'eventually', 'finally', 'suddenly', 'typically', 'usually',
+      'sometimes', 'often', 'always', 'never', 'once', 'then', 'now', 'here',
+      // Pronouns
+      'their', 'they', 'them', 'there', 'your', 'you', 'our', 'ours', 'his', 'her',
+      // Verbs and auxiliaries
+      'have', 'has', 'had', 'will', 'would', 'could', 'should', 'might', 'must',
+      'can', 'does', 'did', 'was', 'were', 'been', 'being', 'are', 'let', 'get',
+      // Question words
+      'where', 'when', 'what', 'who', 'whom', 'which', 'why', 'how',
+      // Negatives and affirmatives
+      'not', 'yes', 'okay', 'sure', 'right', 'well',
+      // Domain-specific words
+      'main', 'character', 'characters', 'story', 'stories', 'comic', 'comics',
+      'page', 'pages', 'panel', 'panels', 'style', 'visual', 'anime', 'manga',
+      'setting', 'scene', 'chapter', 'art', 'artist',
+      // Numbers
+      'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+      'first', 'second', 'third', 'fourth', 'fifth',
+      // Misc common words
+      'skip', 'about', 'with', 'from', 'into', 'onto', 'over', 'under',
+      'after', 'before', 'between', 'through', 'during', 'within',
+      'like', 'just', 'only', 'very', 'really', 'quite', 'rather',
+      'something', 'anything', 'everything', 'nothing', 'someone', 'anyone',
+    ]);
+
+    // Find capitalized words that look like names
+    const namePattern = /\b([A-Z][a-z]{2,})\b/g;
+    const matches = text.match(namePattern) || [];
+
+    // Filter and dedupe
+    const names = [...new Set(matches)]
+      .filter(name => !skipWords.has(name.toLowerCase()))
+      .slice(0, 5); // Max 5 characters
+
+    return names;
   }
 
   /**

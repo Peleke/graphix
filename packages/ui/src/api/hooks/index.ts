@@ -1,6 +1,6 @@
 /**
  * API Hooks
- * 
+ *
  * Re-export all API hooks for easy importing.
  */
 
@@ -14,3 +14,4 @@ export * from "./useGeneratedTexts";
 export * from "./useComposition";
 export * from "./useControlNet";
 export * from "./useUploads";
+export * from "./useTextGeneration";

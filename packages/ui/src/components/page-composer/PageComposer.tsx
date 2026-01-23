@@ -15,10 +15,13 @@ import {
   usePageLayout,
   useSavePageLayout,
 } from "../../api/hooks/useComposition";
+import { useCaptionsByPanel } from "../../api/hooks/useCaptions";
 import { PanelGenerator } from "../panel-generator/PanelGenerator";
 import { ExportDialog } from "../export";
+import { TextViewerPanel } from "./TextViewerPanel";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+type DisplayMode = "overlay" | "adjacent" | "separate";
 
 interface ImagePosition {
   x: number; // percentage offset from center (-50 to 50)
@@ -46,6 +49,9 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const [editingPanelId, setEditingPanelId] = useState<string | null>(null);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("overlay");
+  const [showDisplayModeDropdown, setShowDisplayModeDropdown] = useState(false);
+  const [showTextViewer, setShowTextViewer] = useState(false);
   const hydratedRef = useRef(false);
   const hydratingRef = useRef(false);
   const saveTimeoutRef = useRef<number | null>(null);
@@ -81,7 +87,7 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
     [pageSizeOptions, pageSize]
   );
 
-  const panelList = storyboard?.panels ?? [];
+  const panelList = (storyboard as any)?.panels ?? [];
 
   const getPanelById = (panelId: string | null) =>
     panelList.find((panel: any) => panel.id === panelId) ?? null;
@@ -229,7 +235,7 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
       saveLayout.mutate(
         {
           storyboardId,
-          name: `${storyboard?.storyboard?.name ?? "Storyboard"} Page 1`,
+          name: `${(storyboard as any)?.storyboard?.name ?? (storyboard as any)?.name ?? "Storyboard"} Page 1`,
           pageNumber: 1,
           templateId: selectedTemplateId,
           pageSize,
@@ -246,7 +252,7 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
       controller.abort();
       if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
     };
-  }, [slotAssignments, selectedTemplateId, pageSize, storyboardId, storyboard?.storyboard?.name, saveLayout]);
+  }, [slotAssignments, selectedTemplateId, pageSize, storyboardId, (storyboard as any)?.storyboard?.name ?? (storyboard as any)?.name, saveLayout]);
 
   // Auto-clear saved status
   useEffect(() => {
@@ -1027,6 +1033,170 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
             display: none;
           }
         }
+
+        /* ===== CAPTION TEXT DISPLAY (Adjacent/Separate modes) ===== */
+        .caption-text-loading,
+        .caption-text-empty {
+          font-size: 0.6875rem;
+          color: #71717a;
+          padding: 0.25rem;
+          text-align: center;
+        }
+
+        .caption-text-block {
+          background: rgba(24, 24, 27, 0.95);
+          border-radius: 4px;
+          padding: 0.5rem;
+          font-size: 0.75rem;
+        }
+
+        .caption-text-block.compact {
+          padding: 0.25rem;
+          background: transparent;
+        }
+
+        .caption-text-header {
+          font-weight: 600;
+          color: #a1a1aa;
+          margin-bottom: 0.375rem;
+          padding-bottom: 0.25rem;
+          border-bottom: 1px solid #3f3f46;
+          font-size: 0.625rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .caption-text-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .caption-text-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.375rem;
+          color: #e4e4e7;
+          line-height: 1.4;
+        }
+
+        .caption-icon {
+          flex-shrink: 0;
+          font-size: 0.75rem;
+        }
+
+        .caption-content {
+          flex: 1;
+        }
+
+        .caption-text-item.speech { color: #fafafa; }
+        .caption-text-item.thought { color: #a1a1aa; font-style: italic; }
+        .caption-text-item.narration { color: #d4d4d8; }
+        .caption-text-item.sfx { color: #fde047; font-weight: 600; }
+        .caption-text-item.whisper { color: #71717a; font-style: italic; }
+
+        /* ===== ADJACENT MODE LAYOUT ===== */
+        .canvas-adjacent-layout {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          max-height: 100%;
+          overflow-y: auto;
+          padding: 1rem;
+        }
+
+        .adjacent-panel-row {
+          display: flex;
+          gap: 1rem;
+          align-items: flex-start;
+        }
+
+        .adjacent-panel-image {
+          flex-shrink: 0;
+          width: 200px;
+          height: 150px;
+          background: #27272a;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #3f3f46;
+        }
+
+        .adjacent-panel-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .adjacent-panel-text {
+          flex: 1;
+          min-width: 0;
+        }
+
+        /* ===== SEPARATE TEXT PAGE MODE ===== */
+        .separate-text-page {
+          flex: 1;
+          display: flex;
+          gap: 1rem;
+          padding: 1rem;
+          overflow: hidden;
+        }
+
+        .separate-canvas-preview {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(ellipse at center, #1f1f23 0%, #0f0f10 100%);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .separate-text-panel {
+          width: 320px;
+          background: #18181b;
+          border: 1px solid #27272a;
+          border-radius: 8px;
+          overflow-y: auto;
+          flex-shrink: 0;
+        }
+
+        .separate-text-header {
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid #27272a;
+          font-weight: 600;
+          color: #fafafa;
+          font-size: 0.875rem;
+          position: sticky;
+          top: 0;
+          background: #18181b;
+          z-index: 1;
+        }
+
+        .separate-text-content {
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .separate-panel-section {
+          border-bottom: 1px solid #27272a;
+          padding-bottom: 0.75rem;
+        }
+
+        .separate-panel-section:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        .separate-panel-label {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: #71717a;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.5rem;
+        }
       `}</style>
 
       {/* ===== TOOLBAR ===== */}
@@ -1077,6 +1247,62 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="toolbar-divider" />
+
+        {/* Display Mode Dropdown */}
+        <div className="toolbar-group">
+          <div className="dropdown-container">
+            <button
+              className={`dropdown-trigger ${showDisplayModeDropdown ? 'active' : ''}`}
+              data-testid="display-mode-dropdown"
+              onClick={() => setShowDisplayModeDropdown(!showDisplayModeDropdown)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span>
+                {displayMode === 'overlay' && 'Overlay'}
+                {displayMode === 'adjacent' && 'Adjacent Text'}
+                {displayMode === 'separate' && 'Separate Page'}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+              </svg>
+            </button>
+            {showDisplayModeDropdown && (
+              <div className="dropdown-menu" data-testid="display-mode-menu">
+                <div
+                  className={`dropdown-item ${displayMode === 'overlay' ? 'selected' : ''}`}
+                  data-testid="display-mode-overlay"
+                  onClick={() => { setDisplayMode('overlay'); setShowDisplayModeDropdown(false); }}
+                >
+                  <span>Overlay</span>
+                  <span className="dropdown-item-meta">Captions on images</span>
+                </div>
+                <div
+                  className={`dropdown-item ${displayMode === 'adjacent' ? 'selected' : ''}`}
+                  data-testid="display-mode-adjacent"
+                  onClick={() => { setDisplayMode('adjacent'); setShowDisplayModeDropdown(false); }}
+                >
+                  <span>Adjacent Text</span>
+                  <span className="dropdown-item-meta">Text below panels</span>
+                </div>
+                <div
+                  className={`dropdown-item ${displayMode === 'separate' ? 'selected' : ''}`}
+                  data-testid="display-mode-separate"
+                  onClick={() => { setDisplayMode('separate'); setShowDisplayModeDropdown(false); }}
+                >
+                  <span>Separate Page</span>
+                  <span className="dropdown-item-meta">Text collected separately</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="toolbar-divider" />
@@ -1146,111 +1372,242 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
       )}
 
       {/* ===== CANVAS AREA ===== */}
-      <div className="canvas-container" ref={canvasContainerRef}>
-        {selectedTemplate && storyboard ? (
-          <div
-            className="canvas-wrapper"
-            data-testid="page-canvas"
-            style={{ width: canvasDimensions.width, height: canvasDimensions.height }}
-          >
-            {isComposing && (
-              <div className="compose-overlay" data-testid="compose-overlay">
-                <div className="compose-spinner" />
-                <span style={{ color: '#a1a1aa', fontSize: '0.8125rem' }}>Composing page...</span>
+      {displayMode === 'separate' ? (
+        /* Separate Text Page Mode - Split view */
+        <div className="separate-text-page" data-testid="separate-text-view">
+          {/* Left: Canvas preview (smaller) */}
+          <div className="separate-canvas-preview">
+            {selectedTemplate && storyboard ? (
+              <div
+                className="canvas-wrapper"
+                data-testid="page-canvas"
+                style={{ width: canvasDimensions.width * 0.7, height: canvasDimensions.height * 0.7 }}
+              >
+                {selectedTemplate.slots?.map((slot: any, index: number) => {
+                  const assignedPanelId = slotAssignments[slot.id];
+                  const panel = getPanelById(assignedPanelId);
+                  const generationId = panel?.selectedGeneration?.id;
+                  const imageUrl = generationId ? `/api/generations/${generationId}/image` : null;
+                  const hasFailedImage = generationId && failedImages.has(generationId);
+
+                  return (
+                    <div
+                      key={slot.id}
+                      className={`panel-slot ${imageUrl && !hasFailedImage ? 'filled' : ''}`}
+                      style={{
+                        left: `${slot.x}%`,
+                        top: `${slot.y}%`,
+                        width: `${slot.width}%`,
+                        height: `${slot.height}%`,
+                      }}
+                    >
+                      <span className="slot-number">{index + 1}</span>
+                      {imageUrl && !hasFailedImage ? (
+                        <img className="slot-image" src={imageUrl} alt={`Slot ${index + 1}`} />
+                      ) : (
+                        <div className="slot-placeholder">
+                          <span>{index + 1}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="canvas-empty">
+                <h3>Select a layout</h3>
               </div>
             )}
+          </div>
 
-            {previewUrl && (
-              <img
-                src={previewUrl}
-                alt="Preview"
-                data-testid="page-preview"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.3 }}
-              />
-            )}
+          {/* Right: Collected text panel */}
+          <div className="separate-text-panel" data-testid="separate-text-panel">
+            <div className="separate-text-header">Page Text</div>
+            <div className="separate-text-content">
+              {selectedTemplate?.slots?.map((slot: any, index: number) => {
+                const assignedPanelId = slotAssignments[slot.id];
+                const panel = getPanelById(assignedPanelId);
+                if (!assignedPanelId) return null;
 
-            {selectedTemplate.slots?.map((slot: any, index: number) => {
-              const assignedPanelId = slotAssignments[slot.id];
-              const panel = getPanelById(assignedPanelId);
-              const generationId = panel?.selectedGeneration?.id;
-              const imageUrl = generationId ? `/api/generations/${generationId}/image` : null;
-              const hasFailedImage = generationId && failedImages.has(generationId);
-              const position = imagePositions[slot.id] || { x: 0, y: 0, scale: 1 };
-              const isActive = activeSlotId === slot.id;
-
-              return (
-                <div
-                  key={slot.id}
-                  className={`panel-slot ${isActive ? 'active' : ''} ${imageUrl && !hasFailedImage ? 'filled' : ''}`}
-                  data-testid="panel-slot"
-                  data-selected={isActive}
-                  style={{
-                    left: `${slot.x}%`,
-                    top: `${slot.y}%`,
-                    width: `${slot.width}%`,
-                    height: `${slot.height}%`,
-                  }}
-                  onClick={() => {
-                    setActiveSlotId(slot.id);
-                    if (assignedPanelId) setSelectedPanelId(assignedPanelId);
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    const panelId = e.dataTransfer.getData('panelId');
-                    const sourceSlotId = e.dataTransfer.getData('sourceSlotId');
-                    if (panelId) handleSlotDrop(slot.id, panelId, sourceSlotId || null);
-                  }}
-                >
-                  <span className="slot-number">{index + 1}</span>
-
-                  {assignedPanelId && (
-                    <div className="slot-actions">
-                      <button
-                        className="slot-action-btn"
-                        title="Edit panel"
-                        onClick={(e) => { e.stopPropagation(); setEditingPanelId(assignedPanelId); }}
-                      >✎</button>
-                      <button
-                        className="slot-action-btn"
-                        title="Remove"
-                        data-testid="assign-clear-slot"
-                        onClick={(e) => { e.stopPropagation(); clearSlotAssignment(slot.id); }}
-                      >×</button>
+                return (
+                  <div key={slot.id} className="separate-panel-section">
+                    <div className="separate-panel-label">
+                      Panel {index + 1}{panel?.name ? `: ${panel.name}` : ''}
                     </div>
-                  )}
-
-                  {imageUrl && !hasFailedImage ? (
-                    <DraggableImage
-                      src={imageUrl}
-                      alt={`Slot ${index + 1}`}
-                      position={position}
-                      onDrag={(dx, dy) => handleImageDrag(slot.id, dx, dy)}
-                      onError={() => generationId && handleImageError(generationId)}
-                    />
-                  ) : (
-                    <div className="slot-placeholder" data-testid="slot-placeholder">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
-                        <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm16 14V6H4v12h16zM6 17l5-5 2 2 4-5 5 6H6z"/>
-                      </svg>
-                      <span>{assignedPanelId ? 'No image' : 'Drop panel here'}</span>
-                    </div>
-                  )}
+                    <PanelCaptionsText panelId={assignedPanelId} compact />
+                  </div>
+                );
+              })}
+              {Object.keys(slotAssignments).length === 0 && (
+                <div className="caption-text-empty">
+                  Assign panels to slots to see text
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="canvas-empty">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <line x1="3" y1="9" x2="21" y2="9"/>
-              <line x1="9" y1="21" x2="9" y2="9"/>
-            </svg>
-            <h3>Select a layout</h3>
-            <p>Choose a page layout from the dropdown above to start composing.</p>
+        </div>
+      ) : displayMode === 'adjacent' ? (
+        /* Adjacent Text Mode - Panels with text below */
+        <div className="canvas-container" ref={canvasContainerRef}>
+          <div className="canvas-adjacent-layout" data-testid="adjacent-text-view">
+            {selectedTemplate && storyboard ? (
+              selectedTemplate.slots?.map((slot: any, index: number) => {
+                const assignedPanelId = slotAssignments[slot.id];
+                const panel = getPanelById(assignedPanelId);
+                const generationId = panel?.selectedGeneration?.id;
+                const imageUrl = generationId ? `/api/generations/${generationId}/image` : null;
+                const hasFailedImage = generationId && failedImages.has(generationId);
+
+                return (
+                  <div key={slot.id} className="adjacent-panel-row">
+                    <div className="adjacent-panel-image">
+                      {imageUrl && !hasFailedImage ? (
+                        <img src={imageUrl} alt={`Panel ${index + 1}`} />
+                      ) : (
+                        <div className="slot-placeholder">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
+                            <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm16 14V6H4v12h16zM6 17l5-5 2 2 4-5 5 6H6z"/>
+                          </svg>
+                          <span>Panel {index + 1}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="adjacent-panel-text">
+                      {assignedPanelId ? (
+                        <PanelCaptionsText
+                          panelId={assignedPanelId}
+                          panelName={panel?.name || `Panel ${index + 1}`}
+                        />
+                      ) : (
+                        <div className="caption-text-empty">
+                          No panel assigned to slot {index + 1}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="canvas-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/>
+                  <line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+                <h3>Select a layout</h3>
+                <p>Choose a page layout from the dropdown above to start composing.</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Overlay Mode - Default behavior */
+        <div className="canvas-container" ref={canvasContainerRef}>
+          {selectedTemplate && storyboard ? (
+            <div
+              className="canvas-wrapper"
+              data-testid="page-canvas"
+              style={{ width: canvasDimensions.width, height: canvasDimensions.height }}
+            >
+              {isComposing && (
+                <div className="compose-overlay" data-testid="compose-overlay">
+                  <div className="compose-spinner" />
+                  <span style={{ color: '#a1a1aa', fontSize: '0.8125rem' }}>Composing page...</span>
+                </div>
+              )}
+
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  data-testid="page-preview"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.3 }}
+                />
+              )}
+
+              {selectedTemplate.slots?.map((slot: any, index: number) => {
+                const assignedPanelId = slotAssignments[slot.id];
+                const panel = getPanelById(assignedPanelId);
+                const generationId = panel?.selectedGeneration?.id;
+                const imageUrl = generationId ? `/api/generations/${generationId}/image` : null;
+                const hasFailedImage = generationId && failedImages.has(generationId);
+                const position = imagePositions[slot.id] || { x: 0, y: 0, scale: 1 };
+                const isActive = activeSlotId === slot.id;
+
+                return (
+                  <div
+                    key={slot.id}
+                    className={`panel-slot ${isActive ? 'active' : ''} ${imageUrl && !hasFailedImage ? 'filled' : ''}`}
+                    data-testid="panel-slot"
+                    data-selected={isActive}
+                    style={{
+                      left: `${slot.x}%`,
+                      top: `${slot.y}%`,
+                      width: `${slot.width}%`,
+                      height: `${slot.height}%`,
+                    }}
+                    onClick={() => {
+                      setActiveSlotId(slot.id);
+                      if (assignedPanelId) setSelectedPanelId(assignedPanelId);
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const panelId = e.dataTransfer.getData('panelId');
+                      const sourceSlotId = e.dataTransfer.getData('sourceSlotId');
+                      if (panelId) handleSlotDrop(slot.id, panelId, sourceSlotId || null);
+                    }}
+                  >
+                    <span className="slot-number">{index + 1}</span>
+
+                    {assignedPanelId && (
+                      <div className="slot-actions">
+                        <button
+                          className="slot-action-btn"
+                          title="Edit panel"
+                          onClick={(e) => { e.stopPropagation(); setEditingPanelId(assignedPanelId); }}
+                        >✎</button>
+                        <button
+                          className="slot-action-btn"
+                          title="Remove"
+                          data-testid="assign-clear-slot"
+                          onClick={(e) => { e.stopPropagation(); clearSlotAssignment(slot.id); }}
+                        >×</button>
+                      </div>
+                    )}
+
+                    {imageUrl && !hasFailedImage ? (
+                      <DraggableImage
+                        src={imageUrl}
+                        alt={`Slot ${index + 1}`}
+                        position={position}
+                        onDrag={(dx, dy) => handleImageDrag(slot.id, dx, dy)}
+                        onError={() => generationId && handleImageError(generationId)}
+                      />
+                    ) : (
+                      <div className="slot-placeholder" data-testid="slot-placeholder">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" opacity="0.3">
+                          <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm16 14V6H4v12h16zM6 17l5-5 2 2 4-5 5 6H6z"/>
+                        </svg>
+                        <span>{assignedPanelId ? 'No image' : 'Drop panel here'}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="canvas-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+              <h3>Select a layout</h3>
+              <p>Choose a page layout from the dropdown above to start composing.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ===== FILMSTRIP ===== */}
       <div className="filmstrip">
@@ -1299,6 +1656,16 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
         </div>
       </div>
 
+      {/* ===== TEXT VIEWER PANEL ===== */}
+      <TextViewerPanel
+        selectedPanelId={selectedPanelId}
+        storyboardId={storyboardId}
+        panels={panelList}
+        slotAssignments={slotAssignments}
+        isExpanded={showTextViewer}
+        onToggleExpand={() => setShowTextViewer(!showTextViewer)}
+      />
+
       {/* ===== PANEL EDITOR MODAL ===== */}
       {editingPanelId && (
         <div className="panel-editor-overlay" onClick={() => setEditingPanelId(null)}>
@@ -1327,13 +1694,63 @@ export function PageComposer({ storyboardId }: PageComposerProps) {
         </div>
       )}
 
-      {/* Click outside to close dropdown */}
-      {showTemplateDropdown && (
+      {/* Click outside to close dropdowns */}
+      {(showTemplateDropdown || showDisplayModeDropdown) && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 50 }}
-          onClick={() => setShowTemplateDropdown(false)}
+          onClick={() => {
+            setShowTemplateDropdown(false);
+            setShowDisplayModeDropdown(false);
+          }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Panel Captions Text Component
+ * Displays captions text for a panel in adjacent/separate mode
+ */
+interface PanelCaptionsTextProps {
+  panelId: string;
+  panelName?: string;
+  compact?: boolean;
+}
+
+function PanelCaptionsText({ panelId, panelName, compact = false }: PanelCaptionsTextProps) {
+  const { data: captions, isLoading } = useCaptionsByPanel(panelId);
+
+  if (isLoading) {
+    return <div className="caption-text-loading">Loading...</div>;
+  }
+
+  if (!captions || captions.length === 0) {
+    return compact ? null : <div className="caption-text-empty">No captions</div>;
+  }
+
+  const getCaptionIcon = (type: string) => {
+    switch (type) {
+      case 'speech': return '💬';
+      case 'thought': return '💭';
+      case 'narration': return '📖';
+      case 'sfx': return '💥';
+      case 'whisper': return '🤫';
+      default: return '💬';
+    }
+  };
+
+  return (
+    <div className={`caption-text-block ${compact ? 'compact' : ''}`}>
+      {panelName && !compact && <div className="caption-text-header">{panelName}</div>}
+      <div className="caption-text-list">
+        {captions.map((caption: any) => (
+          <div key={caption.id} className={`caption-text-item ${caption.type}`}>
+            <span className="caption-icon">{getCaptionIcon(caption.type)}</span>
+            <span className="caption-content">{caption.text}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -207,6 +207,34 @@ export class ProjectService {
         }
       }
     }
+
+    // Validate ControlNet defaults
+    if (settings.defaultControlNet) {
+      const { controls, mode } = settings.defaultControlNet;
+
+      // Validate mode
+      if (mode && !["simple", "standard", "advanced"].includes(mode)) {
+        throw new Error("ControlNet mode must be 'simple', 'standard', or 'advanced'");
+      }
+
+      // Validate control conditions
+      if (controls) {
+        for (const control of controls) {
+          if (!control.type) {
+            throw new Error("ControlNet condition type is required");
+          }
+          if (control.strength !== undefined && (control.strength < 0 || control.strength > 2)) {
+            throw new Error("ControlNet strength must be between 0 and 2");
+          }
+          if (control.startPercent !== undefined && (control.startPercent < 0 || control.startPercent > 1)) {
+            throw new Error("ControlNet startPercent must be between 0 and 1");
+          }
+          if (control.endPercent !== undefined && (control.endPercent < 0 || control.endPercent > 1)) {
+            throw new Error("ControlNet endPercent must be between 0 and 1");
+          }
+        }
+      }
+    }
   }
 }
 

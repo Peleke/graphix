@@ -279,6 +279,8 @@ export async function migrateDatabase(client: Client): Promise<void> {
       storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
       position INTEGER NOT NULL,
       description TEXT DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'image',
+      text_content TEXT,
       direction TEXT,
       character_ids TEXT NOT NULL DEFAULT '[]',
       selected_output_id TEXT,
@@ -510,6 +512,21 @@ export async function migrateDatabase(client: Client): Promise<void> {
       updated_at INTEGER DEFAULT (unixepoch())
     );
   `);
+
+  // Run column migrations (for existing databases)
+  // These may fail if columns already exist, which is fine
+  const columnMigrations = [
+    "ALTER TABLE panels ADD COLUMN type TEXT NOT NULL DEFAULT 'image'",
+    "ALTER TABLE panels ADD COLUMN text_content TEXT",
+  ];
+
+  for (const sql of columnMigrations) {
+    try {
+      await client.execute(sql);
+    } catch (e) {
+      // Column likely already exists, ignore
+    }
+  }
 
   console.error("[DB] Schema migration complete");
 }
