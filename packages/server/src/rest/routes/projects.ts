@@ -6,7 +6,7 @@
  */
 
 import { Hono } from "hono";
-import { getProjectService, getStoryboardService, getPanelService, getGenerationService } from "@graphix/core";
+import { getProjectService, getStoryboardService, getPanelService, getGeneratedImageService } from "@graphix/core";
 import { errors } from "../errors/index.js";
 import {
   validateBody,
@@ -118,7 +118,7 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
   const projectService = getProjectService();
   const storyboardService = getStoryboardService();
   const panelService = getPanelService();
-  const generationService = getGenerationService();
+  const generationService = getGeneratedImageService();
   const { id } = c.req.valid("param");
 
   // Verify project exists
@@ -142,7 +142,7 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
 
   // Find the first panel with a selected generation or any generation
   for (const panel of panels) {
-    const generations = await generationService.listByPanel(panel.id);
+    const generations = await generationService.getByPanel(panel.id);
     if (generations && generations.length > 0) {
       // Prefer selected output, otherwise use the first generation
       const selectedGen = generations.find((g: any) => g.id === panel.selectedOutputId) || generations[0];
