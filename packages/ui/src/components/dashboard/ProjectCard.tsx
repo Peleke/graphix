@@ -100,10 +100,13 @@ export function getTemplateType(project: Project): string | null {
 }
 
 export function getThumbnailUrl(project: Project): string | null {
+  // First check if there's an explicit thumbnail URL in settings
   if (typeof project.settings?.thumbnailUrl === "string") {
     return project.settings.thumbnailUrl;
   }
-  return null;
+  // Otherwise, use the API endpoint that returns the first generated image
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+  return `${apiBase}/api/projects/${project.id}/thumbnail`;
 }
 
 // ============================================================================
@@ -371,16 +374,29 @@ export const ProjectCard = memo(function ProjectCard({
         {/* Thumbnail */}
         <div className={`card-thumbnail ${isGrid ? 'card-thumbnail-grid' : 'card-thumbnail-list'}`}>
           {thumbnailUrl ? (
-            <img src={thumbnailUrl} alt={project.name} loading="lazy" />
-          ) : (
-            <div className="card-thumbnail-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="9" y1="21" x2="9" y2="9" />
-              </svg>
-            </div>
-          )}
+            <img
+              src={thumbnailUrl}
+              alt={project.name}
+              loading="lazy"
+              onError={(e) => {
+                // Hide the broken image and show placeholder
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                const placeholder = target.nextElementSibling as HTMLElement;
+                if (placeholder) placeholder.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div
+            className="card-thumbnail-icon"
+            style={{ display: thumbnailUrl ? 'none' : 'flex' }}
+          >
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+          </div>
           {template && isGrid && <div className="card-badge">{template}</div>}
         </div>
 
