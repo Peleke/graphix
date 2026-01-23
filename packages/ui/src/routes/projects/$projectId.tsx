@@ -7,7 +7,7 @@
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { useProject, useUpdateProject } from "../../api/hooks";
+import { useProject, useUpdateProject, useStoryboards, useStoryboard } from "../../api/hooks";
 import { StoryEditor } from "../../components/story-editor";
 import { StoryboardView } from "../../components/storyboard";
 import { PanelGenerator } from "../../components/panel-generator";
@@ -31,6 +31,17 @@ function ProjectPage() {
   const [showStoryboardRequiredModal, setShowStoryboardRequiredModal] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
+
+  // Fetch storyboards for auto-selection
+  const { data: storyboards } = useStoryboards(projectId);
+  const { data: currentStoryboard } = useStoryboard(selectedStoryboardId);
+
+  // Auto-select first storyboard when project loads
+  useEffect(() => {
+    if (storyboards && storyboards.length > 0 && !selectedStoryboardId) {
+      setSelectedStoryboardId(storyboards[0].id);
+    }
+  }, [storyboards, selectedStoryboardId]);
 
   // Sync edited name when project loads
   useEffect(() => {
@@ -435,11 +446,22 @@ function ProjectPage() {
               <div
                 className={`nav-item ${activeView === "panel-generator" ? "active" : ""}`}
                 onClick={() => {
-                  if (!selectedPanelId) {
-                    setShowPanelRequiredModal(true);
+                  // If a panel is already selected, just navigate
+                  if (selectedPanelId) {
+                    setActiveView("panel-generator");
                     return;
                   }
-                  setActiveView("panel-generator");
+
+                  // Try to auto-select the first panel from the current storyboard
+                  const panels = currentStoryboard?.panels;
+                  if (panels && panels.length > 0) {
+                    setSelectedPanelId(panels[0].id);
+                    setActiveView("panel-generator");
+                    return;
+                  }
+
+                  // No panels available - show the modal
+                  setShowPanelRequiredModal(true);
                 }}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
