@@ -6,8 +6,8 @@
  */
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useProject } from "../../api/hooks";
+import { useEffect, useState, useCallback } from "react";
+import { useProject, useUpdateProject } from "../../api/hooks";
 import { StoryEditor } from "../../components/story-editor";
 import { StoryboardView } from "../../components/storyboard";
 import { PanelGenerator } from "../../components/panel-generator";
@@ -23,9 +23,44 @@ type WorkspaceView = "story-editor" | "storyboard" | "panel-generator" | "page-c
 function ProjectPage() {
   const { projectId } = Route.useParams();
   const { data: project, isLoading, error } = useProject(projectId);
+  const updateProject = useUpdateProject();
   const [activeView, setActiveView] = useState<WorkspaceView>("story-editor");
   const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [selectedStoryboardId, setSelectedStoryboardId] = useState<string | null>(null);
+  const [showPanelRequiredModal, setShowPanelRequiredModal] = useState(false);
+  const [showStoryboardRequiredModal, setShowStoryboardRequiredModal] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+
+  // Sync edited name when project loads
+  useEffect(() => {
+    if (project?.name) {
+      setEditedName(project.name);
+    }
+  }, [project?.name]);
+
+  const handleNameSave = useCallback(async () => {
+    if (!editedName.trim() || editedName === project?.name) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      await updateProject.mutateAsync({ id: projectId, name: editedName.trim() });
+      setIsEditingName(false);
+    } catch (err) {
+      console.error("Failed to update project name:", err);
+    }
+  }, [editedName, project?.name, projectId, updateProject]);
+
+  const handleNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleNameSave();
+    } else if (e.key === "Escape") {
+      setEditedName(project?.name || "");
+      setIsEditingName(false);
+    }
+  }, [handleNameSave, project?.name]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -94,6 +129,43 @@ function ProjectPage() {
           font-weight: 600;
           color: #fafafa;
           margin: 0;
+        }
+
+        .project-title-editable {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          margin: -0.25rem -0.5rem;
+          border-radius: 6px;
+          transition: background 0.15s ease;
+        }
+
+        .project-title-editable:hover {
+          background: #27272a;
+        }
+
+        .project-title-editable .edit-icon {
+          opacity: 0;
+          color: #71717a;
+          transition: opacity 0.15s ease;
+        }
+
+        .project-title-editable:hover .edit-icon {
+          opacity: 1;
+        }
+
+        .project-title-input {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #fafafa;
+          background: #27272a;
+          border: 1px solid #8b5cf6;
+          border-radius: 6px;
+          padding: 0.25rem 0.5rem;
+          outline: none;
+          min-width: 200px;
         }
         
         .workspace-content {
@@ -208,6 +280,80 @@ function ProjectPage() {
         .btn-primary:hover {
           background: #7c3aed;
         }
+
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          backdrop-filter: blur(4px);
+          padding: 1rem;
+        }
+
+        .modal-content {
+          background: linear-gradient(to bottom, #1f1f23, #18181b);
+          border: 1px solid #27272a;
+          border-radius: 16px;
+          padding: 2rem;
+          width: 100%;
+          max-width: 420px;
+          text-align: center;
+          box-shadow:
+            0 25px 80px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(139, 92, 246, 0.1);
+        }
+
+        .modal-icon {
+          width: 64px;
+          height: 64px;
+          margin: 0 auto 1.5rem;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #a78bfa;
+        }
+
+        .modal-content h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #fafafa;
+          margin: 0 0 0.75rem;
+        }
+
+        .modal-content p {
+          color: #a1a1aa;
+          margin: 0 0 1.5rem;
+          line-height: 1.6;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 0.75rem;
+          justify-content: center;
+        }
+
+        .btn-secondary {
+          padding: 0.75rem 1.5rem;
+          background: transparent;
+          border: 1px solid #3f3f46;
+          border-radius: 8px;
+          color: #a1a1aa;
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+          background: #27272a;
+          color: #fafafa;
+          border-color: #52525b;
+        }
       `}</style>
       
       <div className="workspace-header">
@@ -219,7 +365,28 @@ function ProjectPage() {
         </Link>
         
         {project && (
-          <h1 className="project-title">{project.name}</h1>
+          isEditingName ? (
+            <input
+              type="text"
+              className="project-title-input"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onBlur={handleNameSave}
+              onKeyDown={handleNameKeyDown}
+              autoFocus
+            />
+          ) : (
+            <h1
+              className="project-title project-title-editable"
+              onClick={() => setIsEditingName(true)}
+              title="Click to edit"
+            >
+              {project.name}
+              <svg className="edit-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 00-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 000-.354l-1.086-1.086zM11.189 6.25L9.75 4.81l-6.286 6.287a.25.25 0 00-.064.108l-.558 1.953 1.953-.558a.249.249 0 00.108-.064l6.286-6.286z"/>
+              </svg>
+            </h1>
+          )
         )}
       </div>
       
@@ -265,12 +432,11 @@ function ProjectPage() {
                 </svg>
                 Storyboard
               </div>
-              <div 
+              <div
                 className={`nav-item ${activeView === "panel-generator" ? "active" : ""}`}
                 onClick={() => {
                   if (!selectedPanelId) {
-                    // TODO: Show modal to create/select panel
-                    alert("Please create or select a panel first from Storyboard");
+                    setShowPanelRequiredModal(true);
                     return;
                   }
                   setActiveView("panel-generator");
@@ -281,11 +447,11 @@ function ProjectPage() {
                 </svg>
                 Panel Generator
               </div>
-              <div 
+              <div
                 className={`nav-item ${activeView === "page-composer" ? "active" : ""}`}
                 onClick={() => {
                   if (!selectedStoryboardId) {
-                    alert("Please select a storyboard first");
+                    setShowStoryboardRequiredModal(true);
                     return;
                   }
                   setActiveView("page-composer");
@@ -330,9 +496,10 @@ function ProjectPage() {
               />
             )}
             {activeView === "panel-generator" && selectedPanelId && (
-              <PanelGenerator 
+              <PanelGenerator
                 panelId={selectedPanelId}
                 storyboardId={selectedStoryboardId || ""}
+                onPanelChange={(newPanelId) => setSelectedPanelId(newPanelId)}
               />
             )}
             {activeView === "page-composer" && selectedStoryboardId && (
@@ -361,7 +528,7 @@ function ProjectPage() {
               <div className="placeholder-content">
                 <h2>No Storyboard Selected</h2>
                 <p>Please select a storyboard from the Storyboard view first.</p>
-                <button 
+                <button
                   className="btn-primary"
                   onClick={() => setActiveView("storyboard")}
                   style={{ marginTop: "1rem", padding: "0.75rem 1.5rem" }}
@@ -370,6 +537,75 @@ function ProjectPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Panel Required Modal */}
+      {showPanelRequiredModal && (
+        <div className="modal-overlay" onClick={() => setShowPanelRequiredModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+            </div>
+            <h2>Panel Required</h2>
+            <p>You need to create or select a panel from the Storyboard before using Panel Generator.</p>
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowPanelRequiredModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setShowPanelRequiredModal(false);
+                  setActiveView("storyboard");
+                }}
+              >
+                Go to Storyboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storyboard Required Modal */}
+      {showStoryboardRequiredModal && (
+        <div className="modal-overlay" onClick={() => setShowStoryboardRequiredModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+            </div>
+            <h2>Storyboard Required</h2>
+            <p>You need to select a storyboard before using Page Composer. Go to the Storyboard view to create or select one.</p>
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowStoryboardRequiredModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setShowStoryboardRequiredModal(false);
+                  setActiveView("storyboard");
+                }}
+              >
+                Go to Storyboard
+              </button>
+            </div>
           </div>
         </div>
       )}

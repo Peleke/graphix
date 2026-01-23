@@ -12,20 +12,27 @@ import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePa
 import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
 import { useStoryboard } from "../../api/hooks/useStories";
 import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
-import { useGeneratedTextsByPanel, useActiveGeneratedText, type GeneratedTextType } from "../../api/hooks/useGeneratedTexts";
+import { useGeneratedTextsByPanel } from "../../api/hooks/useGeneratedTexts";
+import { useGeneratePanelDescription } from "../../api/hooks/useTextGeneration";
 import { GenerationTreeVisualization } from "../generation-tree";
 import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
-import { ControlNetPanel } from "../controlnet";
+import { ControlNetPanel, type ControlNetMode } from "../controlnet";
 import type { ControlNetCondition } from "../../types/controlnet";
+import { AIAssistButton } from "./AIAssistButton";
+import { PanelTextViewer } from "./PanelTextViewer";
 
 interface PanelGeneratorProps {
   panelId: string;
   storyboardId: string;
+  /** Called when a generation is selected as the panel output */
+  onGenerationSelected?: () => void;
+  /** Called when user wants to switch to a different panel */
+  onPanelChange?: (panelId: string) => void;
 }
 
 // Helper component to load tree data
 function GenerationTreeDataLoader({ panelId }: { panelId: string }) {
-  const { isLoading, error } = useGenerationTreeData({ panelId });
+  const { error } = useGenerationTreeData({ panelId });
   // Silently handle loading/errors - visualization will show empty state
   if (error) {
     console.warn("Failed to load generation tree data:", error);
@@ -33,9 +40,9 @@ function GenerationTreeDataLoader({ panelId }: { panelId: string }) {
   return null;
 }
 
-export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
+export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, onPanelChange }: PanelGeneratorProps) {
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
-  const [controlLevel, setControlLevel] = useState<0 | 1 | 2 | 3 | 4>(3); // Level 3 = visual target
+  const [, setControlNetMode] = useState<ControlNetMode>("standard");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [variantCount, setVariantCount] = useState(4);
@@ -44,20 +51,20 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const [controlNetControls, setControlNetControls] = useState<ControlNetCondition[]>([]);
 
   // Panel data
-  const { data: panelFull, isLoading: loadingPanel } = usePanelFull(panelId);
+  const { data: panelFull } = usePanelFull(panelId);
   const { data: storyboardFull } = useStoryboard(storyboardId);
-  
-  // Characters
-  const { data: characters } = useCharacters(storyboardId); // Note: might need projectId
+
+  // Get projectId from storyboard for character fetching
+  const projectId = (storyboardFull as any)?.storyboard?.projectId ?? (storyboardFull as any)?.projectId ?? null;
+
+  // Characters - needs projectId, not storyboardId
+  const { data: characters } = useCharacters(projectId);
   
   // Generations (versioning)
   const { data: generations, isLoading: loadingGenerations } = useGenerationsByPanel(panelId);
   
   // Generated text (narratives, descriptions)
   const { data: generatedTexts } = useGeneratedTextsByPanel(panelId);
-  const { data: panelDescription } = useActiveGeneratedText(panelId, "panel_description");
-  const { data: dialogue } = useActiveGeneratedText(panelId, "dialogue");
-  const { data: narration } = useActiveGeneratedText(panelId, "narration");
   
   // Captions
   const { data: captions } = useCaptionsByPanel(panelId);
@@ -68,6 +75,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const selectOutput = useSelectPanelOutput();
   const generateCaptions = useGenerateCaptions();
   const rateGeneration = useRateGeneration();
+  const generatePanelDescription = useGeneratePanelDescription();
 
   const referenceImages = (generations || [])
     .map((gen: any) => {
@@ -86,9 +94,9 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleControlNetChange = useCallback(
-    (controls: ControlNetCondition[], level: 0 | 1 | 2 | 3 | 4) => {
+    (controls: ControlNetCondition[], mode: ControlNetMode) => {
       setControlNetControls(controls);
-      setControlLevel(level);
+      setControlNetMode(mode);
     },
     []
   );
@@ -128,8 +136,10 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
 
   const handleSelectOutput = async (generationId: string) => {
     try {
-      await selectOutput.mutateAsync({ panelId, generationId });
+      await selectOutput.mutateAsync({ panelId, generationId, storyboardId });
       setSelectedGenerationId(generationId);
+      // Notify parent that a generation was selected
+      onGenerationSelected?.();
     } catch (err) {
       console.error("Failed to select output:", err);
     }
@@ -142,13 +152,16 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           display: flex;
           flex-direction: column;
           height: 100%;
+          min-height: 0;
           background: #18181b;
           color: #fafafa;
+          overflow: hidden;
         }
         
         .generator-header {
           padding: 1rem 1.5rem;
           border-bottom: 1px solid #27272a;
+          flex-shrink: 0;
         }
         
         .generator-title {
@@ -159,21 +172,67 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         
         .generator-content {
           flex: 1;
+          min-height: 0;
           display: flex;
           overflow: hidden;
         }
-        
+
         .control-panel {
-          width: 400px;
+          flex: 1;
+          min-width: 0;
+          min-height: 0;
           border-right: 1px solid #27272a;
           padding: 1.5rem;
+          padding-bottom: 4rem;
           overflow-y: auto;
+          overflow-x: hidden;
         }
-        
+
         .preview-panel {
-          flex: 1;
-          padding: 1.5rem;
+          width: 280px;
+          min-width: 200px;
+          min-height: 0;
+          flex-shrink: 0;
+          padding: 1rem;
+          padding-bottom: 2rem;
           overflow-y: auto;
+          overflow-x: hidden;
+          background: #141416;
+        }
+
+        @media (max-width: 900px) {
+          .generator-content {
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+          }
+
+          .control-panel {
+            flex: none;
+            border-right: none;
+            border-bottom: 1px solid #27272a;
+            overflow: visible;
+          }
+
+          .preview-panel {
+            flex: none;
+            width: 100%;
+            min-height: 200px;
+            max-height: none;
+            border-top: 1px solid #27272a;
+            overflow: visible;
+          }
+
+          .generations-grid {
+            flex-direction: row;
+            flex-wrap: wrap;
+          }
+
+          .generation-card {
+            flex: 1;
+            min-width: 150px;
+            max-width: 200px;
+          }
         }
         
         .section {
@@ -305,53 +364,51 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         }
         
         .generations-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 1rem;
-        }
-        
-        @media (min-width: 1200px) {
-          .generations-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .generations-grid {
-            grid-template-columns: 1fr;
-          }
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
         }
         
         .generation-card {
+          display: flex;
+          gap: 0.75rem;
           background: #27272a;
           border: 2px solid #3f3f46;
           border-radius: 8px;
           overflow: hidden;
           cursor: pointer;
           transition: all 0.15s ease;
+          padding: 0.5rem;
         }
-        
+
         .generation-card:hover {
           border-color: #8b5cf6;
         }
-        
+
         .generation-card.selected {
           border-color: #8b5cf6;
-          box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+          box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
         }
-        
+
         .generation-thumb {
-          width: 100%;
-          aspect-ratio: 3/4;
+          width: 60px;
+          height: 80px;
+          flex-shrink: 0;
           background: #18181b;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #52525b;
+          border-radius: 4px;
+          overflow: hidden;
         }
-        
+
         .generation-info {
-          padding: 0.75rem;
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
         
         .generation-status {
@@ -362,7 +419,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         .generation-actions {
           display: flex;
           gap: 0.25rem;
-          margin-top: 0.5rem;
+          margin-top: 0.25rem;
         }
         
         .action-btn {
@@ -409,7 +466,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           display: flex;
           gap: 0.5rem;
           border-bottom: 1px solid #27272a;
-          margin-bottom: 1rem;
+          flex-shrink: 0;
         }
         
         .tab-button {
@@ -499,10 +556,116 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
       `}</style>
 
       <div className="generator-header">
-        <h2 className="generator-title">Panel Generator</h2>
-        <p style={{ margin: 0, fontSize: "0.875rem", color: "#71717a" }}>
-          Configure ControlNet and generate panel images
-        </p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h2 className="generator-title">Panel Generator</h2>
+            <p style={{ margin: 0, fontSize: "0.875rem", color: "#71717a" }}>
+              Configure ControlNet and generate panel images
+            </p>
+          </div>
+
+          {/* Panel Navigation */}
+          {storyboardFull && (storyboardFull as any).panels && (storyboardFull as any).panels.length > 1 && onPanelChange && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.75rem", color: "#71717a", textTransform: "uppercase" }}>Panel:</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                {/* Prev Button */}
+                <button
+                  onClick={() => {
+                    const panels = (storyboardFull as any).panels;
+                    const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                    if (currentIndex > 0) {
+                      onPanelChange(panels[currentIndex - 1].id);
+                    }
+                  }}
+                  disabled={(() => {
+                    const panels = (storyboardFull as any).panels;
+                    const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                    return currentIndex <= 0;
+                  })()}
+                  style={{
+                    padding: "0.375rem 0.5rem",
+                    background: "#27272a",
+                    border: "1px solid #3f3f46",
+                    borderRadius: "6px",
+                    color: "#a1a1aa",
+                    cursor: "pointer",
+                    opacity: (() => {
+                      const panels = (storyboardFull as any).panels;
+                      const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                      return currentIndex <= 0 ? 0.5 : 1;
+                    })(),
+                  }}
+                  title="Previous panel"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+
+                {/* Panel Selector Dropdown */}
+                <select
+                  value={panelId}
+                  onChange={(e) => onPanelChange(e.target.value)}
+                  style={{
+                    padding: "0.375rem 2rem 0.375rem 0.75rem",
+                    background: "#27272a",
+                    border: "1px solid #3f3f46",
+                    borderRadius: "6px",
+                    color: "#fafafa",
+                    fontSize: "0.875rem",
+                    cursor: "pointer",
+                    appearance: "none",
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 8px center",
+                  }}
+                >
+                  {(storyboardFull as any).panels.map((panel: any, index: number) => (
+                    <option key={panel.id} value={panel.id}>
+                      {panel.type === "text" ? `Text ${index}` : `Panel ${index}`}
+                      {panel.id === panelId ? " (current)" : ""}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Next Button */}
+                <button
+                  onClick={() => {
+                    const panels = (storyboardFull as any).panels;
+                    const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                    if (currentIndex < panels.length - 1) {
+                      onPanelChange(panels[currentIndex + 1].id);
+                    }
+                  }}
+                  disabled={(() => {
+                    const panels = (storyboardFull as any).panels;
+                    const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                    return currentIndex >= panels.length - 1;
+                  })()}
+                  style={{
+                    padding: "0.375rem 0.5rem",
+                    background: "#27272a",
+                    border: "1px solid #3f3f46",
+                    borderRadius: "6px",
+                    color: "#a1a1aa",
+                    cursor: "pointer",
+                    opacity: (() => {
+                      const panels = (storyboardFull as any).panels;
+                      const currentIndex = panels.findIndex((p: any) => p.id === panelId);
+                      return currentIndex >= panels.length - 1 ? 0.5 : 1;
+                    })(),
+                  }}
+                  title="Next panel"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Bar */}
@@ -541,8 +704,8 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           <div className="section">
             <div className="section-title">Characters</div>
             <div className="character-list">
-              {characters && characters.length > 0 ? (
-                characters.map((char: any) => (
+              {Array.isArray(characters) && characters.length > 0 ? (
+                (characters as any[]).map((char: any) => (
                   <div
                     key={char.id}
                     className={`character-item ${selectedCharacters.includes(char.id) ? "selected" : ""}`}
@@ -570,56 +733,13 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
             </div>
           </div>
 
-          {/* Control Level */}
-          <div className="section">
-            <div className="section-title">Control Level</div>
-            <div className="control-level">
-              <div
-                className={`level-option ${controlLevel === 4 ? "selected" : ""}`}
-                onClick={() => setControlLevel(4)}
-              >
-                <div className="level-label">Level 4 - Full Control</div>
-                <div className="level-desc">Expose all ControlNet parameters</div>
-              </div>
-              <div
-                className={`level-option ${controlLevel === 3 ? "selected" : ""}`}
-                onClick={() => setControlLevel(3)}
-              >
-                <div className="level-label">Level 3 - Visual (Target)</div>
-                <div className="level-desc">Visual preview, easy adjustments</div>
-              </div>
-              <div
-                className={`level-option ${controlLevel === 2 ? "selected" : ""}`}
-                onClick={() => setControlLevel(2)}
-              >
-                <div className="level-label">Level 2 - Smart Defaults</div>
-                <div className="level-desc">System suggests, you approve</div>
-              </div>
-              <div
-                className={`level-option ${controlLevel === 1 ? "selected" : ""}`}
-                onClick={() => setControlLevel(1)}
-              >
-                <div className="level-label">Level 1 - Auto-Configure</div>
-                <div className="level-desc">System handles everything</div>
-              </div>
-              <div
-                className={`level-option ${controlLevel === 0 ? "selected" : ""}`}
-                onClick={() => setControlLevel(0)}
-              >
-                <div className="level-label">Level 0 - Magic</div>
-                <div className="level-desc">AI decides everything (future)</div>
-              </div>
-            </div>
-          </div>
-
           {/* ControlNet */}
           <div className="section">
             <div className="section-title">ControlNet Stack</div>
             <ControlNetPanel
               panelId={panelId}
-              projectId={storyboardFull?.storyboard?.projectId}
+              projectId={(storyboardFull as any)?.storyboard?.projectId ?? (storyboardFull as any)?.projectId}
               referenceImages={referenceImages}
-              level={controlLevel}
               onChange={handleControlNetChange}
             />
           </div>
@@ -627,19 +747,52 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
           {/* Prompts */}
           <div className="section">
             <div className="section-title">Prompts</div>
-            <textarea
-              className="prompt-input"
-              placeholder="Positive prompt (what you want to see)..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-            <textarea
-              className="prompt-input"
-              placeholder="Negative prompt (what to avoid)..."
-              value={negativePrompt}
-              onChange={(e) => setNegativePrompt(e.target.value)}
-              style={{ marginTop: "0.75rem" }}
-            />
+            <div style={{ position: "relative" }}>
+              <textarea
+                className="prompt-input"
+                placeholder="Positive prompt (what you want to see)..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                data-testid="positive-prompt-input"
+              />
+              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
+                <AIAssistButton
+                  onGenerate={async () => {
+                    const result = await generatePanelDescription.mutateAsync({
+                      panelId,
+                      storyboardId,
+                      characterIds: selectedCharacters,
+                      style: "detailed",
+                    });
+                    return result.text;
+                  }}
+                  onAccept={(text) => setPrompt(text)}
+                  isGenerating={generatePanelDescription.isPending}
+                  title="Generate positive prompt with AI"
+                  size="sm"
+                />
+              </div>
+            </div>
+            <div style={{ position: "relative", marginTop: "0.75rem" }}>
+              <textarea
+                className="prompt-input"
+                placeholder="Negative prompt (what to avoid)..."
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                data-testid="negative-prompt-input"
+              />
+              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
+                <AIAssistButton
+                  onGenerate={async () => {
+                    // For negative prompts, generate quality/artifact avoidance suggestions
+                    return "low quality, blurry, distorted, deformed, bad anatomy, bad proportions, extra limbs, missing limbs, disfigured, ugly, poorly drawn, watermark, text, signature";
+                  }}
+                  onAccept={(text) => setNegativePrompt(text)}
+                  title="Generate negative prompt with AI"
+                  size="sm"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Generation Controls */}
@@ -661,47 +814,78 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
               </div>
             )}
             
-            <button
-              className="btn-primary"
-              onClick={handleGenerate}
-              disabled={generatePanel.isPending || generateVariants.isPending}
-            >
-              {generatePanel.isPending ? (
-                <>
-                  <span className="spinner" /> Generating...
-                </>
-              ) : "Generate Single"}
-            </button>
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <input
-                data-testid="variant-count-input"
-                type="number"
-                min="1"
-                max="8"
-                value={variantCount}
-                onChange={(e) => setVariantCount(parseInt(e.target.value) || 4)}
-                style={{
-                  width: "70px",
-                  padding: "0.75rem",
-                  background: "#27272a",
-                  border: "1px solid #3f3f46",
-                  borderRadius: "8px",
-                  color: "#fafafa",
-                  textAlign: "center",
-                }}
-              />
+            {/* Generate Actions */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto 1fr",
+              gap: "0.75rem",
+              alignItems: "stretch",
+            }}>
+              {/* Single Generation */}
               <button
                 className="btn-primary"
-                onClick={handleGenerateVariants}
+                onClick={handleGenerate}
                 disabled={generatePanel.isPending || generateVariants.isPending}
-                style={{ flex: 1, padding: "0.75rem 1.5rem" }}
+                style={{ padding: "0.75rem 1rem" }}
               >
-                {generateVariants.isPending ? (
+                {generatePanel.isPending ? (
                   <>
-                    <span className="spinner" /> Generating {variantCount}...
+                    <span className="spinner" /> Generating...
                   </>
-                ) : `Generate ${variantCount} Variants`}
+                ) : "Generate Single"}
               </button>
+
+              {/* Divider */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                color: "#52525b",
+                fontSize: "0.75rem",
+                fontWeight: 500,
+              }}>
+                or
+              </div>
+
+              {/* Variant Generation */}
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  className="btn-primary"
+                  onClick={handleGenerateVariants}
+                  disabled={generatePanel.isPending || generateVariants.isPending}
+                  style={{ flex: 1, padding: "0.75rem 1rem" }}
+                >
+                  {generateVariants.isPending ? (
+                    <>
+                      <span className="spinner" /> Generating...
+                    </>
+                  ) : `Generate ×${variantCount}`}
+                </button>
+                <select
+                  data-testid="variant-count-input"
+                  value={variantCount}
+                  onChange={(e) => setVariantCount(parseInt(e.target.value) || 4)}
+                  title="Number of variants to generate"
+                  style={{
+                    width: "56px",
+                    padding: "0.5rem",
+                    background: "#27272a",
+                    border: "1px solid #3f3f46",
+                    borderRadius: "8px",
+                    color: "#fafafa",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    appearance: "none",
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 6px center",
+                    paddingRight: "20px",
+                  }}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             {/* Generation Progress Hint */}
@@ -722,7 +906,7 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         </div>
 
         <div className="preview-panel">
-          <h3 style={{ marginBottom: "1rem" }}>Generations</h3>
+          <h3 style={{ marginBottom: "0.75rem", fontSize: "0.875rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#71717a" }}>Generations</h3>
           {loadingGenerations ? (
             <div>Loading generations...</div>
           ) : generations && generations.length > 0 ? (
@@ -826,49 +1010,20 @@ export function PanelGenerator({ panelId, storyboardId }: PanelGeneratorProps) {
         )}
         
         {activeTab === "text" && (
-          <div className="preview-panel" style={{ width: "100%" }}>
-            <h3 style={{ marginBottom: "1rem" }}>Generated Text</h3>
-            
-            <div className="text-section">
-              <div className="text-section-title">Panel Description</div>
-              {panelDescription ? (
-                <div className="text-content">{panelDescription.text}</div>
-              ) : (
-                <div className="text-empty">No description generated yet</div>
-              )}
-            </div>
-            
-            <div className="text-section">
-              <div className="text-section-title">Dialogue</div>
-              {dialogue ? (
-                <div className="text-content">{dialogue.text}</div>
-              ) : (
-                <div className="text-empty">No dialogue generated yet</div>
-              )}
-            </div>
-            
-            <div className="text-section">
-              <div className="text-section-title">Narration</div>
-              {narration ? (
-                <div className="text-content">{narration.text}</div>
-              ) : (
-                <div className="text-empty">No narration generated yet</div>
-              )}
-            </div>
-            
-            {generatedTexts && generatedTexts.length > 0 && (
-              <div className="text-section">
-                <div className="text-section-title">All Generated Texts</div>
-                {generatedTexts.map((text: any) => (
-                  <div key={text.id} className="text-content" style={{ marginBottom: "1rem" }}>
-                    <div style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: "0.5rem" }}>
-                      {text.textType} • {text.provider}/{text.model}
-                    </div>
-                    <div>{text.text}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="preview-panel" style={{ width: "100%", overflow: "auto" }}>
+            <PanelTextViewer
+              panelId={panelId}
+              storyboardId={storyboardId}
+              characters={Array.isArray(characters) ? characters.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                species: c.profile?.species,
+                description: c.profile?.description,
+              })) : []}
+              selectedCharacterIds={selectedCharacters}
+              panelDescription={(panelFull as any)?.panel?.description ?? (panelFull as any)?.description}
+              editable={true}
+            />
           </div>
         )}
         

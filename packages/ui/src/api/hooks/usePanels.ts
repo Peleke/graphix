@@ -23,11 +23,42 @@ export const panelKeys = {
 // Types
 // ============================================================================
 
+// TipTap content types
+export interface TipTapContent {
+  type: "doc";
+  content: TipTapNode[];
+}
+
+export interface TipTapNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TipTapNode[];
+  marks?: TipTapMark[];
+  text?: string;
+}
+
+export interface TipTapMark {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+
+export type PanelType = "image" | "text" | "mixed";
+
 export interface CreatePanelInput {
   storyboardId: string;
   position?: number;
   description?: string;
   direction?: any; // PanelDirection
+  characterIds?: string[];
+  type?: PanelType;
+  textContent?: TipTapContent;
+}
+
+export interface UpdatePanelInput {
+  description?: string;
+  direction?: any;
+  type?: PanelType;
+  textContent?: TipTapContent | null;
   characterIds?: string[];
 }
 
@@ -181,6 +212,8 @@ export function useCreatePanel() {
           description: input.description,
           direction: input.direction,
           characterIds: input.characterIds,
+          type: input.type,
+          textContent: input.textContent,
         },
       });
 
@@ -199,13 +232,49 @@ export function useCreatePanel() {
 }
 
 /**
+ * Update a panel
+ */
+export function useUpdatePanel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ panelId, ...input }: UpdatePanelInput & { panelId: string }) => {
+      const { data, error } = await apiClient.PATCH("/panels/{id}", {
+        params: { path: { id: panelId } },
+        body: input,
+      });
+
+      if (error) {
+        throw new Error(error.error?.message || "Failed to update panel");
+      }
+
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: panelKeys.detail(variables.panelId) });
+      queryClient.invalidateQueries({ queryKey: panelKeys.full(variables.panelId) });
+      // Also invalidate storyboard if available
+      if ((data as any)?.storyboardId) {
+        queryClient.invalidateQueries({
+          queryKey: ["stories", "storyboards", (data as any).storyboardId]
+        });
+      }
+    },
+  });
+}
+
+/**
  * Select a generation as panel output
  */
 export function useSelectPanelOutput() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ panelId, generationId }: { panelId: string; generationId: string }) => {
+    mutationFn: async ({ panelId, generationId, storyboardId }: {
+      panelId: string;
+      generationId: string;
+      storyboardId?: string;
+    }) => {
       const { error } = await apiClient.POST("/panels/{id}/select", {
         params: { path: { id: panelId } },
         body: { outputId: generationId },
@@ -215,11 +284,16 @@ export function useSelectPanelOutput() {
         throw new Error(error.error?.message || "Failed to select output");
       }
 
-      return { panelId, generationId };
+      return { panelId, generationId, storyboardId };
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: panelKeys.detail(variables.panelId) });
-      queryClient.invalidateQueries({ queryKey: panelKeys.full(variables.panelId) });
+    onSuccess: (result) => {
+      // Invalidate panel queries
+      queryClient.invalidateQueries({ queryKey: panelKeys.detail(result.panelId) });
+      queryClient.invalidateQueries({ queryKey: panelKeys.full(result.panelId) });
+      // Invalidate storyboard query so thumbnails update in StoryboardView
+      if (result.storyboardId) {
+        queryClient.invalidateQueries({ queryKey: ["stories", "storyboard", result.storyboardId] });
+      }
     },
   });
 }
