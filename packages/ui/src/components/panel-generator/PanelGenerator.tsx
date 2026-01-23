@@ -93,6 +93,9 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
   // Track generation errors for display
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // Track caption generation feedback
+  const [captionFeedback, setCaptionFeedback] = useState<{ type: "success" | "warning" | "error"; message: string } | null>(null);
+
   const handleControlNetChange = useCallback(
     (controls: ControlNetCondition[], mode: ControlNetMode) => {
       setControlNetControls(controls);
@@ -1033,9 +1036,32 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
               <h3 style={{ margin: 0 }}>Captions</h3>
               <button
                 className="btn-primary"
-                onClick={() => {
-                  if (panelId) {
-                    generateCaptions.mutate({ panelId });
+                onClick={async () => {
+                  if (!panelId) return;
+                  setCaptionFeedback(null);
+                  try {
+                    const result = await generateCaptions.mutateAsync({ panelId });
+                    if (!result?.beatId) {
+                      setCaptionFeedback({
+                        type: "warning",
+                        message: "No beat is linked to this panel. Link a story beat first to generate captions.",
+                      });
+                    } else if (result.count === 0) {
+                      setCaptionFeedback({
+                        type: "warning",
+                        message: "Beat found but has no dialogue or narration content. Add dialogue/narration to the beat first.",
+                      });
+                    } else {
+                      setCaptionFeedback({
+                        type: "success",
+                        message: `Generated ${result.count} caption${result.count === 1 ? "" : "s"} from beat.`,
+                      });
+                    }
+                  } catch (err) {
+                    setCaptionFeedback({
+                      type: "error",
+                      message: err instanceof Error ? err.message : "Failed to generate captions",
+                    });
                   }
                 }}
                 disabled={generateCaptions.isPending}
@@ -1044,7 +1070,33 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
                 {generateCaptions.isPending ? "Generating..." : "Generate from Beat"}
               </button>
             </div>
-            
+
+            {/* Caption Generation Feedback */}
+            {captionFeedback && (
+              <div style={{
+                padding: "0.75rem 1rem",
+                marginBottom: "1rem",
+                borderRadius: "8px",
+                fontSize: "0.875rem",
+                background: captionFeedback.type === "success" ? "rgba(34, 197, 94, 0.1)" :
+                           captionFeedback.type === "warning" ? "rgba(234, 179, 8, 0.1)" :
+                           "rgba(239, 68, 68, 0.1)",
+                border: `1px solid ${
+                  captionFeedback.type === "success" ? "rgba(34, 197, 94, 0.3)" :
+                  captionFeedback.type === "warning" ? "rgba(234, 179, 8, 0.3)" :
+                  "rgba(239, 68, 68, 0.3)"
+                }`,
+                color: captionFeedback.type === "success" ? "#86efac" :
+                       captionFeedback.type === "warning" ? "#fde047" :
+                       "#fca5a5",
+              }}>
+                {captionFeedback.type === "warning" && "⚠️ "}
+                {captionFeedback.type === "error" && "❌ "}
+                {captionFeedback.type === "success" && "✓ "}
+                {captionFeedback.message}
+              </div>
+            )}
+
             {captions && captions.length > 0 ? (
               <div className="caption-list">
                 {captions.map((caption: any) => (
