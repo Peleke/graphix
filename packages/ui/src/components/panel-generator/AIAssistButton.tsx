@@ -163,7 +163,7 @@ export function AIAssistButton({
 
         .ai-assist-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          bottom: calc(100% + 8px);
           right: 0;
           width: 320px;
           max-width: calc(100vw - 32px);
@@ -171,7 +171,7 @@ export function AIAssistButton({
           border: 1px solid #3f3f46;
           border-radius: 12px;
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-          z-index: 100;
+          z-index: 9999;
           overflow: hidden;
         }
 

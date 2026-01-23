@@ -17,17 +17,29 @@ import { serve } from "@hono/node-server";
 import { app } from "./rest/app.js";
 import { startMCPServer } from "./mcp/index.js";
 
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+// Resolve monorepo root (2 levels up from packages/server/src)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MONOREPO_ROOT = resolve(__dirname, "../../../");
+
 /**
  * Load configuration from environment
  */
 function loadConfigFromEnv(): GraphixConfig {
   const env = process.env;
 
+  // Resolve database path relative to monorepo root
+  const sqlitePath = env.SQLITE_PATH
+    ? (env.SQLITE_PATH.startsWith("/") ? env.SQLITE_PATH : resolve(MONOREPO_ROOT, env.SQLITE_PATH))
+    : resolve(MONOREPO_ROOT, "graphix.db");
+
   const databaseConfig: DatabaseConfig = {
     mode: (env.STORAGE_MODE || "sqlite") as "turso" | "sqlite" | "memory",
     tursoUrl: env.TURSO_URL,
     tursoToken: env.TURSO_AUTH_TOKEN,
-    sqlitePath: env.SQLITE_PATH || "./graphix.db",
+    sqlitePath,
     verbose: env.DB_VERBOSE === "true",
   };
 

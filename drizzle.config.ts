@@ -3,8 +3,8 @@ import type { Config } from "drizzle-kit";
 const isTurso = process.env.STORAGE_MODE === "turso";
 
 export default {
-  schema: "./src/db/schema.ts",
-  out: "./src/db/migrations",
+  schema: "./packages/core/src/db/schema.ts",
+  out: "./packages/core/src/db/migrations",
   dialect: "turso",
   dbCredentials: isTurso
     ? {

@@ -210,6 +210,25 @@ generatedTextRoutes.get("/", validateQuery(listQuerySchema), async (c) => {
 });
 
 /**
+ * GET /stats
+ *
+ * Get statistics about generated texts.
+ * NOTE: This must be defined BEFORE /:id to avoid being caught by the wildcard
+ */
+generatedTextRoutes.get("/stats", async (c) => {
+  try {
+    const projectId = c.req.query("projectId");
+    const service = getGeneratedTextService();
+    const stats = await service.getStats(projectId);
+
+    return c.json(stats);
+  } catch (error) {
+    console.error("Error getting stats:", error);
+    return errors.internal(c, "Failed to get stats");
+  }
+});
+
+/**
  * GET /:id
  *
  * Get a specific generated text by ID.
@@ -697,23 +716,3 @@ generatedTextRoutes.delete(
 );
 
 // ----------------------------------------------------------------------------
-// Statistics
-// ----------------------------------------------------------------------------
-
-/**
- * GET /stats
- *
- * Get statistics about generated texts.
- */
-generatedTextRoutes.get("/stats", async (c) => {
-  try {
-    const projectId = c.req.query("projectId");
-    const service = getGeneratedTextService();
-    const stats = await service.getStats(projectId);
-
-    return c.json(stats);
-  } catch (error) {
-    console.error("Error getting stats:", error);
-    return errors.internal(c, "Failed to get stats");
-  }
-});
