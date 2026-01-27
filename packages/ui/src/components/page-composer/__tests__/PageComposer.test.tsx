@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PageComposer } from "../PageComposer";
 
 const useStoryboardMock = vi.fn();
@@ -42,6 +43,22 @@ const pageSizeOptions = [
   { id: "us-letter", name: "US Letter", width: 800, height: 1200 },
 ];
 
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = createQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  );
+}
+
 describe("PageComposer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,8 +96,9 @@ describe("PageComposer", () => {
   });
 
   it("persists slot assignments in localStorage", async () => {
-    const { unmount } = render(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
+    const { unmount } = renderWithProviders(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
 
+    fireEvent.click(screen.getByTestId("template-dropdown-trigger"));
     fireEvent.click(screen.getAllByTestId("template-card")[0]);
     fireEvent.click(screen.getAllByTestId("panel-slot")[0]);
     fireEvent.click(screen.getAllByTestId("panel-list-item")[0]);
@@ -88,7 +106,8 @@ describe("PageComposer", () => {
     expect(localStorage.getItem("page-composer:storyboard-1:six-grid")).toContain("panel-1");
 
     unmount();
-    render(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
+    renderWithProviders(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
+    fireEvent.click(screen.getByTestId("template-dropdown-trigger"));
     fireEvent.click(screen.getAllByTestId("template-card")[0]);
 
     await waitFor(() =>
@@ -97,8 +116,9 @@ describe("PageComposer", () => {
   });
 
   it("composes preview and shows preview image", async () => {
-    render(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
+    renderWithProviders(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
 
+    fireEvent.click(screen.getByTestId("template-dropdown-trigger"));
     fireEvent.click(screen.getAllByTestId("template-card")[0]);
     fireEvent.click(screen.getAllByTestId("panel-slot")[0]);
     fireEvent.click(screen.getAllByTestId("panel-list-item")[0]);
@@ -109,8 +129,9 @@ describe("PageComposer", () => {
   });
 
   it("persists slot assignments to backend", async () => {
-    render(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
+    renderWithProviders(<PageComposer storyboardId="storyboard-1" projectId="project-1" />);
 
+    fireEvent.click(screen.getByTestId("template-dropdown-trigger"));
     fireEvent.click(screen.getAllByTestId("template-card")[0]);
     fireEvent.click(screen.getAllByTestId("panel-slot")[0]);
     fireEvent.click(screen.getAllByTestId("panel-list-item")[0]);
@@ -126,6 +147,10 @@ describe("PageComposer", () => {
         storyboardId: "storyboard-1",
         templateId: "six-grid",
         slotAssignments: { "slot-1": "panel-1" },
+      }),
+      expect.objectContaining({
+        onError: expect.any(Function),
+        onSuccess: expect.any(Function),
       })
     );
   });

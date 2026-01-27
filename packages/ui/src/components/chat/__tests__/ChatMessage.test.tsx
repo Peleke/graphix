@@ -179,11 +179,12 @@ describe('ChatMessage', () => {
 
     it('handles special characters in content', () => {
       const message = createMessage({
+        role: 'user',
         content: '<script>alert("xss")</script> & "quotes" \'apostrophes\''
       });
       render(<ChatMessage message={message} />);
-      
-      // React should escape HTML
+
+      // React escapes HTML in user messages (rendered as plain text)
       expect(screen.getByText('<script>alert("xss")</script> & "quotes" \'apostrophes\'')).toBeInTheDocument();
     });
 

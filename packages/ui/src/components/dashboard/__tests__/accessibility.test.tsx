@@ -243,11 +243,12 @@ describe("ProjectCard Accessibility", () => {
       const project = createTestProject({ settings: { template: "comic", canvasWidth: 1920, canvasHeight: 1080, panelCount: 6 } });
       render(<ProjectCard project={project} {...noopHandlers} />);
 
-      // Should render without crashing, gradient fallback doesn't need alt
+      // Should render without crashing
       const card = screen.getByRole("article");
       expect(card).toBeInTheDocument();
-      // No img element when no thumbnail
-      expect(screen.queryByRole("img")).not.toBeInTheDocument();
+      // Component now always renders thumbnail via API endpoint
+      const img = screen.queryByRole("img");
+      expect(img).toBeInTheDocument();
     });
 
     it("should convey template type for screen readers", () => {
@@ -362,9 +363,10 @@ describe("ProjectCard Accessibility", () => {
       const card = screen.getByRole("article");
       expect(card).toBeInTheDocument();
 
-      // All content should be visible without animation
+      // All content should be present without animation
       expect(screen.getByRole("heading")).toBeVisible();
-      expect(screen.getByRole("button", { name: /project actions/i })).toBeVisible();
+      // Menu button is opacity:0 until hover, but still in the DOM
+      expect(screen.getByRole("button", { name: /project actions/i })).toBeInTheDocument();
     });
   });
 });

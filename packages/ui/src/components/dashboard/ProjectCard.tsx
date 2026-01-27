@@ -367,7 +367,10 @@ export const ProjectCard = memo(function ProjectCard({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         tabIndex={0}
+        aria-label={template ? `${project.name || 'Untitled'} project - ${template}` : `${project.name || 'Untitled'} project`}
         aria-selected={isSelected}
+        data-selected={String(isSelected)}
+        data-project-id={project.id}
         data-testid={testId ?? `project-card-${project.id}`}
         {...motionProps}
       >
@@ -415,7 +418,7 @@ export const ProjectCard = memo(function ProjectCard({
             </div>
             <div className="card-meta-item" title={formatFullDate(project.updatedAt)}>
               <Clock />
-              <span>{updatedAt}</span>
+              <time dateTime={project.updatedAt}>{updatedAt}</time>
             </div>
           </div>
         </div>
@@ -427,6 +430,8 @@ export const ProjectCard = memo(function ProjectCard({
               className="card-menu-btn"
               onClick={(e) => e.stopPropagation()}
               aria-label="Project actions"
+              aria-haspopup="menu"
+              data-testid="project-menu-trigger"
             >
               <MoreVertical size={16} />
             </button>
