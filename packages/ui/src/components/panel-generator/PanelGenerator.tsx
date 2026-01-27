@@ -6,7 +6,7 @@
  * system shows controls, user adjusts, generate.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
 import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
 import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
@@ -18,7 +18,7 @@ import { GenerationTreeVisualization } from "../generation-tree";
 import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
 import { ControlNetPanel, type ControlNetMode } from "../controlnet";
 import type { ControlNetCondition } from "../../types/controlnet";
-import { AIAssistButton } from "./AIAssistButton";
+import { useAIAssist, AIAssistSuggestion } from "./AIAssistButton";
 import { PanelTextViewer } from "./PanelTextViewer";
 
 interface PanelGeneratorProps {
@@ -77,6 +77,42 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
   const rateGeneration = useRateGeneration();
   const generatePanelDescription = useGeneratePanelDescription();
 
+  // Inline AI assist for prompt fields
+  const promptAssist = useAIAssist(
+    useCallback(async () => {
+      const result = await generatePanelDescription.mutateAsync({
+        panelId,
+        storyboardId,
+        characterIds: selectedCharacters,
+        style: "detailed",
+      });
+      return result.text;
+    }, [generatePanelDescription, panelId, storyboardId, selectedCharacters])
+  );
+
+  const negativePromptAssist = useAIAssist(
+    useCallback(async () => {
+      return "low quality, blurry, distorted, deformed, bad anatomy, bad proportions, extra limbs, missing limbs, disfigured, ugly, poorly drawn, watermark, text, signature";
+    }, [])
+  );
+
+  // Auto-populate prompts from selected/latest generation when panel changes
+  const [promptInitialized, setPromptInitialized] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (promptInitialized === panelId) return; // Already initialized for this panel
+    if (!generations || generations.length === 0) return;
+
+    const selected = generations.find((g: any) => g.selected);
+    const source = selected || generations[0]; // generations are newest-first
+
+    if (source) {
+      setPrompt(source.prompt || "");
+      setNegativePrompt(source.negativePrompt || "");
+    }
+    setPromptInitialized(panelId);
+  }, [panelId, generations, promptInitialized]);
+
   const referenceImages = (generations || [])
     .map((gen: any) => {
       const path = gen.localPath || gen.cloudUrl || "";
@@ -106,6 +142,18 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
 
   const handleGenerate = async () => {
     setGenerateError(null);
+
+    // Validate that ControlNet controls have reference images
+    if (controlNetControls.length > 0) {
+      const missing = controlNetControls.find((c) => !c.image);
+      if (missing) {
+        setGenerateError(
+          `ControlNet "${missing.type}" needs a reference image. Select one from Reference Images or upload one.`
+        );
+        return;
+      }
+    }
+
     try {
       await generatePanel.mutateAsync({
         panelId,
@@ -758,24 +806,30 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
                 onChange={(e) => setPrompt(e.target.value)}
                 data-testid="positive-prompt-input"
               />
-              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
-                <AIAssistButton
-                  onGenerate={async () => {
-                    const result = await generatePanelDescription.mutateAsync({
-                      panelId,
-                      storyboardId,
-                      characterIds: selectedCharacters,
-                      style: "detailed",
-                    });
-                    return result.text;
-                  }}
-                  onAccept={(text) => setPrompt(text)}
-                  isGenerating={generatePanelDescription.isPending}
-                  title="Generate positive prompt with AI"
-                  size="sm"
-                />
-              </div>
+              <button
+                type="button"
+                className="ai-assist-btn ai-assist-btn-sm"
+                style={{ position: "absolute", top: "8px", right: "8px" }}
+                onClick={promptAssist.generate}
+                disabled={promptAssist.isGenerating}
+                title="Generate positive prompt with AI"
+                data-testid="ai-assist-button"
+              >
+                {promptAssist.isGenerating ? (
+                  <div className="ai-assist-spinner" />
+                ) : (
+                  <span className="ai-assist-sparkle">✨</span>
+                )}
+              </button>
             </div>
+            <AIAssistSuggestion
+              suggestion={promptAssist.suggestion}
+              error={promptAssist.error}
+              isGenerating={promptAssist.isGenerating}
+              onAccept={(text) => { setPrompt(text); promptAssist.clear(); }}
+              onRegenerate={promptAssist.generate}
+              onDismiss={promptAssist.clear}
+            />
             <div style={{ position: "relative", marginTop: "0.75rem" }}>
               <textarea
                 className="prompt-input"
@@ -784,18 +838,29 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
                 onChange={(e) => setNegativePrompt(e.target.value)}
                 data-testid="negative-prompt-input"
               />
-              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
-                <AIAssistButton
-                  onGenerate={async () => {
-                    // For negative prompts, generate quality/artifact avoidance suggestions
-                    return "low quality, blurry, distorted, deformed, bad anatomy, bad proportions, extra limbs, missing limbs, disfigured, ugly, poorly drawn, watermark, text, signature";
-                  }}
-                  onAccept={(text) => setNegativePrompt(text)}
-                  title="Generate negative prompt with AI"
-                  size="sm"
-                />
-              </div>
+              <button
+                type="button"
+                className="ai-assist-btn ai-assist-btn-sm"
+                style={{ position: "absolute", top: "8px", right: "8px" }}
+                onClick={negativePromptAssist.generate}
+                disabled={negativePromptAssist.isGenerating}
+                title="Generate negative prompt with AI"
+              >
+                {negativePromptAssist.isGenerating ? (
+                  <div className="ai-assist-spinner" />
+                ) : (
+                  <span className="ai-assist-sparkle">✨</span>
+                )}
+              </button>
             </div>
+            <AIAssistSuggestion
+              suggestion={negativePromptAssist.suggestion}
+              error={negativePromptAssist.error}
+              isGenerating={negativePromptAssist.isGenerating}
+              onAccept={(text) => { setNegativePrompt(text); negativePromptAssist.clear(); }}
+              onRegenerate={negativePromptAssist.generate}
+              onDismiss={negativePromptAssist.clear}
+            />
           </div>
 
           {/* Generation Controls */}
