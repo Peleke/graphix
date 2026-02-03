@@ -7,7 +7,8 @@
 
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useServiceHealth } from '../api/hooks';
 
 const DEVTOOLS_STORAGE_KEY = 'graphix-devtools-visible';
 
@@ -19,6 +20,7 @@ function RootLayout() {
     const stored = localStorage.getItem(DEVTOOLS_STORAGE_KEY);
     return stored === null ? true : stored === 'true';
   });
+  const health = useServiceHealth();
 
   // Listen for storage changes (from DevtoolsToggle in main.tsx)
   useEffect(() => {
@@ -208,33 +210,75 @@ function RootLayout() {
           overflow: auto;
         }
         
+        .app-status-group {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
         .app-status {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.375rem;
           font-size: 0.75rem;
           color: #71717a;
+          cursor: default;
         }
-        
+
         .app-status .status-text {
           display: none;
         }
-        
+
         @media (min-width: 768px) {
           .app-status .status-text {
             display: inline;
           }
         }
-        
+
         .app-status .dot {
           width: 8px;
           height: 8px;
           border-radius: 50%;
           background: #22c55e;
         }
-        
+
         .app-status .dot.offline {
           background: #ef4444;
+        }
+
+        .app-status .dot.loading {
+          background: #f59e0b;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+
+        .status-tooltip {
+          position: relative;
+        }
+
+        .status-tooltip::after {
+          content: attr(data-tooltip);
+          position: absolute;
+          bottom: -32px;
+          right: 0;
+          background: #27272a;
+          color: #fafafa;
+          padding: 0.375rem 0.625rem;
+          border-radius: 4px;
+          font-size: 0.6875rem;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.15s ease;
+          z-index: 50;
+        }
+
+        .status-tooltip:hover::after {
+          opacity: 1;
         }
       `}</style>
       
@@ -294,9 +338,25 @@ function RootLayout() {
           </Link>
         </nav>
         
-        <div className="app-status">
-          <div className="dot" id="server-status"></div>
-          <span className="status-text">Server</span>
+        <div className="app-status-group">
+          <div
+            className="app-status status-tooltip"
+            data-tooltip={health.server.status === 'ok' ? 'Backend connected' : 'Backend offline'}
+          >
+            <div className={`dot ${health.server.status === 'ok' ? '' : health.server.isLoading ? 'loading' : 'offline'}`} />
+            <span className="status-text">Server</span>
+          </div>
+          <div
+            className="app-status status-tooltip"
+            data-tooltip={
+              health.comfyui.status === 'connected'
+                ? `ComfyUI connected (${health.comfyui.latency}ms)`
+                : health.comfyui.hint || 'ComfyUI offline - run: make dev-full'
+            }
+          >
+            <div className={`dot ${health.comfyui.status === 'connected' ? '' : health.comfyui.isLoading ? 'loading' : 'offline'}`} />
+            <span className="status-text">ComfyUI</span>
+          </div>
         </div>
       </header>
       
