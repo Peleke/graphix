@@ -221,6 +221,71 @@ export const chatTools: Record<string, Tool> = {
       required: ["name", "characters", "arc"],
     },
   },
+
+  // ---------------------------------------------------------------------------
+  // Direct Project Bootstrap (No Chat Session Required)
+  // ---------------------------------------------------------------------------
+
+  project_bootstrap: {
+    name: "project_bootstrap",
+    description: "Create a basic project with characters and optional storyboard (simpler than chat_bootstrap_from_extraction)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Project name",
+        },
+        description: {
+          type: "string",
+          description: "Project description",
+        },
+        characters: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Character name" },
+              description: { type: "string", description: "Character description" },
+              visualTraits: {
+                type: "object",
+                properties: {
+                  species: { type: "string" },
+                  gender: { type: "string" },
+                  age: { type: "string" },
+                  hairColor: { type: "string" },
+                  eyeColor: { type: "string" },
+                  bodyType: { type: "string" },
+                  clothing: { type: "string" },
+                  accessories: { type: "array", items: { type: "string" } },
+                },
+                description: "Visual characteristics for generation",
+              },
+            },
+            required: ["name"],
+          },
+          description: "Characters to create",
+        },
+        setting: {
+          type: "string",
+          description: "Story setting/world description",
+        },
+        storyboardName: {
+          type: "string",
+          description: "Name for the initial storyboard (if omitted, no storyboard created)",
+        },
+        style: {
+          type: "string",
+          description: "Art style preference",
+        },
+        pageCount: {
+          type: "number",
+          description: "Target page count",
+        },
+      },
+      required: ["name", "characters"],
+    },
+  },
 };
 
 export async function handleChatTool(
@@ -396,6 +461,44 @@ export async function handleChatTool(
           beats: result.beats,
           panels: result.panels,
           characters: result.characters,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Bootstrap failed",
+        };
+      }
+    }
+
+    case "project_bootstrap": {
+      if (!args.name) {
+        return { success: false, error: "name is required" };
+      }
+      if (!args.characters || !Array.isArray(args.characters)) {
+        return { success: false, error: "characters array is required" };
+      }
+
+      try {
+        const result = await bootstrapService.bootstrap({
+          name: args.name as string,
+          description: args.description as string | undefined,
+          characters: (args.characters as any[]).map((c) => ({
+            name: c.name,
+            description: c.description,
+            visualTraits: c.visualTraits,
+          })),
+          setting: args.setting as string | undefined,
+          storyboardName: args.storyboardName as string | undefined,
+          style: args.style as string | undefined,
+          pageCount: args.pageCount as number | undefined,
+        });
+        return {
+          success: true,
+          projectId: result.projectId,
+          projectName: result.projectName,
+          characterIds: result.characterIds,
+          storyboardId: result.storyboardId,
+          message: result.message,
         };
       } catch (error) {
         return {

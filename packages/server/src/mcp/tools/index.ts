@@ -33,6 +33,8 @@ import { generatedTextTools, handleGeneratedTextTool } from "./generated-text.to
 import { beatTools, handleBeatTool } from "./beat.tools.js";
 // Chat session & bootstrap tools (Phase 5)
 import { chatTools, handleChatTool } from "./chat.tools.js";
+// Narrative tools - Premise & Story CRUD (MCP Gap Closure)
+import { narrativeTools, handleNarrativeTool } from "./narrative.tools.js";
 
 // All tools
 export const tools = {
@@ -65,6 +67,8 @@ export const tools = {
   ...beatTools,
   // Chat session & bootstrap (Phase 5)
   ...chatTools,
+  // Narrative - Premise & Story CRUD (MCP Gap Closure)
+  ...narrativeTools,
 };
 
 // Tool handlers by category
@@ -297,6 +301,28 @@ const handlers: Record<string, (name: string, args: Record<string, unknown>) => 
   chat_can_bootstrap: handleChatTool,
   chat_bootstrap_project: handleChatTool,
   chat_bootstrap_from_extraction: handleChatTool,
+  project_bootstrap: handleChatTool,
+
+  // Beat caption tools (MCP Gap Closure)
+  story_beat_generate_captions: handleBeatTool,
+  story_beat_get_captions: handleBeatTool,
+  story_beat_delete_captions: handleBeatTool,
+
+  // Narrative tools - Premise CRUD (MCP Gap Closure)
+  story_premise_create: handleNarrativeTool,
+  story_premise_get: handleNarrativeTool,
+  story_premise_get_with_stories: handleNarrativeTool,
+  story_premise_list: handleNarrativeTool,
+  story_premise_update: handleNarrativeTool,
+  story_premise_delete: handleNarrativeTool,
+
+  // Narrative tools - Story CRUD (MCP Gap Closure)
+  narrative_story_create: handleNarrativeTool,
+  narrative_story_get: handleNarrativeTool,
+  narrative_story_get_with_beats: handleNarrativeTool,
+  narrative_story_list: handleNarrativeTool,
+  narrative_story_update: handleNarrativeTool,
+  narrative_story_delete: handleNarrativeTool,
 };
 
 /**
