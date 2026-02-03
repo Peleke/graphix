@@ -24,6 +24,9 @@ vi.mock("../../../api/hooks/useCharacters", () => ({
 
 vi.mock("../../../api/hooks/useStories", () => ({
   useStoryboard: () => ({ data: { storyboard: { projectId: "project-1" } }, isLoading: false }),
+  usePremises: () => ({ data: [], isLoading: false }),
+  useStories: () => ({ data: [], isLoading: false }),
+  useBeats: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock("../../../api/hooks/useCaptions", () => ({
@@ -72,6 +75,18 @@ vi.mock("../../../api/hooks/useControlNet", () => ({
 vi.mock("../../../api/hooks/useTextGeneration", () => ({
   useGeneratePanelDescription: () => ({
     mutateAsync: vi.fn().mockResolvedValue({ text: "Generated description" }),
+    isPending: false,
+  }),
+  useGenerateDialogue: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated dialogue" }),
+    isPending: false,
+  }),
+  useRefineText: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Refined text" }),
+    isPending: false,
+  }),
+  useGeneratePromptFromBeat: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated prompt from beat" }),
     isPending: false,
   }),
 }));

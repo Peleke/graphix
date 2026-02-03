@@ -9,6 +9,19 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { BeatEditor } from "../BeatEditor";
 import type { Beat } from "../types";
 
+// Mock useRefineText hook to avoid QueryClient requirement
+vi.mock("../../../../api/hooks/useTextGeneration", () => ({
+  useRefineText: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ refined: "Mocked refined text" }),
+    isPending: false,
+  }),
+}));
+
+// Helper for rendering (now no wrapper needed due to mock)
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  return render(ui);
+};
+
 // ============================================================================
 // Test Helpers
 // ============================================================================
@@ -53,29 +66,29 @@ afterEach(() => {
 describe("BeatEditor - Rendering", () => {
   describe("Modal State", () => {
     it("should not render when isOpen is false", () => {
-      render(<BeatEditor {...defaultProps} isOpen={false} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} isOpen={false} />);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("should render when isOpen is true", () => {
-      render(<BeatEditor {...defaultProps} isOpen={true} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} isOpen={true} />);
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
   });
 
   describe("Create Mode", () => {
     it("should show Create Beat title when no beat provided", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(screen.getByRole("heading", { name: "Create Beat" })).toBeInTheDocument();
     });
 
     it("should show Create Beat button when no beat provided", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(screen.getByRole("button", { name: "Create Beat" })).toBeInTheDocument();
     });
 
     it("should have empty form fields in create mode", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(
         "Describe what should be visually depicted in this beat..."
       );
@@ -86,13 +99,13 @@ describe("BeatEditor - Rendering", () => {
   describe("Edit Mode", () => {
     it("should show Edit Beat title when beat is provided", () => {
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />);
       expect(screen.getByText("Edit Beat")).toBeInTheDocument();
     });
 
     it("should show Save Changes button when beat is provided", () => {
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />);
       expect(screen.getByRole("button", { name: "Save Changes" })).toBeInTheDocument();
     });
 
@@ -101,7 +114,7 @@ describe("BeatEditor - Rendering", () => {
         visualDescription: "Test visual description",
         emotionalTone: "happy",
       });
-      render(<BeatEditor {...defaultProps} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />);
 
       expect(
         screen.getByDisplayValue("Test visual description")
@@ -112,7 +125,7 @@ describe("BeatEditor - Rendering", () => {
 
   describe("Form Fields", () => {
     it("should render all beat type buttons", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(screen.getByRole("button", { name: /Setup/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Inciting Incident/ })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Rising Action/ })).toBeInTheDocument();
@@ -125,7 +138,7 @@ describe("BeatEditor - Rendering", () => {
     });
 
     it("should render visual description textarea", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(
         screen.getByPlaceholderText(
           "Describe what should be visually depicted in this beat..."
@@ -134,28 +147,28 @@ describe("BeatEditor - Rendering", () => {
     });
 
     it("should render emotional tone input", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(
         screen.getByPlaceholderText("e.g., tense, hopeful, melancholic...")
       ).toBeInTheDocument();
     });
 
     it("should render narration textarea", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(
         screen.getByPlaceholderText("Optional narration text for this beat...")
       ).toBeInTheDocument();
     });
 
     it("should render sfx input", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       expect(
         screen.getByPlaceholderText("e.g., thunder, footsteps...")
       ).toBeInTheDocument();
     });
 
     it("should render camera angle dropdown with all options", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const select = screen.getByRole("combobox");
       expect(select).toBeInTheDocument();
       expect(screen.getByText("Wide Shot")).toBeInTheDocument();
@@ -172,13 +185,13 @@ describe("BeatEditor - Rendering", () => {
 describe("BeatEditor - Validation", () => {
   describe("Visual Description", () => {
     it("should disable submit when visual description is empty", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const submitButton = screen.getByRole("button", { name: "Create Beat" });
       expect(submitButton).toBeDisabled();
     });
 
     it("should disable submit when visual description is too short", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(
         "Describe what should be visually depicted in this beat..."
       );
@@ -189,7 +202,7 @@ describe("BeatEditor - Validation", () => {
     });
 
     it("should enable submit when visual description meets minimum length", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(
         "Describe what should be visually depicted in this beat..."
       );
@@ -200,7 +213,7 @@ describe("BeatEditor - Validation", () => {
     });
 
     it("should show character count", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const textarea = screen.getByPlaceholderText(
         "Describe what should be visually depicted in this beat..."
       );
@@ -213,7 +226,7 @@ describe("BeatEditor - Validation", () => {
   describe("Dirty State in Edit Mode", () => {
     it("should disable save when no changes made", () => {
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />);
 
       const submitButton = screen.getByRole("button", { name: "Save Changes" });
       expect(submitButton).toBeDisabled();
@@ -221,7 +234,7 @@ describe("BeatEditor - Validation", () => {
 
     it("should enable save when changes are made", () => {
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />);
 
       const toneInput = screen.getByPlaceholderText(
         "e.g., tense, hopeful, melancholic..."
@@ -241,7 +254,7 @@ describe("BeatEditor - Validation", () => {
 describe("BeatEditor - Interactions", () => {
   describe("Beat Type Selection", () => {
     it("should toggle beat type when clicked", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const setupButton = screen.getByRole("button", { name: /Setup/ });
 
       fireEvent.click(setupButton);
@@ -250,7 +263,7 @@ describe("BeatEditor - Interactions", () => {
     });
 
     it("should deselect beat type when clicked again", () => {
-      render(<BeatEditor {...defaultProps} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} />);
       const setupButton = screen.getByRole("button", { name: /Setup/ });
 
       fireEvent.click(setupButton);
@@ -262,7 +275,7 @@ describe("BeatEditor - Interactions", () => {
   describe("Form Submission", () => {
     it("should call onSubmit with form data in create mode", () => {
       const onSubmit = vi.fn();
-      render(<BeatEditor {...defaultProps} onSubmit={onSubmit} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onSubmit={onSubmit} />);
 
       // Fill in required field
       const textarea = screen.getByPlaceholderText(
@@ -286,7 +299,7 @@ describe("BeatEditor - Interactions", () => {
     it("should call onSubmit with id in edit mode", () => {
       const onSubmit = vi.fn();
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} onSubmit={onSubmit} beat={beat} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onSubmit={onSubmit} beat={beat} />);
 
       // Make a change
       const toneInput = screen.getByPlaceholderText(
@@ -308,7 +321,7 @@ describe("BeatEditor - Interactions", () => {
   describe("Close Modal", () => {
     it("should call onClose when close button is clicked", () => {
       const onClose = vi.fn();
-      render(<BeatEditor {...defaultProps} onClose={onClose} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onClose={onClose} />);
 
       fireEvent.click(screen.getByRole("button", { name: "Close" }));
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -316,7 +329,7 @@ describe("BeatEditor - Interactions", () => {
 
     it("should call onClose when cancel button is clicked", () => {
       const onClose = vi.fn();
-      render(<BeatEditor {...defaultProps} onClose={onClose} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onClose={onClose} />);
 
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -324,7 +337,7 @@ describe("BeatEditor - Interactions", () => {
 
     it("should call onClose when overlay is clicked", () => {
       const onClose = vi.fn();
-      render(<BeatEditor {...defaultProps} onClose={onClose} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onClose={onClose} />);
 
       // The dialog role is on the overlay itself
       const overlay = screen.getByRole("dialog");
@@ -334,7 +347,7 @@ describe("BeatEditor - Interactions", () => {
 
     it("should call onClose when Escape key is pressed", () => {
       const onClose = vi.fn();
-      render(<BeatEditor {...defaultProps} onClose={onClose} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} onClose={onClose} />);
 
       // The dialog role is on the overlay itself
       const overlay = screen.getByRole("dialog");
@@ -345,7 +358,7 @@ describe("BeatEditor - Interactions", () => {
 
   describe("Pending State", () => {
     it("should show Creating... when isPending in create mode", () => {
-      render(<BeatEditor {...defaultProps} isPending={true} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} isPending={true} />);
 
       // First enable the button by adding valid description
       const textarea = screen.getByPlaceholderText(
@@ -360,7 +373,7 @@ describe("BeatEditor - Interactions", () => {
 
     it("should show Saving... when isPending in edit mode", () => {
       const beat = createMockBeat();
-      render(<BeatEditor {...defaultProps} beat={beat} isPending={true} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} isPending={true} />);
 
       // Make a change
       const toneInput = screen.getByPlaceholderText(
@@ -372,7 +385,7 @@ describe("BeatEditor - Interactions", () => {
     });
 
     it("should disable submit button when isPending", () => {
-      render(<BeatEditor {...defaultProps} isPending={true} />);
+      renderWithQueryClient(<BeatEditor {...defaultProps} isPending={true} />);
 
       const textarea = screen.getByPlaceholderText(
         "Describe what should be visually depicted in this beat..."
@@ -393,17 +406,17 @@ describe("BeatEditor - Interactions", () => {
 
 describe("BeatEditor - Accessibility", () => {
   it("should have proper dialog role", () => {
-    render(<BeatEditor {...defaultProps} />);
+    renderWithQueryClient(<BeatEditor {...defaultProps} />);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("should have aria-modal attribute", () => {
-    render(<BeatEditor {...defaultProps} />);
+    renderWithQueryClient(<BeatEditor {...defaultProps} />);
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 
   it("should have aria-labelledby for title", () => {
-    render(<BeatEditor {...defaultProps} />);
+    renderWithQueryClient(<BeatEditor {...defaultProps} />);
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-labelledby", "beat-editor-title");
   });
@@ -421,11 +434,11 @@ describe("BeatEditor - Edge Cases", () => {
       sfx: null,
       cameraAngle: null,
     });
-    expect(() => render(<BeatEditor {...defaultProps} beat={beat} />)).not.toThrow();
+    expect(() => renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat} />)).not.toThrow();
   });
 
   it("should reset form when modal reopens", () => {
-    const { rerender } = render(<BeatEditor {...defaultProps} isOpen={false} />);
+    const { rerender } = renderWithQueryClient(<BeatEditor {...defaultProps} isOpen={false} />);
 
     // Open modal
     rerender(<BeatEditor {...defaultProps} isOpen={true} />);
@@ -439,7 +452,7 @@ describe("BeatEditor - Edge Cases", () => {
 
   it("should update form when beat prop changes", () => {
     const beat1 = createMockBeat({ visualDescription: "Description 1" });
-    const { rerender } = render(<BeatEditor {...defaultProps} beat={beat1} />);
+    const { rerender } = renderWithQueryClient(<BeatEditor {...defaultProps} beat={beat1} />);
 
     expect(screen.getByDisplayValue("Description 1")).toBeInTheDocument();
 

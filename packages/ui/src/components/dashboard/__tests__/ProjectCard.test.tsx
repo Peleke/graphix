@@ -41,6 +41,14 @@ vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
+// Mock useProjectPreviews hook to avoid QueryClient requirement
+vi.mock("../../../api/hooks/useProjects", () => ({
+  useProjectPreviews: () => ({
+    data: [],
+    isLoading: false,
+  }),
+}));
+
 // ============================================================================
 // Test Helpers
 // ============================================================================
