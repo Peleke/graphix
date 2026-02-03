@@ -116,7 +116,7 @@ vi.mock("../../../api/hooks/useTextGeneration", () => ({
     isPending: false,
   }),
   useRefineText: () => ({
-    mutateAsync: vi.fn().mockResolvedValue({ text: "Refined text" }),
+    mutateAsync: vi.fn().mockResolvedValue({ refined: "Spiced up prompt", text: "Spiced up prompt" }),
     isPending: false,
   }),
   useGeneratePromptFromBeat: () => ({
@@ -665,6 +665,111 @@ describe("PanelGenerator", () => {
       // With our mock setup, data is pre-loaded so loading indicator should not show
       renderPanelGenerator();
       expect(screen.queryByText("Loading generations...")).not.toBeInTheDocument();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Spice Button Tests
+  // --------------------------------------------------------------------------
+
+  describe("Spice Buttons", () => {
+    it("renders spice button for positive prompt", () => {
+      renderPanelGenerator();
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeInTheDocument();
+      expect(spiceBtn).toHaveAttribute("title", "Spice it up 🔥 - Make it NSFW");
+    });
+
+    it("renders spice button for negative prompt", () => {
+      renderPanelGenerator();
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeInTheDocument();
+      expect(spiceBtn).toHaveAttribute("title", "Spice it up 🔥 - Add NSFW negatives");
+    });
+
+    it("disables positive spice button when prompt is empty", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      // Clear the auto-populated prompt
+      await userEvent.clear(promptInput);
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeDisabled();
+    });
+
+    it("disables negative spice button when negative prompt is empty", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      // Clear the auto-populated negative prompt
+      await userEvent.clear(negativeInput);
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeDisabled();
+    });
+
+    it("enables positive spice button when prompt has content", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      await userEvent.clear(promptInput);
+      await userEvent.type(promptInput, "A wolf in the forest");
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeEnabled();
+    });
+
+    it("enables negative spice button when negative prompt has content", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      await userEvent.clear(negativeInput);
+      await userEvent.type(negativeInput, "bad quality");
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeEnabled();
+    });
+
+    it("updates prompt when positive spice button is clicked", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      // The prompt is auto-populated from the selected generation (gen-2)
+      expect(promptInput).toHaveValue("A fox by the river");
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      await userEvent.click(spiceBtn);
+
+      // The refineText mock returns { refined: "Spiced up prompt" }
+      await waitFor(() => {
+        expect(promptInput).toHaveValue("Spiced up prompt");
+      });
+    });
+
+    it("updates negative prompt when negative spice button is clicked", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      // The negative prompt is auto-populated from the selected generation (gen-2)
+      expect(negativeInput).toHaveValue("blurry");
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      await userEvent.click(spiceBtn);
+
+      // The refineText mock returns { refined: "Spiced up prompt" }
+      await waitFor(() => {
+        expect(negativeInput).toHaveValue("Spiced up prompt");
+      });
+    });
+
+    it("displays 🌶️ emoji on spice buttons", () => {
+      renderPanelGenerator();
+      const positiveSpiceBtn = screen.getByTestId("spice-positive-btn");
+      const negativeSpiceBtn = screen.getByTestId("spice-negative-btn");
+
+      expect(positiveSpiceBtn).toHaveTextContent("🌶️");
+      expect(negativeSpiceBtn).toHaveTextContent("🌶️");
     });
   });
 });
