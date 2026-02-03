@@ -388,6 +388,12 @@ textGenerationRoutes.post(
   }
 );
 
+/** Spice prompt request schema */
+const spicePromptSchema = z.object({
+  prompt: z.string().min(1, "prompt is required").max(MAX_PROMPT_LENGTH),
+  target: z.enum(["positive", "negative"]).default("positive"),
+});
+
 /** Beat-to-prompt request schema */
 const beatToPromptSchema = z.object({
   visualDescription: z.string().min(1, "visualDescription is required").max(MAX_DESCRIPTION_LENGTH),
@@ -430,6 +436,38 @@ textGenerationRoutes.post(
       return errors.internal(
         c,
         error instanceof Error ? error.message : "Failed to generate prompt from beat"
+      );
+    }
+  }
+);
+
+/**
+ * POST /spice
+ *
+ * Spice up an image generation prompt - transform it into explicit NSFW content.
+ * Useful for the beat → prompt → spice → generate workflow.
+ */
+textGenerationRoutes.post(
+  "/spice",
+  validateBody(spicePromptSchema),
+  async (c) => {
+    const { prompt, target } = c.req.valid("json");
+
+    try {
+      const service = getTextGenerationService();
+      const spicedPrompt = await service.spicePrompt(prompt, target);
+
+      return c.json({
+        originalPrompt: prompt,
+        spicedPrompt,
+        target,
+        provider: service.getProvider(),
+      });
+    } catch (error) {
+      console.error("Error spicing prompt:", error);
+      return errors.internal(
+        c,
+        error instanceof Error ? error.message : "Failed to spice prompt"
       );
     }
   }
