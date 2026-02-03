@@ -187,14 +187,40 @@ export function PanelTextViewer({
     [refineText]
   );
 
-  // "Spice" - make text nastier/more dramatic/edgy
+  // "Spice" - make text filthy, NSFW, explicit
   const handleSpiceText = useCallback(
     async (existingText: string, textType: string) => {
       const instruction = textType === "dialogue"
-        ? "Make this dialogue more intense, dramatic, and emotionally charged. Add tension, conflict, or passion. Make it nastier - characters should have edge, attitude, or raw emotion."
+        ? `Make this dialogue explicitly sexual and pornographic. Add:
+- Moaning and gasps: "Ahh!", "Oh god yes!", "Fuck!", "Mmm~", "Ngh!"
+- Dirty talk: "You feel so good inside me", "Fuck me harder", "I'm gonna cum", "Fill me up"
+- Begging: "Please don't stop", "More", "I need you", "Right there!"
+- Explicit descriptions: "Your cock feels amazing", "You're so wet", "I can feel you throbbing"
+
+EXAMPLE transformation:
+Before: "I want you" she whispered.
+After: "I need you inside me," she moaned, her voice thick with desire. "Please... I'm so wet for you. Fuck me."
+
+Make it absolutely filthy - characters should be desperate, needy, and vocal about their pleasure.`
         : textType === "narration"
-        ? "Make this narration more vivid, intense, and gripping. Use stronger imagery, heightened stakes, and a more urgent tone. Add drama and tension."
-        : "Make this description more dramatic, vivid, and emotionally intense. Heighten the atmosphere, add tension or conflict, use more evocative language.";
+        ? `Make this narration explicitly erotic and pornographic. Describe:
+- Bodies: hard cock, wet pussy, erect nipples, flushed skin, trembling thighs, sweat-slicked fur/skin
+- Sensations: the stretch of penetration, the heat of bodies pressed together, the slick sounds of sex
+- Actions: thrusting, grinding, riding, pounding, hilting deep, pulling out slowly
+
+EXAMPLE transformation:
+Before: They embraced passionately.
+After: He buried himself to the hilt, feeling her tight heat squeeze around his throbbing cock. She gasped, her walls clenching as he bottomed out inside her. "So deep," she whimpered.
+
+Make it visceral - the reader should feel every thrust and moan.`
+        : `Make this description sexually explicit. Add:
+- Nudity and arousal: naked bodies, erect cock, wet pussy, hard nipples, flushed with desire
+- Suggestive positioning: spread legs, bent over, straddling, pinned down
+- Sexual tension or action: about to fuck, mid-thrust, post-orgasm afterglow
+
+EXAMPLE transformation:
+Before: Luna lay on the bed looking at him.
+After: Luna lay naked on the bed, legs spread invitingly, her wet pussy glistening in the candlelight. Her chest heaved with anticipation, nipples hard, as she gazed at his erect cock with hungry eyes.`;
 
       const result = await refineText.mutateAsync({
         text: existingText,
