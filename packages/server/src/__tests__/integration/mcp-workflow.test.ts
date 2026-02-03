@@ -146,8 +146,7 @@ describe("MCP Workflow Integration", () => {
       expect(listAfterDelete.count).toBe(3);
     });
 
-    // TODO: Implement linkBeatToPanel and generatePromptFromBeat in narrative service
-    it.skip("should convert beat to panel with prompt generation", async () => {
+    it("should convert beat to panel", async () => {
       // Setup: Create project, story, storyboard, beat
       const projectService = getProjectService();
       const storyboardService = getStoryboardService();
@@ -198,15 +197,44 @@ describe("MCP Workflow Integration", () => {
       expect(toPanelResult.success).toBe(true);
       expect(toPanelResult.panelId).toBeDefined();
 
-      // Verify panel was created
+      // Verify panel was created with beat data
       const panelService = getPanelService();
-      const panel = await panelService.get(toPanelResult.panelId!);
+      const panel = await panelService.getById(toPanelResult.panelId!);
       expect(panel).toBeDefined();
       expect(panel!.description).toContain("wolf");
 
-      // Generate prompt from beat
+      // Verify beat is now linked to panel
+      expect(toPanelResult.beat?.panelId).toBe(toPanelResult.panelId);
+    });
+
+    // Note: beat_to_prompt requires an LLM provider (Ollama/Anthropic)
+    // This test is skipped in CI but can be run locally with ALLOW_LOCAL_OLLAMA=true
+    it.skip("should generate prompt from beat (requires LLM)", async () => {
+      const narrativeService = getNarrativeService();
+      const projectService = getProjectService();
+
+      const project = await projectService.create({ name: "Prompt Gen Test" });
+      const premise = await narrativeService.createPremise({
+        projectId: project.id,
+        title: "Test",
+        logline: "Test",
+        genre: "Test",
+        tone: "Test",
+      });
+      const story = await narrativeService.createStory({
+        premiseId: premise.id,
+        title: "Test",
+        structure: "three-act",
+      });
+
+      const beatResult = (await handleToolCall("story_beat_create", {
+        storyId: story.id,
+        visualDescription: "A wolf howling at the moon",
+        emotionalTone: "mystical",
+      })) as { success: boolean; beat?: { id: string } };
+
       const promptResult = (await handleToolCall("story_beat_to_prompt", {
-        beatId,
+        beatId: beatResult.beat!.id,
         style: "anime",
       })) as { success: boolean; prompt?: { positive: string; negative: string } };
 

@@ -1154,6 +1154,69 @@ export class NarrativeService {
 
     return result.length;
   }
+
+  // ==========================================================================
+  // MCP TOOLS API: Beat → Panel & Prompt Generation
+  // ==========================================================================
+
+  /**
+   * Link a beat to a panel by creating a new panel from beat data.
+   * Alias for convertBeatToPanel - exposed for MCP tools.
+   */
+  async linkBeatToPanel(
+    beatId: string,
+    storyboardId: string
+  ): Promise<{ beat: Beat; panelId: string }> {
+    return this.convertBeatToPanel(beatId, storyboardId);
+  }
+
+  /**
+   * Generate an image prompt from a beat's narrative data.
+   * Uses the text generation service to create SD-optimized prompts.
+   */
+  async generatePromptFromBeat(
+    beatId: string,
+    options: {
+      style?: string;
+      includeCharacters?: boolean;
+      includeComposition?: boolean;
+    } = {}
+  ): Promise<{ positive: string; negative: string }> {
+    const beat = await this.getBeat(beatId);
+    if (!beat) {
+      throw new Error(`Beat not found: ${beatId}`);
+    }
+
+    const {
+      style,
+      includeCharacters = true,
+      includeComposition = true,
+    } = options;
+
+    // Build context for prompt generation
+    const textGenService = getTextGenerationService();
+
+    // Get character details if needed
+    let characters: Array<{ name: string; description?: string; species?: string }> = [];
+    if (includeCharacters && beat.characterIds && beat.characterIds.length > 0) {
+      // For now, we'll include character IDs as placeholders
+      // TODO: Fetch full character details from character service
+      characters = beat.characterIds.map((id) => ({ name: id }));
+    }
+
+    const result = await textGenService.generatePromptFromBeat({
+      visualDescription: beat.visualDescription,
+      emotionalTone: beat.emotionalTone ?? undefined,
+      cameraAngle: includeComposition ? (beat.cameraAngle as any) : undefined,
+      characters,
+      style,
+    });
+
+    return {
+      positive: result.positive,
+      negative: result.negative,
+    };
+  }
 }
 
 // ============================================================================
