@@ -275,6 +275,83 @@ export const beatTools: Record<string, Tool> = {
       required: ["beatId"],
     },
   },
+
+  // ---------------------------------------------------------------------------
+  // Beat → Caption Tools
+  // ---------------------------------------------------------------------------
+
+  story_beat_generate_captions: {
+    name: "story_beat_generate_captions",
+    description: "Generate panel captions from a beat's dialogue, narration, and SFX. Beat must be linked to a panel first (via story_beat_to_panel).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        beatId: {
+          type: "string",
+          description: "Beat ID to generate captions from",
+        },
+        includeDialogue: {
+          type: "boolean",
+          description: "Include dialogue captions (default: true)",
+        },
+        includeNarration: {
+          type: "boolean",
+          description: "Include narration captions (default: true)",
+        },
+        includeSfx: {
+          type: "boolean",
+          description: "Include sound effect captions (default: true)",
+        },
+        inferFromVisual: {
+          type: "boolean",
+          description: "Use AI to infer captions from visual description if explicit ones not provided (default: true)",
+        },
+      },
+      required: ["beatId"],
+    },
+  },
+
+  story_beat_get_captions: {
+    name: "story_beat_get_captions",
+    description: "Get all captions linked to a beat's panel",
+    inputSchema: {
+      type: "object",
+      properties: {
+        beatId: {
+          type: "string",
+          description: "Beat ID to get captions for",
+        },
+        enabledOnly: {
+          type: "boolean",
+          description: "Only return enabled captions (default: false)",
+        },
+        types: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["dialogue", "narration", "sfx", "thought"],
+          },
+          description: "Filter by caption types",
+        },
+      },
+      required: ["beatId"],
+    },
+  },
+
+  story_beat_delete_captions: {
+    name: "story_beat_delete_captions",
+    description: "Delete all captions generated from a beat",
+    inputSchema: {
+      type: "object",
+      properties: {
+        beatId: {
+          type: "string",
+          description: "Beat ID to delete captions for",
+        },
+      },
+      required: ["beatId"],
+    },
+  },
 };
 
 export async function handleBeatTool(
@@ -429,6 +506,76 @@ export async function handleBeatTool(
         }
       );
       return { success: true, prompt };
+    }
+
+    // -------------------------------------------------------------------------
+    // Beat → Caption handlers
+    // -------------------------------------------------------------------------
+
+    case "story_beat_generate_captions": {
+      if (!args.beatId) {
+        return { success: false, error: "beatId is required" };
+      }
+
+      try {
+        const result = await service.generateCaptionsFromBeat(
+          args.beatId as string,
+          {
+            includeDialogue: (args.includeDialogue as boolean) ?? true,
+            includeNarration: (args.includeNarration as boolean) ?? true,
+            includeSfx: (args.includeSfx as boolean) ?? true,
+            inferFromVisual: (args.inferFromVisual as boolean) ?? true,
+          }
+        );
+        return {
+          success: true,
+          captions: result.captions,
+          count: result.captions.length,
+          panelId: result.panelId,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to generate captions",
+        };
+      }
+    }
+
+    case "story_beat_get_captions": {
+      if (!args.beatId) {
+        return { success: false, error: "beatId is required" };
+      }
+
+      // First get the beat to find its panelId
+      const beat = await service.getBeat(args.beatId as string);
+      if (!beat) {
+        return { success: false, error: "Beat not found" };
+      }
+      if (!beat.panelId) {
+        return { success: false, error: "Beat is not linked to a panel" };
+      }
+
+      const captions = await service.getCaptionsForPanel(beat.panelId, {
+        enabledOnly: (args.enabledOnly as boolean) ?? false,
+        types: args.types as any[] | undefined,
+      });
+      return { success: true, captions, count: captions.length };
+    }
+
+    case "story_beat_delete_captions": {
+      if (!args.beatId) {
+        return { success: false, error: "beatId is required" };
+      }
+
+      try {
+        const deletedCount = await service.deleteCaptionsForPanel(args.beatId as string);
+        return { success: true, deletedCount, message: `Deleted ${deletedCount} captions` };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to delete captions",
+        };
+      }
     }
 
     default:

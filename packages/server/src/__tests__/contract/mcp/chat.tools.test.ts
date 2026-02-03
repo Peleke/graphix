@@ -18,6 +18,7 @@ const mockExtractFromConversation = vi.fn();
 const mockCanBootstrap = vi.fn();
 const mockBootstrapFromSession = vi.fn();
 const mockBootstrapFromExtraction = vi.fn();
+const mockBootstrap = vi.fn();
 
 vi.mock("@graphix/core", () => ({
   getChatAgentService: () => ({
@@ -32,6 +33,7 @@ vi.mock("@graphix/core", () => ({
     canBootstrap: mockCanBootstrap,
     bootstrapFromSession: mockBootstrapFromSession,
     bootstrapFromExtraction: mockBootstrapFromExtraction,
+    bootstrap: mockBootstrap,
   }),
 }));
 
@@ -59,6 +61,17 @@ describe("Chat MCP Tools", () => {
       expect(chatTools).toHaveProperty("chat_can_bootstrap");
       expect(chatTools).toHaveProperty("chat_bootstrap_project");
       expect(chatTools).toHaveProperty("chat_bootstrap_from_extraction");
+      expect(chatTools).toHaveProperty("project_bootstrap");
+    });
+
+    it("should have correct schema for project_bootstrap", () => {
+      const tool = chatTools.project_bootstrap;
+      expect(tool.name).toBe("project_bootstrap");
+      expect(tool.inputSchema.required).toContain("name");
+      expect(tool.inputSchema.required).toContain("characters");
+      expect(tool.inputSchema.properties).toHaveProperty("description");
+      expect(tool.inputSchema.properties).toHaveProperty("setting");
+      expect(tool.inputSchema.properties).toHaveProperty("storyboardName");
     });
 
     it("should have correct schema for chat_create_session", () => {
@@ -514,6 +527,122 @@ describe("Chat MCP Tools", () => {
       expect(result).toEqual({
         success: false,
         error: "Invalid story structure",
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Handler Tests - project_bootstrap
+  // ==========================================================================
+
+  describe("project_bootstrap", () => {
+    it("should bootstrap a project with characters", async () => {
+      const mockResult = {
+        projectId: "project-1",
+        projectName: "Wolf Story",
+        characterIds: ["char-1", "char-2"],
+        storyboardId: "storyboard-1",
+        message: "Project created successfully",
+      };
+      mockBootstrap.mockResolvedValue(mockResult);
+
+      const result = await handleChatTool("project_bootstrap", {
+        name: "Wolf Story",
+        description: "A story about wolves",
+        characters: [
+          { name: "Luna", description: "A gray wolf", visualTraits: { species: "wolf" } },
+          { name: "Rex", description: "A black wolf" },
+        ],
+        setting: "Northern forest",
+        storyboardName: "Chapter 1",
+        style: "watercolor",
+        pageCount: 10,
+      });
+
+      expect(result).toEqual({
+        success: true,
+        projectId: "project-1",
+        projectName: "Wolf Story",
+        characterIds: ["char-1", "char-2"],
+        storyboardId: "storyboard-1",
+        message: "Project created successfully",
+      });
+      expect(mockBootstrap).toHaveBeenCalledWith({
+        name: "Wolf Story",
+        description: "A story about wolves",
+        characters: [
+          { name: "Luna", description: "A gray wolf", visualTraits: { species: "wolf" } },
+          { name: "Rex", description: "A black wolf", visualTraits: undefined },
+        ],
+        setting: "Northern forest",
+        storyboardName: "Chapter 1",
+        style: "watercolor",
+        pageCount: 10,
+      });
+    });
+
+    it("should bootstrap a minimal project", async () => {
+      const mockResult = {
+        projectId: "project-1",
+        projectName: "Simple Project",
+        characterIds: ["char-1"],
+        message: "Project created successfully",
+      };
+      mockBootstrap.mockResolvedValue(mockResult);
+
+      const result = await handleChatTool("project_bootstrap", {
+        name: "Simple Project",
+        characters: [{ name: "Hero" }],
+      });
+
+      expect(result).toEqual({
+        success: true,
+        projectId: "project-1",
+        projectName: "Simple Project",
+        characterIds: ["char-1"],
+        message: "Project created successfully",
+      });
+    });
+
+    it("should fail without name", async () => {
+      const result = await handleChatTool("project_bootstrap", {
+        characters: [{ name: "Luna" }],
+      });
+
+      expect(result).toEqual({ success: false, error: "name is required" });
+      expect(mockBootstrap).not.toHaveBeenCalled();
+    });
+
+    it("should fail without characters", async () => {
+      const result = await handleChatTool("project_bootstrap", {
+        name: "Wolf Story",
+      });
+
+      expect(result).toEqual({ success: false, error: "characters array is required" });
+      expect(mockBootstrap).not.toHaveBeenCalled();
+    });
+
+    it("should fail with empty characters array", async () => {
+      const result = await handleChatTool("project_bootstrap", {
+        name: "Wolf Story",
+        characters: "not an array",
+      });
+
+      expect(result).toEqual({ success: false, error: "characters array is required" });
+      expect(mockBootstrap).not.toHaveBeenCalled();
+    });
+
+    it("should return error when bootstrap fails", async () => {
+      mockBootstrap.mockRejectedValue(new Error("Database connection failed"));
+
+      const result = await handleChatTool("project_bootstrap", {
+        name: "Wolf Story",
+        characters: [{ name: "Luna" }],
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "Database connection failed",
       });
     });
   });

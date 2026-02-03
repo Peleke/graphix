@@ -17,6 +17,10 @@ const mockReorderBeats = vi.fn();
 const mockDeleteBeat = vi.fn();
 const mockLinkBeatToPanel = vi.fn();
 const mockGeneratePromptFromBeat = vi.fn();
+// Caption-related mocks
+const mockGenerateCaptionsFromBeat = vi.fn();
+const mockGetCaptionsForPanel = vi.fn();
+const mockDeleteCaptionsForPanel = vi.fn();
 
 vi.mock("@graphix/core", () => ({
   getNarrativeService: () => ({
@@ -29,6 +33,10 @@ vi.mock("@graphix/core", () => ({
     deleteBeat: mockDeleteBeat,
     linkBeatToPanel: mockLinkBeatToPanel,
     generatePromptFromBeat: mockGeneratePromptFromBeat,
+    // Caption methods
+    generateCaptionsFromBeat: mockGenerateCaptionsFromBeat,
+    getCaptionsForPanel: mockGetCaptionsForPanel,
+    deleteCaptionsForPanel: mockDeleteCaptionsForPanel,
   }),
 }));
 
@@ -420,6 +428,194 @@ describe("Beat MCP Tools", () => {
 
     it("should fail without beatId", async () => {
       const result = await handleBeatTool("story_beat_to_prompt", {});
+
+      expect(result).toEqual({ success: false, error: "beatId is required" });
+    });
+  });
+
+  // ==========================================================================
+  // Handler Tests - story_beat_generate_captions
+  // ==========================================================================
+
+  describe("story_beat_generate_captions", () => {
+    it("should generate captions from beat", async () => {
+      const mockResult = {
+        captions: [
+          { id: "cap-1", type: "dialogue", text: "Hello!" },
+          { id: "cap-2", type: "narration", text: "She said..." },
+        ],
+        panelId: "panel-1",
+      };
+      mockGenerateCaptionsFromBeat.mockResolvedValue(mockResult);
+
+      const result = await handleBeatTool("story_beat_generate_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({
+        success: true,
+        captions: mockResult.captions,
+        count: 2,
+        panelId: "panel-1",
+      });
+      expect(mockGenerateCaptionsFromBeat).toHaveBeenCalledWith("beat-1", {
+        includeDialogue: true,
+        includeNarration: true,
+        includeSfx: true,
+        inferFromVisual: true,
+      });
+    });
+
+    it("should pass options correctly", async () => {
+      const mockResult = { captions: [], panelId: "panel-1" };
+      mockGenerateCaptionsFromBeat.mockResolvedValue(mockResult);
+
+      await handleBeatTool("story_beat_generate_captions", {
+        beatId: "beat-1",
+        includeDialogue: false,
+        includeNarration: true,
+        includeSfx: false,
+        inferFromVisual: false,
+      });
+
+      expect(mockGenerateCaptionsFromBeat).toHaveBeenCalledWith("beat-1", {
+        includeDialogue: false,
+        includeNarration: true,
+        includeSfx: false,
+        inferFromVisual: false,
+      });
+    });
+
+    it("should return error when beat has no panel", async () => {
+      mockGenerateCaptionsFromBeat.mockRejectedValue(
+        new Error("Beat beat-1 has no associated panel. Convert beat to panel first.")
+      );
+
+      const result = await handleBeatTool("story_beat_generate_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "Beat beat-1 has no associated panel. Convert beat to panel first.",
+      });
+    });
+
+    it("should fail without beatId", async () => {
+      const result = await handleBeatTool("story_beat_generate_captions", {});
+
+      expect(result).toEqual({ success: false, error: "beatId is required" });
+    });
+  });
+
+  // ==========================================================================
+  // Handler Tests - story_beat_get_captions
+  // ==========================================================================
+
+  describe("story_beat_get_captions", () => {
+    it("should get captions for beat's panel", async () => {
+      const mockBeat = { id: "beat-1", panelId: "panel-1" };
+      const mockCaptions = [
+        { id: "cap-1", type: "dialogue", text: "Hello!" },
+        { id: "cap-2", type: "narration", text: "She said..." },
+      ];
+      mockGetBeat.mockResolvedValue(mockBeat);
+      mockGetCaptionsForPanel.mockResolvedValue(mockCaptions);
+
+      const result = await handleBeatTool("story_beat_get_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({
+        success: true,
+        captions: mockCaptions,
+        count: 2,
+      });
+      expect(mockGetCaptionsForPanel).toHaveBeenCalledWith("panel-1", {
+        enabledOnly: false,
+        types: undefined,
+      });
+    });
+
+    it("should filter captions by type", async () => {
+      const mockBeat = { id: "beat-1", panelId: "panel-1" };
+      mockGetBeat.mockResolvedValue(mockBeat);
+      mockGetCaptionsForPanel.mockResolvedValue([]);
+
+      await handleBeatTool("story_beat_get_captions", {
+        beatId: "beat-1",
+        types: ["dialogue", "thought"],
+        enabledOnly: true,
+      });
+
+      expect(mockGetCaptionsForPanel).toHaveBeenCalledWith("panel-1", {
+        enabledOnly: true,
+        types: ["dialogue", "thought"],
+      });
+    });
+
+    it("should return error for beat not found", async () => {
+      mockGetBeat.mockResolvedValue(null);
+
+      const result = await handleBeatTool("story_beat_get_captions", {
+        beatId: "nonexistent",
+      });
+
+      expect(result).toEqual({ success: false, error: "Beat not found" });
+    });
+
+    it("should return error for beat not linked to panel", async () => {
+      mockGetBeat.mockResolvedValue({ id: "beat-1", panelId: null });
+
+      const result = await handleBeatTool("story_beat_get_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({ success: false, error: "Beat is not linked to a panel" });
+    });
+
+    it("should fail without beatId", async () => {
+      const result = await handleBeatTool("story_beat_get_captions", {});
+
+      expect(result).toEqual({ success: false, error: "beatId is required" });
+    });
+  });
+
+  // ==========================================================================
+  // Handler Tests - story_beat_delete_captions
+  // ==========================================================================
+
+  describe("story_beat_delete_captions", () => {
+    it("should delete captions for beat", async () => {
+      mockDeleteCaptionsForPanel.mockResolvedValue(3);
+
+      const result = await handleBeatTool("story_beat_delete_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({
+        success: true,
+        deletedCount: 3,
+        message: "Deleted 3 captions",
+      });
+      expect(mockDeleteCaptionsForPanel).toHaveBeenCalledWith("beat-1");
+    });
+
+    it("should return error when beat not found", async () => {
+      mockDeleteCaptionsForPanel.mockRejectedValue(new Error("Beat not found: beat-1"));
+
+      const result = await handleBeatTool("story_beat_delete_captions", {
+        beatId: "beat-1",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: "Beat not found: beat-1",
+      });
+    });
+
+    it("should fail without beatId", async () => {
+      const result = await handleBeatTool("story_beat_delete_captions", {});
 
       expect(result).toEqual({ success: false, error: "beatId is required" });
     });

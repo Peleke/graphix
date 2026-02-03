@@ -16,6 +16,9 @@ dist/
 .env.local
 .env.*.local
 
+# NSFW content (not committed to repo)
+packages/core/src/config/nsfw/spice-instructions.ts
+
 # IDE
 .idea/
 .vscode/

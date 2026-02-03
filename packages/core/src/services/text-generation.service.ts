@@ -748,6 +748,33 @@ Respond with ONLY a JSON object:
       hasOpenaiKey: !!openaiApiKey,
     };
   }
+
+  /**
+   * Spice up a prompt - transform it into explicit NSFW content.
+   * @param prompt - The original prompt to spice
+   * @param target - "positive" for positive prompt, "negative" for negative prompt
+   * @returns The spiced prompt
+   */
+  async spicePrompt(prompt: string, target: "positive" | "negative"): Promise<string> {
+    if (!prompt.trim()) {
+      return prompt;
+    }
+
+    // Load NSFW instructions from config (gitignored)
+    const { SPICE_POSITIVE_PROMPT_INSTRUCTION, SPICE_NEGATIVE_PROMPT_INSTRUCTION } =
+      await import("../config/nsfw/index.js");
+
+    const instruction = target === "positive"
+      ? SPICE_POSITIVE_PROMPT_INSTRUCTION
+      : SPICE_NEGATIVE_PROMPT_INSTRUCTION;
+
+    const result = await this.refineText({
+      originalText: prompt,
+      feedback: instruction,
+    });
+
+    return result;
+  }
 }
 
 // =============================================================================

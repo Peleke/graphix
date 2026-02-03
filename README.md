@@ -217,14 +217,42 @@ bun run db:migrate
 ### Start Development
 
 ```bash
-# Start the API server (port 3002)
+# Start everything (recommended)
+bun run dev
+
+# Or start individually:
+# Terminal 1: API server (port 3002)
 cd packages/server && bun run dev
 
-# Start the UI (port 5173)
+# Terminal 2: UI (port 5173)
 cd packages/ui && bun run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) 🎉
+
+### Using with MCP (Claude Code / Claude Desktop)
+
+Graphix exposes 200+ tools via MCP for AI-assisted comic creation. Add to your Claude settings:
+
+```json
+{
+  "mcpServers": {
+    "graphix": {
+      "command": "npx",
+      "args": ["-y", "bun", "run", "/path/to/graphix/packages/server/src/start.ts"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "STORAGE_MODE": "sqlite",
+        "SQLITE_PATH": "/path/to/graphix/graphix.db",
+        "COMFYUI_MCP_URL": "http://localhost:3001",
+        "ALLOW_LOCAL_OLLAMA": "true"
+      }
+    }
+  }
+}
+```
+
+See [docs/MCP.md](./docs/MCP.md) for the full tool reference.
 
 ---
 
