@@ -7,13 +7,14 @@
 
 import { useState } from "react";
 import { useProject } from "../../api/hooks/useProjects";
-import { 
-  usePremises, 
-  useStories, 
-  useBeats, 
+import {
+  usePremises,
+  useStories,
+  useBeats,
   useCreatePremise,
   useCreateStory,
 } from "../../api/hooks/useStories";
+import { BeatSection } from "./beats";
 
 interface StoryEditorProps {
   projectId: string;
@@ -356,26 +357,12 @@ export function StoryEditor({ projectId }: StoryEditorProps) {
                       <div style={{ fontSize: "0.875rem", color: "#71717a" }}>
                         {story.status || "draft"}
                       </div>
-                      {selectedStoryId === story.id && beats && (
-                        <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid #3f3f46" }}>
-                          <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#a1a1aa", marginBottom: "0.5rem" }}>
-                            BEATS
-                          </div>
-                          {loadingBeats ? (
-                            <div>Loading beats...</div>
-                          ) : beats.length > 0 ? (
-                            beats.map((beat: any) => (
-                              <div key={beat.id} style={{ padding: "0.5rem", background: "#18181b", borderRadius: "6px", marginBottom: "0.5rem" }}>
-                                <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>{beat.type}</div>
-                                <div style={{ fontSize: "0.75rem", color: "#71717a", marginTop: "0.25rem" }}>
-                                  {beat.content || "No content"}
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div style={{ fontSize: "0.875rem", color: "#71717a" }}>No beats yet</div>
-                          )}
-                        </div>
+                      {selectedStoryId === story.id && (
+                        <BeatSection
+                          storyId={story.id}
+                          beats={beats || []}
+                          isLoading={loadingBeats}
+                        />
                       )}
                     </div>
                   ))}

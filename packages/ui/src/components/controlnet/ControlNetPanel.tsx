@@ -498,9 +498,18 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, onChange 
 
   const addControl = (type: ControlNetType) => {
     const typeInfo = types?.types?.find((t) => t.type === type);
+
+    // Auto-select first available reference image if none selected yet
+    let image = referenceImage;
+    if (!image && allReferences.length > 0) {
+      image = allReferences[0].path;
+      setReferenceImage(image);
+      setSelectedReferenceId(allReferences[0].id);
+    }
+
     const newControl: ControlNetCondition = {
       type,
-      image: referenceImage,
+      image,
       strength: typeInfo?.default ?? 0.8,
       preprocess: true,
     };
@@ -1023,19 +1032,19 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, onChange 
                 >
                   <div
                     style={s.historyPreview}
-                    onClick={(e) => {
+                    onDoubleClick={(e) => {
                       e.stopPropagation();
                       if (img.previewUrl) {
                         setLightboxImage({ url: img.previewUrl, label: img.label });
                       }
                     }}
-                    title="Click to enlarge"
+                    title="Click to select · Double-click to enlarge"
                   >
                     {img.previewUrl ? (
                       <img
                         src={img.previewUrl}
                         alt={img.label}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "zoom-in" }}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }}
                       />
                     ) : (
                       "Preview"

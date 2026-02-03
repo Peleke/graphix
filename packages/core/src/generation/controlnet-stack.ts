@@ -99,8 +99,8 @@ export interface ControlNetStackRequest {
   loras?: Array<{ name: string; strengthModel?: number; strengthClip?: number }>;
   /** Seed */
   seed?: number;
-  /** Output path */
-  outputPath: string;
+  /** Output path (optional — if omitted, comfyui-mcp picks a default) */
+  outputPath?: string;
 }
 
 /**
@@ -370,7 +370,7 @@ export class ControlNetStackClient {
     referenceImage: string,
     prompt: string,
     options: Omit<ControlNetStackRequest, "prompt" | "controls" | "outputPath"> & {
-      outputPath: string;
+      outputPath?: string;
       negativePrompt?: string;
     }
   ): Promise<GenerationResult> {
