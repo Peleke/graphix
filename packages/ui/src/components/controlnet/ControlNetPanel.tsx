@@ -626,7 +626,15 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, onChange 
                 key={preset.id}
                 type="button"
                 style={s.presetCard(isSelected)}
-                onClick={() => applyPreset(preset.id)}
+                onClick={() => {
+                  if (isSelected) {
+                    // Deselect: clear controls from this preset
+                    setSettings({ ...settings, controls: [], selectedPresetId: null });
+                    setSelectedPreset(null);
+                  } else {
+                    applyPreset(preset.id);
+                  }
+                }}
                 data-testid={`preset-${preset.id}`}
                 title={presetTooltip}
               >
