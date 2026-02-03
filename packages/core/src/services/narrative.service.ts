@@ -33,6 +33,7 @@ import {
 import { getPanelService, PanelService } from "./panel.service.js";
 import { getLLMService } from "./llm.service.js";
 import { getTextGenerationService } from "./text-generation.service.js";
+import { getCharacterService } from "./character.service.js";
 import type { InferredCaption } from "./text-generation.types.js";
 import { validatePosition as validatePositionUtil, sanitizeText } from "../utils/security.js";
 
@@ -1196,12 +1197,36 @@ export class NarrativeService {
     // Build context for prompt generation
     const textGenService = getTextGenerationService();
 
-    // Get character details if needed
-    let characters: Array<{ name: string; description?: string; species?: string }> = [];
+    // Get full character details if needed
+    let characters: Array<{
+      name: string;
+      description?: string;
+      species?: string;
+      basePrompt?: string;
+      features?: string[];
+      clothing?: string[];
+    }> = [];
     if (includeCharacters && beat.characterIds && beat.characterIds.length > 0) {
-      // For now, we'll include character IDs as placeholders
-      // TODO: Fetch full character details from character service
-      characters = beat.characterIds.map((id) => ({ name: id }));
+      const characterService = getCharacterService();
+      characters = await Promise.all(
+        beat.characterIds.map(async (id) => {
+          const char = await characterService.getById(id);
+          if (!char) {
+            // Fallback if character not found (might be deleted)
+            return { name: id };
+          }
+          return {
+            name: char.name,
+            description: char.profile?.species
+              ? `${char.profile.species}${char.profile.bodyType ? `, ${char.profile.bodyType} build` : ""}`
+              : undefined,
+            species: char.profile?.species,
+            basePrompt: char.promptFragments?.positive,
+            features: char.profile?.features,
+            clothing: char.profile?.clothing,
+          };
+        })
+      );
     }
 
     const result = await textGenService.generatePromptFromBeat({
@@ -1210,6 +1235,14 @@ export class NarrativeService {
       cameraAngle: includeComposition ? (beat.cameraAngle as any) : undefined,
       characters,
       style,
+      // Pass full beat context for richer prompt generation
+      narrativeContext: beat.narrativeContext ?? undefined,
+      composition: includeComposition ? (beat.composition ?? undefined) : undefined,
+      characterActions: beat.characterActions ?? undefined,
+      beatType: beat.beatType ?? undefined,
+      dialogue: beat.dialogue ?? undefined,
+      narration: beat.narration ?? undefined,
+      sfx: beat.sfx ?? undefined,
     });
 
     return {

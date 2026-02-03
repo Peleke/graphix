@@ -636,15 +636,31 @@ Provide the refined text. Respond with ONLY the refined text, no explanation or 
    * Translates narrative beat fields into optimized positive/negative prompts.
    */
   async generatePromptFromBeat(context: BeatPromptContext): Promise<BeatPromptResult> {
-    // Validate and sanitize characters array
-    const validatedCharacters = validateCharactersArray(
-      context.characters?.map(c => ({
-        name: c.name,
-        description: c.description ? `${c.species ? `${c.species}, ` : ""}${c.description}` : c.species,
-      }))
-    );
-    const characterList = validatedCharacters
-      .map((c) => `- ${c.name}${c.description ? `: ${c.description}` : ""}`)
+    // Build rich character descriptions with all available details
+    const characterDescriptions = (context.characters ?? []).map((c) => {
+      const parts: string[] = [c.name];
+      if (c.species) parts.push(`(${c.species})`);
+
+      const details: string[] = [];
+      if (c.features?.length) details.push(...c.features);
+      if (c.clothing?.length) details.push(...c.clothing);
+      if (c.description) details.push(c.description);
+
+      // Include the character's base prompt if available (for consistent appearance)
+      const basePrompt = c.basePrompt ? `[Base appearance: ${c.basePrompt}]` : "";
+
+      // Get character-specific action if available
+      const action = context.characterActions?.[c.name] ?? "";
+
+      return {
+        summary: `- ${parts.join(" ")}${details.length ? `: ${details.join(", ")}` : ""}`,
+        basePrompt,
+        action: action ? `  Action: ${action}` : "",
+      };
+    });
+
+    const characterList = characterDescriptions
+      .map((c) => [c.summary, c.basePrompt, c.action].filter(Boolean).join("\n"))
       .join("\n");
 
     // Get model-specific quality tags
@@ -689,46 +705,73 @@ Provide the refined text. Respond with ONLY the refined text, no explanation or 
       ? emotionMap[context.emotionalTone.toLowerCase()] ?? context.emotionalTone
       : "";
 
+    // Build dialogue context if available
+    const dialogueContext = context.dialogue?.length
+      ? context.dialogue
+          .map((d) => `${d.characterId} (${d.type}): "${d.text}"`)
+          .join("\n")
+      : "";
+
     const prompt = `You are an expert at converting story beats into Stable Diffusion prompts optimized for comic/manga panels.
 
-Given this story beat information, generate an optimized positive and negative prompt:
+Given this story beat information, generate a RICH, DETAILED positive and negative prompt that captures the full visual scene.
 
 ## Beat Information
 **Visual Description**: ${sanitizeForPrompt(context.visualDescription)}
+${context.narrativeContext ? `**Story Context**: ${sanitizeForPrompt(context.narrativeContext)}` : ""}
 ${context.emotionalTone ? `**Emotional Tone**: ${sanitizeForPrompt(context.emotionalTone)}` : ""}
+${context.beatType ? `**Beat Type**: ${context.beatType}` : ""}
 ${context.cameraAngle ? `**Camera Angle**: ${context.cameraAngle}` : ""}
+${context.composition ? `**Composition**: ${context.composition}` : ""}
 ${context.style ? `**Art Style**: ${sanitizeForPrompt(context.style)}` : ""}
 ${characterList ? `**Characters**:\n${characterList}` : ""}
+${dialogueContext ? `**Dialogue**:\n${dialogueContext}` : ""}
+${context.narration ? `**Narration**: ${sanitizeForPrompt(context.narration)}` : ""}
+${context.sfx ? `**Sound Effects**: ${sanitizeForPrompt(context.sfx)}` : ""}
 
 ## Model Family: ${modelFamily}
 Quality tags for this model: ${qualityTags.join(", ")}
 ${cameraTag ? `Camera tag suggestion: ${cameraTag}` : ""}
 ${emotionTag ? `Emotion tag suggestion: ${emotionTag}` : ""}
 
+## Examples of Good Beat-to-Prompt Conversion
+
+Input: "Luna standing defiantly against the storm, her fur whipping in the wind"
+Good Output: "score_9, source_anime, dramatic scene, wolf girl, silver fur, windswept hair, standing pose, defiant expression, stormy background, dark clouds, wind effects, fur blowing, determined eyes, dynamic composition"
+
+Input: "Close-up of Max's surprised face as he discovers the hidden treasure"
+Good Output: "score_9, source_anime, close-up, portrait, fox boy, orange fur, surprised expression, wide eyes, open mouth, sparkling treasure reflection in eyes, golden light from below, dramatic lighting, treasure glow"
+
 ## Instructions
 1. Create a POSITIVE prompt that:
-   - Starts with quality tags appropriate for the model family
-   - Describes the scene visually and specifically
-   - Includes character descriptions with their features
-   - Adds camera angle and emotional expression tags
-   - Uses SD-friendly tag format (comma-separated, descriptive)
-   - Is optimized for the ${modelFamily} model family
+   - Starts with quality tags: ${qualityTags.join(", ")}
+   - EXTRACTS all visual details from the description (poses, expressions, interactions)
+   - Includes EACH character's appearance: species, features, clothing from their data
+   - Describes what characters are DOING (actions, gestures, body language)
+   - Adds environmental/atmospheric details implied by the scene
+   - Uses specific SD-friendly tags (comma-separated, descriptive adjectives)
+   - Includes camera angle: ${cameraTag || context.cameraAngle || "medium shot"}
+   - Captures the emotional tone through expression and lighting tags
+   - Is 80-150 tags for a rich, detailed prompt
 
 2. Create a NEGATIVE prompt that:
-   - Prevents common generation issues (bad anatomy, low quality, etc.)
+   - Prevents bad anatomy, extra limbs, deformed features
+   - Excludes low quality, blurry, artifacts
    - Is appropriate for the ${modelFamily} model family
+
+IMPORTANT: Extract ALL visual details from the description. Don't summarize - ELABORATE. If the description mentions characters "standing side by side facing a villain", describe their stances, expressions, the space between them, how they're positioned relative to each other.
 
 Respond with ONLY a JSON object:
 {
-  "positive": "the positive prompt here",
+  "positive": "the detailed positive prompt here (80-150 tags)",
   "negative": "the negative prompt here",
   "qualityTags": ["array", "of", "quality", "tags", "used"],
-  "characterTags": ["array", "of", "character", "tags", "extracted"]
+  "characterTags": ["array", "of", "character", "specific", "tags", "extracted"]
 }`;
 
     const result = await this.generate(prompt, {
       temperature: 0.6,
-      maxTokens: 1500,
+      maxTokens: 2000,
     });
 
     return safeJsonParse<BeatPromptResult>(result.text, "generatePromptFromBeat");
