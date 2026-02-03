@@ -215,6 +215,27 @@ export const textGenerationTools: Record<string, Tool> = {
       required: ["originalText", "feedback"],
     },
   },
+
+  prompt_spice: {
+    name: "prompt_spice",
+    description: "Spice up an image generation prompt - transform it into explicit NSFW content with appropriate tags and descriptions",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description: "The original image generation prompt to spice up",
+        },
+        target: {
+          type: "string",
+          enum: ["positive", "negative"],
+          description: "Whether to spice the positive prompt (add explicit content) or negative prompt (add NSFW quality negatives)",
+          default: "positive",
+        },
+      },
+      required: ["prompt"],
+    },
+  },
 };
 
 // ============================================================================
@@ -460,6 +481,29 @@ export async function handleTextGenerationTool(
           return {
             originalText,
             refinedText,
+            provider: service.getProvider(),
+          };
+        } catch (error) {
+          return {
+            error: sanitizeError(error),
+          };
+        }
+      }
+
+      case "prompt_spice": {
+        const prompt = args.prompt as string;
+        const target = (args.target as "positive" | "negative") ?? "positive";
+
+        if (!prompt) {
+          return { error: "prompt is required" };
+        }
+
+        try {
+          const spicedPrompt = await service.spicePrompt(prompt, target);
+          return {
+            originalPrompt: prompt,
+            spicedPrompt,
+            target,
             provider: service.getProvider(),
           };
         } catch (error) {

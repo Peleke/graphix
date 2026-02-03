@@ -262,6 +262,7 @@ const handlers: Record<string, (name: string, args: Record<string, unknown>) => 
   text_dialogue: handleTextGenerationTool,
   text_suggest_captions: handleTextGenerationTool,
   text_refine: handleTextGenerationTool,
+  prompt_spice: handleTextGenerationTool,
 
   // Generated text storage tools
   generated_text_create: handleGeneratedTextTool,
