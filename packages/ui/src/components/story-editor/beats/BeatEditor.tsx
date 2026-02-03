@@ -2,12 +2,14 @@
  * BeatEditor Component
  *
  * Modal for creating and editing beats.
+ * Includes AI augmentation buttons for improving text fields.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import type { Beat, BeatType, CameraAngle, CreateBeatInput, UpdateBeatInput } from "./types";
 import { BEAT_TYPES, CAMERA_ANGLES, BEAT_TYPE_LABELS, CAMERA_ANGLE_LABELS } from "./types";
 import { getBeatIcon } from "./beat-icons";
+import { useRefineText } from "../../../api/hooks/useTextGeneration";
 
 interface BeatEditorProps {
   isOpen: boolean;
@@ -36,6 +38,78 @@ export function BeatEditor({
   const [narration, setNarration] = useState(beat?.narration ?? "");
   const [sfx, setSfx] = useState(beat?.sfx ?? "");
   const [cameraAngle, setCameraAngle] = useState<CameraAngle | null>(beat?.cameraAngle ?? null);
+
+  // AI augmentation hooks
+  const refineText = useRefineText();
+  const [aiTarget, setAiTarget] = useState<"visual" | "tone" | "narration" | null>(null);
+  const [spiceTarget, setSpiceTarget] = useState<"visual" | "tone" | "narration" | null>(null);
+
+  const handleSpice = async (
+    target: "visual" | "tone" | "narration",
+    currentValue: string
+  ) => {
+    if (!currentValue.trim()) return;
+    setSpiceTarget(target);
+    try {
+      const instruction = target === "visual"
+        ? "Make this visual description more dramatic, intense, and emotionally charged. Add tension, conflict, or heightened stakes. Use vivid, evocative language."
+        : target === "tone"
+        ? "Make this emotional tone more intense and dramatic. Amplify the feeling - if it's sad make it devastating, if it's happy make it euphoric, if it's tense make it unbearable."
+        : "Make this narration more gripping, intense, and emotionally raw. Add urgency, drama, and visceral impact. Make it hit harder.";
+
+      const result = await refineText.mutateAsync({
+        text: currentValue,
+        instruction,
+        style: "dramatic",
+      });
+
+      switch (target) {
+        case "visual":
+          setVisualDescription(result.refined);
+          break;
+        case "tone":
+          setEmotionalTone(result.refined);
+          break;
+        case "narration":
+          setNarration(result.refined);
+          break;
+      }
+    } catch (error) {
+      console.error("Spice failed:", error);
+    } finally {
+      setSpiceTarget(null);
+    }
+  };
+
+  const handleAiAugment = async (
+    target: "visual" | "tone" | "narration",
+    currentValue: string,
+    instruction: string
+  ) => {
+    setAiTarget(target);
+    try {
+      const result = await refineText.mutateAsync({
+        text: currentValue || `[Empty ${target} field for a ${beatType || "story"} beat]`,
+        instruction,
+      });
+
+      switch (target) {
+        case "visual":
+          setVisualDescription(result.refined);
+          break;
+        case "tone":
+          setEmotionalTone(result.refined);
+          break;
+        case "narration":
+          setNarration(result.refined);
+          break;
+      }
+    } catch (error) {
+      console.error("AI augmentation failed:", error);
+    } finally {
+      setAiTarget(null);
+    }
+  };
 
   // Reset form when modal opens or beat changes
   useEffect(() => {
@@ -312,6 +386,97 @@ export function BeatEditor({
           opacity: 0.5;
           cursor: not-allowed;
         }
+
+        .ai-augment-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #3f3f46;
+          border: none;
+          border-radius: 6px;
+          color: #d4d4d8;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-size: 0.875rem;
+        }
+
+        .ai-augment-btn:hover:not(:disabled) {
+          background: #8b5cf6;
+          color: white;
+        }
+
+        .ai-augment-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .ai-augment-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        .field-with-ai {
+          position: relative;
+        }
+
+        .field-with-ai .beat-editor-textarea,
+        .field-with-ai .beat-editor-input {
+          padding-right: 80px;
+        }
+
+        .field-buttons {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          display: flex;
+          gap: 4px;
+        }
+
+        .spice-btn {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+          border: none;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-size: 0.875rem;
+        }
+
+        .spice-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+        }
+
+        .spice-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .spice-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
       `}</style>
 
       <div className="beat-editor-modal" onClick={(e) => e.stopPropagation()}>
@@ -353,18 +518,53 @@ export function BeatEditor({
               Visual Description
               <span className="beat-editor-required">*</span>
             </label>
-            <textarea
-              className={`beat-editor-textarea ${
-                visualDescription.length > 0 && visualDescription.trim().length < MIN_DESCRIPTION_LENGTH
-                  ? "invalid"
-                  : ""
-              }`}
-              value={visualDescription}
-              onChange={(e) => setVisualDescription(e.target.value)}
-              placeholder="Describe what should be visually depicted in this beat..."
-              autoFocus
-              data-testid="beat-visual-description"
-            />
+            <div className="field-with-ai">
+              <textarea
+                className={`beat-editor-textarea ${
+                  visualDescription.length > 0 && visualDescription.trim().length < MIN_DESCRIPTION_LENGTH
+                    ? "invalid"
+                    : ""
+                }`}
+                value={visualDescription}
+                onChange={(e) => setVisualDescription(e.target.value)}
+                placeholder="Describe what should be visually depicted in this beat..."
+                autoFocus
+                data-testid="beat-visual-description"
+              />
+              <div className="field-buttons">
+                <button
+                  type="button"
+                  className="spice-btn"
+                  onClick={() => handleSpice("visual", visualDescription)}
+                  disabled={spiceTarget === "visual" || !visualDescription.trim()}
+                  title="Make it nastier"
+                  data-testid="spice-visual-btn"
+                >
+                  {spiceTarget === "visual" ? (
+                    <span className="spice-spinner" />
+                  ) : (
+                    "🌶️"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="ai-augment-btn"
+                  onClick={() => handleAiAugment(
+                    "visual",
+                    visualDescription,
+                    `Enhance this visual description for a ${beatType || "story"} beat. Make it more vivid, specific, and suitable for comic panel visualization. Keep it concise but descriptive.`
+                  )}
+                  disabled={aiTarget === "visual"}
+                  title="Enhance with AI"
+                >
+                  {aiTarget === "visual" ? (
+                    <span className="ai-augment-spinner" />
+                  ) : (
+                    "✨"
+                  )}
+                </button>
+              </div>
+            </div>
             <div className="beat-editor-hint">
               Minimum {MIN_DESCRIPTION_LENGTH} characters
               {visualDescription.length > 0 && (
@@ -378,25 +578,95 @@ export function BeatEditor({
           {/* Emotional Tone */}
           <div className="beat-editor-section">
             <label className="beat-editor-label">Emotional Tone</label>
-            <input
-              type="text"
-              className="beat-editor-input"
-              value={emotionalTone}
-              onChange={(e) => setEmotionalTone(e.target.value)}
-              placeholder="e.g., tense, hopeful, melancholic..."
-            />
+            <div className="field-with-ai">
+              <input
+                type="text"
+                className="beat-editor-input"
+                value={emotionalTone}
+                onChange={(e) => setEmotionalTone(e.target.value)}
+                placeholder="e.g., tense, hopeful, melancholic..."
+              />
+              <div className="field-buttons">
+                <button
+                  type="button"
+                  className="spice-btn"
+                  onClick={() => handleSpice("tone", emotionalTone)}
+                  disabled={spiceTarget === "tone" || !emotionalTone.trim()}
+                  title="Make it nastier"
+                  data-testid="spice-tone-btn"
+                >
+                  {spiceTarget === "tone" ? (
+                    <span className="spice-spinner" />
+                  ) : (
+                    "🌶️"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="ai-augment-btn"
+                  onClick={() => handleAiAugment(
+                    "tone",
+                    emotionalTone || visualDescription,
+                    `Based on this visual description: "${visualDescription}", suggest a single emotional tone word or short phrase that captures the mood. Output only the emotional tone, nothing else.`
+                  )}
+                  disabled={aiTarget === "tone" || !visualDescription.trim()}
+                  title="Suggest emotional tone with AI"
+                >
+                  {aiTarget === "tone" ? (
+                    <span className="ai-augment-spinner" />
+                  ) : (
+                    "✨"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Narration */}
           <div className="beat-editor-section">
             <label className="beat-editor-label">Narration</label>
-            <textarea
-              className="beat-editor-textarea"
-              value={narration}
-              onChange={(e) => setNarration(e.target.value)}
-              placeholder="Optional narration text for this beat..."
-              style={{ minHeight: "80px" }}
-            />
+            <div className="field-with-ai">
+              <textarea
+                className="beat-editor-textarea"
+                value={narration}
+                onChange={(e) => setNarration(e.target.value)}
+                placeholder="Optional narration text for this beat..."
+                style={{ minHeight: "80px" }}
+              />
+              <div className="field-buttons">
+                <button
+                  type="button"
+                  className="spice-btn"
+                  onClick={() => handleSpice("narration", narration)}
+                  disabled={spiceTarget === "narration" || !narration.trim()}
+                  title="Make it nastier"
+                  data-testid="spice-narration-btn"
+                >
+                  {spiceTarget === "narration" ? (
+                    <span className="spice-spinner" />
+                  ) : (
+                    "🌶️"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="ai-augment-btn"
+                  onClick={() => handleAiAugment(
+                    "narration",
+                    narration,
+                    `Write a brief, evocative narration for a comic panel based on this scene: "${visualDescription}". Emotional tone: ${emotionalTone || "neutral"}. Keep it concise (1-2 sentences) and suitable for a caption box.`
+                  )}
+                  disabled={aiTarget === "narration" || !visualDescription.trim()}
+                  title="Generate narration with AI"
+                >
+                  {aiTarget === "narration" ? (
+                    <span className="ai-augment-spinner" />
+                  ) : (
+                    "✨"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* SFX and Camera Angle */}

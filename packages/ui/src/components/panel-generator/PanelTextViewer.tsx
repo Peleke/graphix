@@ -85,6 +85,7 @@ export function PanelTextViewer({
 }: PanelTextViewerProps) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editedText, setEditedText] = useState("");
+  const [spicingSection, setSpicingSection] = useState<string | null>(null);
 
   // Fetch existing generated texts
   const { data: descriptionData, refetch: refetchDescription } = useActiveGeneratedText(
@@ -186,6 +187,25 @@ export function PanelTextViewer({
     [refineText]
   );
 
+  // "Spice" - make text nastier/more dramatic/edgy
+  const handleSpiceText = useCallback(
+    async (existingText: string, textType: string) => {
+      const instruction = textType === "dialogue"
+        ? "Make this dialogue more intense, dramatic, and emotionally charged. Add tension, conflict, or passion. Make it nastier - characters should have edge, attitude, or raw emotion."
+        : textType === "narration"
+        ? "Make this narration more vivid, intense, and gripping. Use stronger imagery, heightened stakes, and a more urgent tone. Add drama and tension."
+        : "Make this description more dramatic, vivid, and emotionally intense. Heighten the atmosphere, add tension or conflict, use more evocative language.";
+
+      const result = await refineText.mutateAsync({
+        text: existingText,
+        instruction,
+        style: "dramatic",
+      });
+      return result.refined;
+    },
+    [refineText]
+  );
+
   const handleAIGenerate = useCallback(
     async (section: TextSection): Promise<string> => {
       const existingText = getTextForSection(section);
@@ -275,6 +295,24 @@ export function PanelTextViewer({
       dialogueId,
       narrationId,
     ]
+  );
+
+  const handleSpice = useCallback(
+    async (section: TextSection) => {
+      const existingText = getTextForSection(section);
+      if (!existingText) return;
+
+      setSpicingSection(section.id);
+      try {
+        const spicedText = await handleSpiceText(existingText, section.textType);
+        await handleAcceptAI(section, spicedText);
+      } catch (err) {
+        console.error("Failed to spice text:", err);
+      } finally {
+        setSpicingSection(null);
+      }
+    },
+    [handleSpiceText, handleAcceptAI]
   );
 
   const handleStartEdit = useCallback((section: TextSection) => {
@@ -399,6 +437,44 @@ export function PanelTextViewer({
           background: #27272a;
           color: #fafafa;
           border-color: #52525b;
+        }
+
+        .text-viewer-spice-btn {
+          padding: 0.375rem 0.625rem;
+          background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+          border: none;
+          border-radius: 6px;
+          color: white;
+          font-size: 0.75rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .text-viewer-spice-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+          transform: translateY(-1px);
+        }
+
+        .text-viewer-spice-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .text-viewer-spice-spinner {
+          width: 12px;
+          height: 12px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         .text-viewer-content {
@@ -582,6 +658,23 @@ export function PanelTextViewer({
                     Edit
                   </button>
                 )}
+                {/* Spice button - only show when text exists */}
+                {text && (
+                  <button
+                    className="text-viewer-spice-btn"
+                    onClick={() => handleSpice(section)}
+                    disabled={spicingSection === section.id || isGenerating}
+                    title="Make it nastier"
+                    data-testid={`spice-btn-${section.id}`}
+                  >
+                    {spicingSection === section.id ? (
+                      <span className="text-viewer-spice-spinner" />
+                    ) : (
+                      "🌶️"
+                    )}
+                    Spice
+                  </button>
+                )}
                 <AIAssistButton
                   onGenerate={() => handleAIGenerate(section)}
                   onAccept={(generatedText) => handleAcceptAI(section, generatedText)}
@@ -591,7 +684,9 @@ export function PanelTextViewer({
                     selectedCharacterIds.length === 0
                   }
                   title={
-                    text
+                    section.textType === "dialogue" && selectedCharacterIds.length === 0
+                      ? "Select characters first to generate dialogue"
+                      : text
                       ? `Refine ${section.title.toLowerCase()}`
                       : `Generate ${section.title.toLowerCase()}`
                   }

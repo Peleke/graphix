@@ -199,6 +199,56 @@ export function useRefineText() {
 }
 
 // ============================================================================
+// Beat-to-Prompt Types and Hook
+// ============================================================================
+
+export type CameraAngle =
+  | "wide"
+  | "medium"
+  | "close-up"
+  | "extreme close-up"
+  | "over-the-shoulder"
+  | "bird's eye"
+  | "low angle"
+  | "dutch angle";
+
+export type ModelFamily = "pony" | "illustrious" | "flux" | "sdxl" | "sd15" | "realistic";
+
+export interface BeatPromptInput {
+  visualDescription: string;
+  emotionalTone?: string;
+  cameraAngle?: CameraAngle;
+  characters?: Array<{
+    name: string;
+    description?: string;
+    species?: string;
+  }>;
+  modelFamily?: ModelFamily;
+  style?: string;
+}
+
+export interface BeatPromptResponse {
+  positive: string;
+  negative: string;
+  qualityTags?: string[];
+  characterTags?: string[];
+  provider: string;
+}
+
+/**
+ * Generate Stable Diffusion prompt from a story beat.
+ * Converts beat fields (visual description, emotional tone, camera angle)
+ * into optimized positive/negative prompts.
+ */
+export function useGeneratePromptFromBeat() {
+  return useMutation({
+    mutationFn: async (input: BeatPromptInput): Promise<BeatPromptResponse> => {
+      return postTextGeneration<BeatPromptResponse>("beat-to-prompt", input);
+    },
+  });
+}
+
+// ============================================================================
 // Streaming Support (for real-time text generation)
 // ============================================================================
 

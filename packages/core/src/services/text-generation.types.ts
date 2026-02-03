@@ -203,3 +203,50 @@ export interface RefineTextContext {
   /** Type of content being refined */
   contentType?: "dialogue" | "description" | "caption" | "narration";
 }
+
+// =============================================================================
+// Beat-to-Prompt Types
+// =============================================================================
+
+/** Camera angles that can be used in beat descriptions */
+export type CameraAngle =
+  | "wide"
+  | "medium"
+  | "close-up"
+  | "extreme close-up"
+  | "over-the-shoulder"
+  | "bird's eye"
+  | "low angle"
+  | "dutch angle";
+
+/** Context for generating SD prompt from beat */
+export interface BeatPromptContext {
+  /** Visual description of the beat/scene */
+  visualDescription: string;
+  /** Emotional tone of the scene */
+  emotionalTone?: string;
+  /** Camera angle/framing */
+  cameraAngle?: CameraAngle;
+  /** Characters in the scene */
+  characters?: Array<{
+    name: string;
+    description?: string;
+    species?: string;
+  }>;
+  /** Model family for prompt optimization */
+  modelFamily?: "pony" | "illustrious" | "flux" | "sdxl" | "sd15" | "realistic";
+  /** Style hints (e.g., "comic", "manga", "realistic") */
+  style?: string;
+}
+
+/** Generated prompt result from beat */
+export interface BeatPromptResult {
+  /** Positive prompt optimized for SD */
+  positive: string;
+  /** Negative prompt optimized for SD */
+  negative: string;
+  /** Suggested quality tags based on model family */
+  qualityTags?: string[];
+  /** Character-related tags extracted */
+  characterTags?: string[];
+}

@@ -22,6 +22,8 @@ import type {
   GeneratedDialogue,
   InferredCaption,
   RefineTextContext,
+  BeatPromptContext,
+  BeatPromptResult,
 } from "./text-generation.types.js";
 import { DEFAULT_TEXT_CONFIG } from "./text-generation.types.js";
 import { OllamaProvider } from "./providers/ollama.provider.js";
@@ -627,6 +629,109 @@ Provide the refined text. Respond with ONLY the refined text, no explanation or 
     });
 
     return result.text.trim();
+  }
+
+  /**
+   * Generate Stable Diffusion prompt from a story beat.
+   * Translates narrative beat fields into optimized positive/negative prompts.
+   */
+  async generatePromptFromBeat(context: BeatPromptContext): Promise<BeatPromptResult> {
+    // Validate and sanitize characters array
+    const validatedCharacters = validateCharactersArray(
+      context.characters?.map(c => ({
+        name: c.name,
+        description: c.description ? `${c.species ? `${c.species}, ` : ""}${c.description}` : c.species,
+      }))
+    );
+    const characterList = validatedCharacters
+      .map((c) => `- ${c.name}${c.description ? `: ${c.description}` : ""}`)
+      .join("\n");
+
+    // Get model-specific quality tags
+    const modelFamily = context.modelFamily ?? "pony";
+    const qualityTagsByFamily: Record<string, string[]> = {
+      pony: ["score_9", "score_8_up", "score_7_up", "source_anime"],
+      illustrious: ["masterpiece", "best quality", "very aesthetic"],
+      flux: ["high quality", "detailed"],
+      sdxl: ["masterpiece", "best quality", "high resolution"],
+      sd15: ["masterpiece", "best quality", "detailed"],
+      realistic: ["RAW photo", "8k", "high detail", "photorealistic"],
+    };
+    const qualityTags = qualityTagsByFamily[modelFamily] ?? qualityTagsByFamily.pony;
+
+    // Camera angle to SD tag mapping
+    const cameraMap: Record<string, string> = {
+      wide: "wide shot, establishing shot",
+      medium: "medium shot, cowboy shot",
+      "close-up": "close-up, portrait",
+      "extreme close-up": "extreme close-up, face focus",
+      "over-the-shoulder": "over the shoulder shot, from behind",
+      "bird's eye": "from above, bird's eye view, overhead shot",
+      "low angle": "from below, low angle, looking up",
+      "dutch angle": "dutch angle, tilted frame, dynamic angle",
+    };
+    const cameraTag = context.cameraAngle ? cameraMap[context.cameraAngle] ?? "" : "";
+
+    // Emotional tone to SD tag mapping
+    const emotionMap: Record<string, string> = {
+      happy: "happy, smiling, cheerful expression",
+      sad: "sad, melancholy, downcast expression",
+      angry: "angry, fierce expression, intense",
+      fearful: "scared, fearful expression, tense",
+      surprised: "surprised, shocked expression, wide eyes",
+      neutral: "neutral expression, calm",
+      tense: "tense, serious, dramatic",
+      romantic: "romantic, soft lighting, intimate",
+      comedic: "comedic, exaggerated expression, dynamic",
+      mysterious: "mysterious, dramatic lighting, enigmatic",
+    };
+    const emotionTag = context.emotionalTone
+      ? emotionMap[context.emotionalTone.toLowerCase()] ?? context.emotionalTone
+      : "";
+
+    const prompt = `You are an expert at converting story beats into Stable Diffusion prompts optimized for comic/manga panels.
+
+Given this story beat information, generate an optimized positive and negative prompt:
+
+## Beat Information
+**Visual Description**: ${sanitizeForPrompt(context.visualDescription)}
+${context.emotionalTone ? `**Emotional Tone**: ${sanitizeForPrompt(context.emotionalTone)}` : ""}
+${context.cameraAngle ? `**Camera Angle**: ${context.cameraAngle}` : ""}
+${context.style ? `**Art Style**: ${sanitizeForPrompt(context.style)}` : ""}
+${characterList ? `**Characters**:\n${characterList}` : ""}
+
+## Model Family: ${modelFamily}
+Quality tags for this model: ${qualityTags.join(", ")}
+${cameraTag ? `Camera tag suggestion: ${cameraTag}` : ""}
+${emotionTag ? `Emotion tag suggestion: ${emotionTag}` : ""}
+
+## Instructions
+1. Create a POSITIVE prompt that:
+   - Starts with quality tags appropriate for the model family
+   - Describes the scene visually and specifically
+   - Includes character descriptions with their features
+   - Adds camera angle and emotional expression tags
+   - Uses SD-friendly tag format (comma-separated, descriptive)
+   - Is optimized for the ${modelFamily} model family
+
+2. Create a NEGATIVE prompt that:
+   - Prevents common generation issues (bad anatomy, low quality, etc.)
+   - Is appropriate for the ${modelFamily} model family
+
+Respond with ONLY a JSON object:
+{
+  "positive": "the positive prompt here",
+  "negative": "the negative prompt here",
+  "qualityTags": ["array", "of", "quality", "tags", "used"],
+  "characterTags": ["array", "of", "character", "tags", "extracted"]
+}`;
+
+    const result = await this.generate(prompt, {
+      temperature: 0.6,
+      maxTokens: 1500,
+    });
+
+    return safeJsonParse<BeatPromptResult>(result.text, "generatePromptFromBeat");
   }
 
   /**
