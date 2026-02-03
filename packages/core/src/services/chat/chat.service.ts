@@ -240,14 +240,17 @@ export class ChatService {
       const result = await this.textService.generate(prompt, {
         temperature: 0.5, // Slightly higher for creative beat generation
         maxTokens: 4000,
+        timeoutMs: 180000, // 3 minutes for complex story arc extraction
       });
 
       const parsed = JSON.parse(result.text);
+      const acts = parsed.acts?.length > 0 ? parsed.acts : this.getDefaultActs(structure);
+      const beats = parsed.beats?.length > 0 ? parsed.beats : [];
       return {
         premise: parsed.premise,
         structure: parsed.structure || structure,
-        acts: parsed.acts || this.getDefaultActs(structure),
-        beats: parsed.beats || [],
+        acts,
+        beats,
       };
     } catch (error) {
       console.error('Failed to parse story arc extraction:', error);

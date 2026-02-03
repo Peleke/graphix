@@ -267,6 +267,13 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
                 const completeData = JSON.parse(eventData);
                 if (completeData.state) {
                   setSession(prev => prev ? { ...prev, state: completeData.state } : prev);
+                } else {
+                  // Fallback: fetch fresh session state if not provided in complete event
+                  const refreshRes = await fetch(`${baseUrl}/sessions/${sessionId}`);
+                  if (refreshRes.ok) {
+                    const freshSession = await refreshRes.json();
+                    setSession(prev => prev ? { ...prev, state: freshSession.state } : prev);
+                  }
                 }
               } catch {
                 // Ignore parse errors
@@ -503,6 +510,72 @@ export function useEnhancedBootstrap(options: UseEnhancedBootstrapOptions = {}):
     isLoading,
     error,
     result,
+  };
+}
+
+// =============================================================================
+// Extraction Hook
+// =============================================================================
+
+export interface UseExtractionOptions {
+  baseUrl?: string;
+  onSuccess?: (data: EnhancedBootstrapInput) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface UseExtractionReturn {
+  extract: (sessionId: string) => Promise<EnhancedBootstrapInput | null>;
+  isExtracting: boolean;
+  extractedData: EnhancedBootstrapInput | null;
+  error: Error | null;
+}
+
+export function useExtraction(options: UseExtractionOptions = {}): UseExtractionReturn {
+  const {
+    baseUrl = '/api/chat',
+    onSuccess,
+    onError,
+  } = options;
+
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState<EnhancedBootstrapInput | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const extract = useCallback(async (sessionId: string): Promise<EnhancedBootstrapInput | null> => {
+    try {
+      setIsExtracting(true);
+      setError(null);
+
+      const response = await fetch(`${baseUrl}/sessions/${sessionId}/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Extraction failed: ${response.statusText}`);
+      }
+
+      const data: EnhancedBootstrapInput = await response.json();
+      setExtractedData(data);
+      onSuccess?.(data);
+      return data;
+
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Extraction failed');
+      setError(error);
+      onError?.(error);
+      return null;
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [baseUrl, onSuccess, onError]);
+
+  return {
+    extract,
+    isExtracting,
+    extractedData,
+    error,
   };
 }
 

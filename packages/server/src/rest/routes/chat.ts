@@ -78,7 +78,7 @@ const enhancedBootstrapSchema = z.object({
 // Chat Service Import
 // =============================================================================
 
-import { getChatAgentService, getProjectBootstrapService } from "@graphix/core";
+import { getChatAgentService, getProjectBootstrapService, getChatService as getCoreService } from "@graphix/core";
 
 function getChatService() {
   return getChatAgentService();
@@ -377,12 +377,72 @@ chatRoutes.post(
 );
 
 // -----------------------------------------------------------------------------
+// Extraction
+// -----------------------------------------------------------------------------
+
+/**
+ * POST /sessions/:id/extract
+ *
+ * Run enhanced extraction on session conversation to generate
+ * structured characters, setting, and story arc with beats.
+ */
+chatRoutes.post("/sessions/:id/extract", async (c) => {
+  const sessionId = c.req.param("id");
+  const chatAgentService = getChatService();
+  const chatCoreService = getCoreService();
+
+  try {
+    const session = await chatAgentService.getSession(sessionId);
+    if (!session) {
+      return errors.notFound(c, "Session not found");
+    }
+
+    // Build conversation text from messages
+    const conversationText = session.messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n\n");
+
+    if (!conversationText.trim()) {
+      return errors.badRequest(c, "No conversation to extract from");
+    }
+
+    // Determine structure from gathered state
+    const structure = (session.workingMemory?.gathered?.structure as 'three-act' | 'five-act' | 'hero-journey') || 'three-act';
+
+    // Run extraction
+    const extraction = await chatCoreService.runEnhancedExtraction(conversationText, structure);
+
+    // Generate project name from concept
+    const concept = session.workingMemory?.gathered?.concept as string || '';
+    const name = concept
+      ? concept.split(/\s+/).slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      : 'Untitled Project';
+
+    return c.json({
+      name,
+      description: concept,
+      characters: extraction.characters,
+      setting: extraction.setting,
+      arc: extraction.arc,
+      style: session.workingMemory?.gathered?.style as string || undefined,
+      pageCount: session.workingMemory?.gathered?.pageCount as number || 6,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return errors.notFound(c, "Session not found");
+    }
+    console.error('Extraction error:', error);
+    return errors.internal(c, "Failed to extract story data");
+  }
+});
+
+// -----------------------------------------------------------------------------
 // Status
 // -----------------------------------------------------------------------------
 
 /**
  * GET /status
- * 
+ *
  * Check if chat/AI is available.
  */
 chatRoutes.get("/status", async (c) => {

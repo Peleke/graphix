@@ -1,17 +1,18 @@
 /**
  * ChatPanel Component
- * 
+ *
  * Main chat interface that slides up from the dashboard.
  * Connected to real backend via useChat hook.
+ * Supports enhanced extraction and beats preview for story creation.
  */
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThreadModal } from './ThreadModal';
-import { useChat } from '../../api/hooks/useChat';
+import { BeatsPreview } from './BeatsPreview';
+import { useChat, useExtraction, useEnhancedBootstrap, type EnhancedBootstrapInput } from '../../api/hooks/useChat';
 import { type ChatMessage as ChatMessageType } from './types';
-import { useState } from 'react';
 
 // =============================================================================
 // Constants
@@ -25,7 +26,7 @@ export const CHAT_COMMANDS = {
 } as const;
 
 export const ELICITATION_PHASES: readonly string[] = [
-  'greeting', 'characters', 'setting', 'style', 'scope', 'confirmation'
+  'greeting', 'characters', 'setting', 'style', 'scope', 'beats_preview', 'confirmation'
 ] as const;
 
 export const MAX_MESSAGE_LENGTH = 4000;
@@ -52,16 +53,19 @@ interface ChatPanelProps {
 // Component
 // =============================================================================
 
-export function ChatPanel({ 
-  isOpen, 
-  onClose, 
+export function ChatPanel({
+  isOpen,
+  onClose,
   onProjectCreated,
 }: ChatPanelProps) {
   const [showThreadModal, setShowThreadModal] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [extractedData, setExtractedData] = useState<EnhancedBootstrapInput | null>(null);
+  const [showBeatsPreview, setShowBeatsPreview] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const extractionTriggeredRef = useRef(false);
 
   // Use the real chat hook
   const {
@@ -72,11 +76,34 @@ export function ChatPanel({
     createSession,
     sendMessage,
     reset,
-    createProject,
   } = useChat({
     onError: (err) => {
       console.error('[ChatPanel] Error:', err);
       setLocalError(err.message);
+    },
+  });
+
+  // Extraction hook
+  const { extract, isExtracting } = useExtraction({
+    onSuccess: (data) => {
+      setExtractedData(data);
+      setShowBeatsPreview(true);
+    },
+    onError: (err) => {
+      console.error('[ChatPanel] Extraction error:', err);
+      setLocalError('Failed to generate story structure. Please try again.');
+    },
+  });
+
+  // Enhanced bootstrap hook
+  const { bootstrap, isLoading: isCreatingProject } = useEnhancedBootstrap({
+    onSuccess: (result) => {
+      onProjectCreated?.(result.project.id);
+      onClose();
+    },
+    onError: (err) => {
+      console.error('[ChatPanel] Bootstrap error:', err);
+      setLocalError('Failed to create project. Please try again.');
     },
   });
 
@@ -115,6 +142,31 @@ export function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Trigger extraction when phase reaches 'scope' or 'confirmation'
+  useEffect(() => {
+    const currentPhase = session?.state?.phase;
+    if (
+      session?.id &&
+      (currentPhase === 'scope' || currentPhase === 'confirmation') &&
+      !extractionTriggeredRef.current &&
+      !extractedData &&
+      !isExtracting
+    ) {
+      extractionTriggeredRef.current = true;
+      extract(session.id);
+    }
+  }, [session?.state?.phase, session?.id, extract, extractedData, isExtracting]);
+
+  // Handle creating project with enhanced bootstrap
+  const handleCreateProject = useCallback(async () => {
+    if (!extractedData) {
+      setLocalError('No story data available. Please complete the conversation first.');
+      return;
+    }
+
+    await bootstrap(extractedData);
+  }, [extractedData, bootstrap]);
+
   const handleSend = useCallback(async (content: string) => {
     if (content.length > MAX_MESSAGE_LENGTH) {
       setLocalError(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`);
@@ -125,22 +177,15 @@ export function ChatPanel({
 
     // Handle special commands
     if (content === CHAT_COMMANDS.CREATE_PROJECT) {
-      try {
-        const projectId = await createProject();
-        if (projectId) {
-          onProjectCreated?.(projectId);
-          onClose();
-        } else {
-          setLocalError('Failed to create project. Please try again.');
-        }
-      } catch (err) {
-        setLocalError('Failed to create project. Please try again.');
-      }
+      await handleCreateProject();
       return;
     }
 
     if (content === CHAT_COMMANDS.START_OVER) {
       reset();
+      setExtractedData(null);
+      setShowBeatsPreview(false);
+      extractionTriggeredRef.current = false;
       initializedRef.current = false;
       // Create new session
       try {
@@ -158,7 +203,7 @@ export function ChatPanel({
       console.error('[ChatPanel] Send error:', err);
       // Error is handled by onError callback
     }
-  }, [sendMessage, createProject, createSession, reset, onProjectCreated, onClose]);
+  }, [sendMessage, handleCreateProject, createSession, reset]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     // Prepopulate input instead of sending directly
@@ -411,7 +456,7 @@ export function ChatPanel({
         </div>
 
         <div className="chat-messages" role="log" aria-live="polite">
-          {messages.length === 0 && !error && (
+          {messages.length === 0 && !error && !isExtracting && (
             <div className="chat-loading">Connecting to AI...</div>
           )}
           {messages.map((message) => (
@@ -421,6 +466,41 @@ export function ChatPanel({
               onSuggestionClick={handleSuggestionClick}
             />
           ))}
+
+          {/* Show extraction loading */}
+          {isExtracting && (
+            <div className="chat-loading" data-testid="extraction-loading">
+              <style>{`
+                .extraction-spinner {
+                  width: 20px;
+                  height: 20px;
+                  border: 2px solid #3f3f46;
+                  border-top-color: #8b5cf6;
+                  border-radius: 50%;
+                  animation: spin 0.8s linear infinite;
+                  margin-right: 0.75rem;
+                }
+                @keyframes spin {
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
+              <span className="extraction-spinner" />
+              Generating story structure...
+            </div>
+          )}
+
+          {/* Show beats preview when extracted */}
+          {showBeatsPreview && extractedData?.arc && (
+            <BeatsPreview
+              arc={extractedData.arc}
+              characters={extractedData.characters}
+              name={extractedData.name}
+              onConfirm={handleCreateProject}
+              onEdit={() => setShowBeatsPreview(false)}
+              isCreating={isCreatingProject}
+            />
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -431,17 +511,20 @@ export function ChatPanel({
           </div>
         )}
 
-        <ChatInput
-          onSend={(content) => {
-            handleSend(content);
-            setInputValue(''); // Clear after send
-          }}
-          disabled={isStreaming || !session}
-          maxLength={MAX_MESSAGE_LENGTH}
-          autoFocus
-          value={inputValue}
-          onValueChange={setInputValue}
-        />
+        {/* Hide input when showing beats preview */}
+        {!showBeatsPreview && (
+          <ChatInput
+            onSend={(content) => {
+              handleSend(content);
+              setInputValue(''); // Clear after send
+            }}
+            disabled={isStreaming || !session || isExtracting}
+            maxLength={MAX_MESSAGE_LENGTH}
+            autoFocus
+            value={inputValue}
+            onValueChange={setInputValue}
+          />
+        )}
       </div>
 
       {/* Thread History Modal */}
@@ -455,6 +538,9 @@ export function ChatPanel({
         }}
         onNewChat={() => {
           reset();
+          setExtractedData(null);
+          setShowBeatsPreview(false);
+          extractionTriggeredRef.current = false;
           initializedRef.current = false;
           createSession();
         }}

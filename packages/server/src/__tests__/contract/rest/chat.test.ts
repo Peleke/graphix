@@ -405,6 +405,22 @@ describe("REST /api/chat", () => {
   });
 
   // ==========================================================================
+  // POST /api/chat/sessions/:id/extract
+  // ==========================================================================
+
+  describe("POST /api/chat/sessions/:id/extract", () => {
+    it("returns error for non-existent session", async () => {
+      const res = await app.request("/api/chat/sessions/non-existent-id/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      // Returns 404 if session not found, 500 if other error
+      expect([404, 500]).toContain(res.status);
+    });
+  });
+
+  // ==========================================================================
   // GET /api/chat/status
   // ==========================================================================
 
