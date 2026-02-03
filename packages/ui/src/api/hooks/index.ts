@@ -15,3 +15,4 @@ export * from "./useComposition";
 export * from "./useControlNet";
 export * from "./useUploads";
 export * from "./useTextGeneration";
+export * from "./useBeats";

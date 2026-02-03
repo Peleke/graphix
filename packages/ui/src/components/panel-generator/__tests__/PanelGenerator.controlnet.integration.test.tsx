@@ -24,6 +24,9 @@ vi.mock("../../../api/hooks/useCharacters", () => ({
 
 vi.mock("../../../api/hooks/useStories", () => ({
   useStoryboard: () => ({ data: { storyboard: { projectId: "project-1" } }, isLoading: false }),
+  usePremises: () => ({ data: [], isLoading: false }),
+  useStories: () => ({ data: [], isLoading: false }),
+  useBeats: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock("../../../api/hooks/useCaptions", () => ({
@@ -34,6 +37,8 @@ vi.mock("../../../api/hooks/useCaptions", () => ({
 vi.mock("../../../api/hooks/useGeneratedTexts", () => ({
   useGeneratedTextsByPanel: () => ({ data: [], isLoading: false }),
   useActiveGeneratedText: () => ({ data: null, isLoading: false }),
+  useCreateGeneratedText: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateGeneratedText: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock("../../generation-tree", () => ({
@@ -53,9 +58,37 @@ vi.mock("../../../api/hooks/useControlNet", () => ({
       ],
     },
   }),
+  useControlNetTypesForFamily: () => ({
+    data: {
+      types: [
+        { type: "openpose", default: 0.8 },
+        { type: "depth", default: 0.8 },
+      ],
+    },
+    isLoading: false,
+  }),
   useControlNetPresets: () => ({ data: { presets: [] } }),
   useControlNetPreview: () => ({ mutateAsync: vi.fn() }),
   buildControlNetFromPreset: () => [],
+}));
+
+vi.mock("../../../api/hooks/useTextGeneration", () => ({
+  useGeneratePanelDescription: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated description" }),
+    isPending: false,
+  }),
+  useGenerateDialogue: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated dialogue" }),
+    isPending: false,
+  }),
+  useRefineText: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Refined text" }),
+    isPending: false,
+  }),
+  useGeneratePromptFromBeat: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated prompt from beat" }),
+    isPending: false,
+  }),
 }));
 
 vi.mock("../../../api/hooks/useUploads", () => ({

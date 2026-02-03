@@ -13,7 +13,8 @@ import { ChatPanel, CHAT_COMMANDS, MAX_MESSAGE_LENGTH } from '../ChatPanel';
 const mockCreateSession = vi.fn();
 const mockSendMessage = vi.fn();
 const mockReset = vi.fn();
-const mockCreateProject = vi.fn();
+const mockExtract = vi.fn();
+const mockBootstrap = vi.fn();
 
 vi.mock('../../../api/hooks/useChat', () => ({
   useChat: vi.fn(() => ({
@@ -34,7 +35,18 @@ vi.mock('../../../api/hooks/useChat', () => ({
     createSession: mockCreateSession,
     sendMessage: mockSendMessage,
     reset: mockReset,
-    createProject: mockCreateProject,
+  })),
+  useExtraction: vi.fn(() => ({
+    extract: mockExtract,
+    isExtracting: false,
+    extractedData: null,
+    error: null,
+  })),
+  useEnhancedBootstrap: vi.fn(() => ({
+    bootstrap: mockBootstrap,
+    isLoading: false,
+    error: null,
+    result: null,
   })),
 }));
 
@@ -53,9 +65,10 @@ describe('ChatPanel', () => {
     mockCreateSession.mockClear();
     mockSendMessage.mockClear();
     mockReset.mockClear();
-    mockCreateProject.mockClear();
+    mockExtract.mockClear();
+    mockBootstrap.mockClear();
     mockCreateSession.mockResolvedValue({ id: 'new-session' });
-    mockCreateProject.mockResolvedValue('new-project-id');
+    mockBootstrap.mockResolvedValue({ project: { id: 'new-project-id', name: 'Test Project' } });
   });
 
   afterEach(() => {
@@ -136,39 +149,40 @@ describe('ChatPanel', () => {
   });
 
   describe('special commands', () => {
-    it('calls createProject on Create Project command', async () => {
+    it('shows error when Create Project is used without extracted data', async () => {
       const user = userEvent.setup();
       render(
-        <ChatPanel 
-          isOpen={true} 
-          onClose={mockOnClose} 
+        <ChatPanel
+          isOpen={true}
+          onClose={mockOnClose}
           onProjectCreated={mockOnProjectCreated}
         />
       );
-      
+
       await user.type(screen.getByRole('textbox'), CHAT_COMMANDS.CREATE_PROJECT);
       await user.click(screen.getByRole('button', { name: /send/i }));
-      
+
       await waitFor(() => {
-        expect(mockCreateProject).toHaveBeenCalled();
+        expect(screen.getByRole('alert')).toBeInTheDocument();
       });
     });
 
-    it('calls onProjectCreated with project ID', async () => {
+    it('does not call bootstrap when no extracted data', async () => {
       const user = userEvent.setup();
       render(
-        <ChatPanel 
-          isOpen={true} 
-          onClose={mockOnClose} 
+        <ChatPanel
+          isOpen={true}
+          onClose={mockOnClose}
           onProjectCreated={mockOnProjectCreated}
         />
       );
-      
+
       await user.type(screen.getByRole('textbox'), CHAT_COMMANDS.CREATE_PROJECT);
       await user.click(screen.getByRole('button', { name: /send/i }));
-      
+
       await waitFor(() => {
-        expect(mockOnProjectCreated).toHaveBeenCalledWith('new-project-id');
+        // Bootstrap should not be called since there's no extracted data
+        expect(mockBootstrap).not.toHaveBeenCalled();
       });
     });
 

@@ -130,14 +130,13 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
   // Get the first storyboard for this project
   const storyboards = await storyboardService.listByProject(id);
   if (!storyboards || storyboards.length === 0) {
-    // Return 204 No Content if no storyboards
-    return c.body(null, 204);
+    return c.json({ error: "No storyboards" }, 404);
   }
 
   // Get panels from the first storyboard
   const panels = await panelService.listByStoryboard(storyboards[0].id);
   if (!panels || panels.length === 0) {
-    return c.body(null, 204);
+    return c.json({ error: "No panels with images" }, 404);
   }
 
   // Find the first panel with a selected generation or any generation
@@ -170,8 +169,81 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
     }
   }
 
-  // No thumbnail available
-  return c.body(null, 204);
+  // No thumbnail available - return 404 so img onError fires
+  return c.json({ error: "No thumbnail available" }, 404);
+});
+
+// Get project preview images (up to 4 for masonry layout)
+projectRoutes.get("/:id/previews", validateId(), async (c) => {
+  const projectService = getProjectService();
+  const storyboardService = getStoryboardService();
+  const panelService = getPanelService();
+  const generationService = getGeneratedImageService();
+  const { id } = c.req.valid("param");
+
+  // Verify project exists
+  const project = await projectService.getById(id);
+  if (!project) {
+    return errors.notFound(c, "Project", id);
+  }
+
+  const previews: { url: string; panelId: string }[] = [];
+  const apiBase = c.req.url.replace(/\/api\/projects\/.*/, '');
+
+  // Get all storyboards for this project
+  const storyboards = await storyboardService.getByProject(id);
+  if (!storyboards || storyboards.length === 0) {
+    return c.json({ previews: [] });
+  }
+
+  // Iterate through storyboards and panels to find images
+  for (const storyboard of storyboards) {
+    if (previews.length >= 4) break;
+
+    const panels = await panelService.getByStoryboard(storyboard.id);
+    if (!panels) continue;
+
+    for (const panel of panels) {
+      if (previews.length >= 4) break;
+
+      const generations = await generationService.getByPanel(panel.id);
+      if (!generations || generations.length === 0) continue;
+
+      // Prefer selected output, otherwise use the first generation
+      const selectedGen = generations.find((g: any) => g.id === panel.selectedOutputId) || generations[0];
+
+      if (selectedGen) {
+        // Check if cloudUrl exists - prefer this
+        if (selectedGen.cloudUrl && typeof selectedGen.cloudUrl === 'string') {
+          previews.push({ url: selectedGen.cloudUrl, panelId: panel.id });
+          continue;
+        }
+
+        // Check if localPath exists - try to serve via generations endpoint
+        // The client handles image load errors gracefully, so we return the URL
+        // even if we're not 100% sure the file exists
+        if (selectedGen.localPath && typeof selectedGen.localPath === 'string') {
+          // Check if file actually exists on disk
+          if (existsSync(selectedGen.localPath)) {
+            previews.push({
+              url: `${apiBase}/api/generations/${selectedGen.id}/image`,
+              panelId: panel.id
+            });
+          }
+          // If file doesn't exist but we have an ID, still try the endpoint
+          // (it might be accessible through other means)
+          else if (selectedGen.id) {
+            previews.push({
+              url: `${apiBase}/api/generations/${selectedGen.id}/image`,
+              panelId: panel.id
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return c.json({ previews });
 });
 
 export { projectRoutes };

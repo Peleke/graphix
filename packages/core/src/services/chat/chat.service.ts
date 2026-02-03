@@ -15,6 +15,10 @@ import type {
   ProjectBootstrap,
   ChatServiceConfig,
   StreamChunk,
+  ExtractedCharacter,
+  ExtractedSetting,
+  ExtractedStoryArc,
+  StoryStructure,
 } from './chat.types.js';
 import { DEFAULT_CHAT_CONFIG } from './chat.types.js';
 import {
@@ -23,6 +27,8 @@ import {
   getSuggestionsForPhase,
   getNextPhase,
   shouldSkipPhase,
+  EXTRACTION_PROMPTS,
+  STRUCTURE_GUIDES,
 } from './prompts.js';
 
 // =============================================================================
@@ -145,6 +151,210 @@ export class ChatService {
       return Math.min(Math.max(count, 1), 100); // Clamp 1-100
     }
     return this.config.defaultPageCount;
+  }
+
+  // ===========================================================================
+  // LLM-Powered Extraction Methods
+  // ===========================================================================
+
+  /**
+   * Extract characters from conversation using LLM for semantic understanding.
+   */
+  async extractCharacters(conversationText: string): Promise<ExtractedCharacter[]> {
+    const prompt = EXTRACTION_PROMPTS.characters.replace('{{conversation}}', conversationText);
+
+    try {
+      const result = await this.textService.generate(prompt, {
+        temperature: 0.3, // Low temp for structured output
+        maxTokens: 2000,
+      });
+
+      const parsed = JSON.parse(result.text);
+      return parsed.characters || [];
+    } catch (error) {
+      console.error('Failed to parse character extraction:', error);
+      // Fallback to simple extraction
+      return this.fallbackCharacterExtraction(conversationText);
+    }
+  }
+
+  /**
+   * Fallback character extraction using regex when LLM fails.
+   */
+  private fallbackCharacterExtraction(text: string): ExtractedCharacter[] {
+    const capitalizedWords = text.match(/\b[A-Z][a-z]+\b/g) || [];
+    const excludeWords = ['The', 'And', 'But', 'For', 'Not', 'Yes', 'Skip', 'This', 'That', 'What', 'How', 'When', 'Where', 'Who'];
+    const uniqueNames = Array.from(new Set(capitalizedWords))
+      .filter(w => !excludeWords.includes(w))
+      .slice(0, 5);
+
+    return uniqueNames.map((name, i) => ({
+      name,
+      role: i === 0 ? 'protagonist' : 'supporting',
+      visualDescription: `A character named ${name}`,
+      personality: [],
+    }));
+  }
+
+  /**
+   * Extract setting/world details using LLM.
+   */
+  async extractSetting(conversationText: string): Promise<ExtractedSetting | null> {
+    const prompt = EXTRACTION_PROMPTS.setting.replace('{{conversation}}', conversationText);
+
+    try {
+      const result = await this.textService.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 500,
+      });
+
+      const parsed = JSON.parse(result.text);
+      return parsed.setting || null;
+    } catch (error) {
+      console.error('Failed to parse setting extraction:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract complete story arc with beats using LLM.
+   */
+  async extractStoryArc(
+    conversationText: string,
+    characters: ExtractedCharacter[],
+    setting: ExtractedSetting | null,
+    structure: StoryStructure = 'three-act'
+  ): Promise<ExtractedStoryArc | null> {
+    const characterNames = characters.map(c => c.name).join(', ') || 'unspecified characters';
+    const settingDesc = setting?.location || 'unspecified setting';
+    const structureGuide = STRUCTURE_GUIDES[structure] || STRUCTURE_GUIDES['three-act'];
+
+    const prompt = EXTRACTION_PROMPTS.storyArc
+      .replace(/\{\{conversation\}\}/g, conversationText)
+      .replace(/\{\{structure\}\}/g, structure)
+      .replace(/\{\{characters\}\}/g, characterNames)
+      .replace(/\{\{setting\}\}/g, settingDesc)
+      .replace(/\{\{structureGuide\}\}/g, structureGuide);
+
+    try {
+      const result = await this.textService.generate(prompt, {
+        temperature: 0.5, // Slightly higher for creative beat generation
+        maxTokens: 4000,
+        timeoutMs: 180000, // 3 minutes for complex story arc extraction
+      });
+
+      const parsed = JSON.parse(result.text);
+
+      // Normalize acts - LLM may return strings or objects with name/description
+      const rawActs = parsed.acts?.length > 0 ? parsed.acts : this.getDefaultActs(structure);
+      const acts: string[] = rawActs.map((act: string | { name: string }) =>
+        typeof act === 'string' ? act : act.name
+      );
+
+      // Normalize beats - ensure actIndex is set and optional fields are handled
+      const rawBeats = parsed.beats?.length > 0 ? parsed.beats : [];
+      const beats = rawBeats.map((beat: Record<string, unknown>, index: number) => ({
+        type: beat.type as string,
+        actIndex: typeof beat.actIndex === 'number' ? beat.actIndex : this.inferActIndex(index, rawBeats.length, structure),
+        summary: beat.summary as string,
+        visualDescription: beat.visualDescription as string,
+        emotionalTone: beat.emotionalTone as string,
+        involvedCharacters: (beat.involvedCharacters as string[]) || [],
+        cameraAngle: beat.cameraAngle as string | undefined,
+        narration: beat.narration || undefined, // Convert null to undefined
+        sfx: beat.sfx || undefined, // Convert null to undefined
+      }));
+
+      return {
+        premise: parsed.premise,
+        structure: parsed.structure || structure,
+        acts,
+        beats,
+      };
+    } catch (error) {
+      console.error('Failed to parse story arc extraction:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get default act names for a structure.
+   */
+  private getDefaultActs(structure: StoryStructure): string[] {
+    switch (structure) {
+      case 'three-act':
+        return ['Act 1: Setup', 'Act 2: Confrontation', 'Act 3: Resolution'];
+      case 'five-act':
+        return ['Act 1: Exposition', 'Act 2: Rising Action', 'Act 3: Climax', 'Act 4: Falling Action', 'Act 5: Denouement'];
+      case 'hero-journey':
+        return ['Departure', 'Initiation', 'Return'];
+      default:
+        return ['Act 1', 'Act 2', 'Act 3'];
+    }
+  }
+
+  /**
+   * Infer act index for a beat based on its position in the beat sequence.
+   * Used when LLM doesn't provide actIndex.
+   */
+  private inferActIndex(beatIndex: number, totalBeats: number, structure: StoryStructure): number {
+    // Distribute beats across acts based on structure
+    const actCount = structure === 'five-act' ? 5 : 3;
+    const beatsPerAct = Math.ceil(totalBeats / actCount);
+    return Math.min(Math.floor(beatIndex / beatsPerAct), actCount - 1);
+  }
+
+  /**
+   * Expand a beat into a more detailed visual description.
+   */
+  async expandBeatDescription(
+    beatType: string,
+    summary: string,
+    characters: string[],
+    setting: string,
+    emotionalTone: string
+  ): Promise<string> {
+    const prompt = EXTRACTION_PROMPTS.beatsExpansion
+      .replace('{{beatType}}', beatType)
+      .replace('{{summary}}', summary)
+      .replace('{{characters}}', characters.join(', '))
+      .replace('{{setting}}', setting)
+      .replace('{{emotionalTone}}', emotionalTone);
+
+    try {
+      const result = await this.textService.generate(prompt, {
+        temperature: 0.7,
+        maxTokens: 300,
+      });
+
+      return result.text.trim();
+    } catch (error) {
+      console.error('Failed to expand beat description:', error);
+      return summary;
+    }
+  }
+
+  /**
+   * Run all extractions on the conversation and return enhanced state.
+   */
+  async runEnhancedExtraction(
+    conversationText: string,
+    structure: StoryStructure = 'three-act'
+  ): Promise<{
+    characters: ExtractedCharacter[];
+    setting: ExtractedSetting | null;
+    arc: ExtractedStoryArc | null;
+  }> {
+    // Extract characters first (needed for arc extraction)
+    const characters = await this.extractCharacters(conversationText);
+
+    // Extract setting
+    const setting = await this.extractSetting(conversationText);
+
+    // Extract story arc with beats
+    const arc = await this.extractStoryArc(conversationText, characters, setting, structure);
+
+    return { characters, setting, arc };
   }
 
   // ===========================================================================
@@ -292,7 +502,8 @@ export class ChatService {
       setting: "Interesting setting! What's the main conflict or story arc?",
       arc: "That sounds compelling! What visual style are you going for?",
       style: "Great choice! How many pages do you want this to be?",
-      scope: "Perfect! I've got everything I need. Ready to create your project?",
+      scope: "Perfect! Here's your story structure. Ready to create your project?",
+      beats_preview: "Here's your story broken down into beats. Look good?",
       confirmation: "Your project is ready to create!",
       complete: "Your project has been created! Redirecting you now...",
     };

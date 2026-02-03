@@ -415,13 +415,15 @@ export class ComfyUIClient {
    * Make authenticated POST request to comfyui-mcp
    */
   private async post(endpoint: string, body: unknown): Promise<GenerationResult> {
+    const url = `${this.baseUrl}${endpoint}`;
+
     try {
       const bodyString = JSON.stringify(body);
       const headers = this.apiKey && this.apiSecret
         ? generateAuthHeaders(body, this.apiKey, this.apiSecret)
         : { "Content-Type": "application/json" };
 
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const response = await fetch(url, {
         method: "POST",
         headers,
         body: bodyString,
@@ -448,11 +450,52 @@ export class ComfyUIClient {
         modelFamily: result.modelFamily,
       };
     } catch (error) {
+      // Provide more specific error messages for common failure cases
+      const errorMessage = this.formatConnectionError(error, url);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Request failed",
+        error: errorMessage,
       };
     }
+  }
+
+  /**
+   * Format connection errors with helpful context
+   */
+  private formatConnectionError(error: unknown, url: string): string {
+    if (!(error instanceof Error)) {
+      return `Request to ${url} failed`;
+    }
+
+    const message = error.message.toLowerCase();
+
+    // Connection refused - server not running
+    if (message.includes('econnrefused') || message.includes('connection refused')) {
+      return `Cannot connect to ComfyUI at ${this.baseUrl}. Is the server running?`;
+    }
+
+    // DNS/host resolution failed
+    if (message.includes('enotfound') || message.includes('getaddrinfo')) {
+      return `Cannot resolve host for ComfyUI at ${this.baseUrl}. Check the URL.`;
+    }
+
+    // Timeout
+    if (message.includes('timeout') || message.includes('aborterror')) {
+      return `Request to ComfyUI timed out after ${this.timeout}ms. The server may be overloaded.`;
+    }
+
+    // Network unreachable
+    if (message.includes('enetunreach') || message.includes('network')) {
+      return `Network unreachable when connecting to ${this.baseUrl}. Check your network connection.`;
+    }
+
+    // Fetch failed (generic)
+    if (message.includes('fetch failed') || message.includes('failed to fetch')) {
+      return `Failed to connect to ComfyUI at ${this.baseUrl}. Verify the server is running and accessible.`;
+    }
+
+    // Default: include original message
+    return `ComfyUI request failed: ${error.message} (${this.baseUrl})`;
   }
 }
 

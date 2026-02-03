@@ -328,7 +328,7 @@ describe("ControlNetPanel", () => {
       expect(onChange).toHaveBeenCalled();
     });
 
-    it("opens lightbox when clicking reference image preview", () => {
+    it("opens lightbox when double-clicking reference image preview", () => {
       const onChange = vi.fn();
       const mockRefsWithPreview = [
         { id: "gen-1", label: "Seed 123", path: "/output/ref.png", previewUrl: "/preview/ref.png" },
@@ -344,10 +344,10 @@ describe("ControlNetPanel", () => {
       );
 
       const historyCard = screen.getByTestId("history-card-gen-1");
-      const previewDiv = historyCard.querySelector('[title="Click to enlarge"]');
+      const previewDiv = historyCard.querySelector('[title="Click to select · Double-click to enlarge"]');
       expect(previewDiv).toBeInTheDocument();
 
-      fireEvent.click(previewDiv!);
+      fireEvent.doubleClick(previewDiv!);
 
       const lightbox = screen.getByRole("dialog");
       expect(lightbox).toBeInTheDocument();
@@ -369,10 +369,10 @@ describe("ControlNetPanel", () => {
         { wrapper: createWrapper() }
       );
 
-      // Open lightbox
+      // Open lightbox via double-click
       const historyCard = screen.getByTestId("history-card-gen-1");
-      const previewDiv = historyCard.querySelector('[title="Click to enlarge"]');
-      fireEvent.click(previewDiv!);
+      const previewDiv = historyCard.querySelector('[title="Click to select · Double-click to enlarge"]');
+      fireEvent.doubleClick(previewDiv!);
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
 

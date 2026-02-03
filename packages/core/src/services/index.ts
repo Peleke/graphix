@@ -343,6 +343,20 @@ export type {
   StreamChunk,
 } from "./chat-agent.service.js";
 
+// Chat Service (extraction and elicitation)
+export {
+  ChatService,
+  getChatService,
+  createChatService,
+  resetChatService,
+} from "./chat/index.js";
+export type {
+  ExtractedCharacter,
+  ExtractedSetting,
+  ExtractedStoryArc,
+  StoryStructure,
+} from "./chat/index.js";
+
 // Project Bootstrap Service (creates projects from chat sessions)
 export {
   ProjectBootstrapService,

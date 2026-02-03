@@ -85,6 +85,9 @@ export class GeneratedImageService {
       throw new Error("Rating must be between 1 and 5");
     }
 
+    // Auto-select first generation if panel has no selection yet
+    const autoSelect = !panel.selectedOutputId;
+
     const now = new Date();
     const [image] = await this.db
       .insert(generatedImages)
@@ -111,13 +114,21 @@ export class GeneratedImageService {
         usedControlNet: data.usedControlNet ?? false,
         controlNetType: data.controlNetType ?? null,
         controlNetImage: data.controlNetImage ?? null,
-        isSelected: data.isSelected ?? false,
+        isSelected: autoSelect || (data.isSelected ?? false),
         isFavorite: data.isFavorite ?? false,
         rating: data.rating ?? null,
         createdAt: now,
         updatedAt: now,
       })
       .returning();
+
+    // Auto-select: set panel's selectedOutputId to this generation
+    if (autoSelect) {
+      await this.db
+        .update(panels)
+        .set({ selectedOutputId: image.id, updatedAt: now })
+        .where(eq(panels.id, data.panelId));
+    }
 
     return image;
   }
@@ -713,6 +724,12 @@ export class GeneratedImageService {
       .where(eq(generatedImages.id, id))
       .returning();
 
+    // Update panel's selectedOutputId
+    await this.db
+      .update(panels)
+      .set({ selectedOutputId: updated.id, updatedAt: new Date() })
+      .where(eq(panels.id, existing.panelId));
+
     return updated;
   }
 
@@ -730,6 +747,12 @@ export class GeneratedImageService {
       .set({ isSelected: false, updatedAt: new Date() })
       .where(eq(generatedImages.id, id))
       .returning();
+
+    // Clear panel's selectedOutputId
+    await this.db
+      .update(panels)
+      .set({ selectedOutputId: null, updatedAt: new Date() })
+      .where(eq(panels.id, existing.panelId));
 
     return updated;
   }

@@ -6,20 +6,21 @@
  * system shows controls, user adjusts, generate.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useCharacters } from "../../api/hooks/useCharacters";
 import { useGeneratePanel, useGeneratePanelVariants, useSelectPanelOutput, usePanelFull } from "../../api/hooks/usePanels";
 import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGenerations";
 import { useStoryboard } from "../../api/hooks/useStories";
 import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
 import { useGeneratedTextsByPanel } from "../../api/hooks/useGeneratedTexts";
-import { useGeneratePanelDescription } from "../../api/hooks/useTextGeneration";
+import { useGeneratePanelDescription, useRefineText } from "../../api/hooks/useTextGeneration";
 import { GenerationTreeVisualization } from "../generation-tree";
 import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
 import { ControlNetPanel, type ControlNetMode } from "../controlnet";
 import type { ControlNetCondition } from "../../types/controlnet";
-import { AIAssistButton } from "./AIAssistButton";
+import { useAIAssist, AIAssistSuggestion } from "./AIAssistButton";
 import { PanelTextViewer } from "./PanelTextViewer";
+import { BeatSelector } from "./BeatSelector";
 
 interface PanelGeneratorProps {
   panelId: string;
@@ -77,6 +78,92 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
   const rateGeneration = useRateGeneration();
   const generatePanelDescription = useGeneratePanelDescription();
 
+  // Spice button - makes prompts more intense/dramatic
+  const refineText = useRefineText();
+  const [spiceTarget, setSpiceTarget] = useState<"positive" | "negative" | null>(null);
+
+  const handleSpice = async (target: "positive" | "negative") => {
+    const currentValue = target === "positive" ? prompt : negativePrompt;
+    if (!currentValue.trim()) return;
+
+    setSpiceTarget(target);
+    try {
+      const instruction = target === "positive"
+        ? `Transform this into an explicit NSFW image generation prompt. Use comma-separated tags and short phrases (under 400 words total).
+
+REQUIRED EXPLICIT TAGS to add based on scene:
+- Nudity: nude, naked, bare skin, topless, bottomless, fully nude
+- Genitals: pussy, cock, penis, erect, wet pussy, hard cock, spread pussy, throbbing
+- Sexual acts: sex, penetration, penis in pussy, cock buried inside, balls deep, hilted, breeding, creampie, cum inside, flooding her insides, nutting inside
+- Arousal: aroused, horny, needy, desperate, bedroom eyes, lustful gaze, flushed skin, erect nipples, dripping wet, precum
+- Expressions: ahegao, fucked silly, orgasm face, moaning, tongue out, drooling, eyes rolling back, o-face
+- Poses: spread legs, on back, doggy style, riding, bent over, legs up, presenting
+
+EXAMPLES of good explicit prompts:
+- "score_9, nude female fox, spread legs, wet pussy visible, aroused, bedroom eyes, flushed cheeks, on bed, soft lighting"
+- "explicit, wolf and rabbit, passionate sex, penis buried in pussy, both moaning, sweaty bodies intertwined, romantic lighting"
+- "rating_explicit, afterglow, cum dripping from pussy, exhausted satisfied expression, messy fur, intimate bedroom scene"
+
+For Pony/Illustrious: score_9, score_8_up, explicit, rating_explicit, source_furry
+For SDXL/Realistic: nsfw, explicit, photorealistic, detailed genitals
+
+Keep the original characters/scene but make it explicitly sexual. Output ONLY the enhanced prompt.`
+        : "Add NSFW negative tags: ugly genitals, bad pussy, bad dick, malformed penis, weird nipples, censorship, mosaic, pixelated genitals, black bars, censor bar, extra limbs, deformed anatomy, merged bodies, bad hands, missing fingers, fused fingers, anatomically incorrect, wrong proportions";
+
+      const result = await refineText.mutateAsync({
+        text: currentValue,
+        instruction,
+        style: "dramatic",
+      });
+
+      if (target === "positive") {
+        setPrompt(result.refined);
+      } else {
+        setNegativePrompt(result.refined);
+      }
+    } catch (error) {
+      console.error("Spice failed:", error);
+    } finally {
+      setSpiceTarget(null);
+    }
+  };
+
+  // Inline AI assist for prompt fields
+  const promptAssist = useAIAssist(
+    useCallback(async () => {
+      const result = await generatePanelDescription.mutateAsync({
+        panelId,
+        storyboardId,
+        characterIds: selectedCharacters,
+        style: "detailed",
+      });
+      return result.text;
+    }, [generatePanelDescription, panelId, storyboardId, selectedCharacters])
+  );
+
+  const negativePromptAssist = useAIAssist(
+    useCallback(async () => {
+      return "low quality, blurry, distorted, deformed, bad anatomy, bad proportions, extra limbs, missing limbs, disfigured, ugly, poorly drawn, watermark, text, signature";
+    }, [])
+  );
+
+  // Auto-populate prompts from selected/latest generation when panel changes
+  const [promptInitialized, setPromptInitialized] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (promptInitialized === panelId) return; // Already initialized for this panel
+    if (!generations || generations.length === 0) return;
+
+    const selected = generations.find((g: any) => g.selected);
+    const source = selected || generations[0]; // generations are newest-first
+
+    if (source) {
+      setPrompt(source.prompt || "");
+      setNegativePrompt(source.negativePrompt || "");
+    }
+    setPromptInitialized(panelId);
+  }, [panelId, generations, promptInitialized]);
+
   const referenceImages = (generations || [])
     .map((gen: any) => {
       const path = gen.localPath || gen.cloudUrl || "";
@@ -106,6 +193,18 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
 
   const handleGenerate = async () => {
     setGenerateError(null);
+
+    // Validate that ControlNet controls have reference images
+    if (controlNetControls.length > 0) {
+      const missing = controlNetControls.find((c) => !c.image);
+      if (missing) {
+        setGenerateError(
+          `ControlNet "${missing.type}" needs a reference image. Select one from Reference Images or upload one.`
+        );
+        return;
+      }
+    }
+
     try {
       await generatePanel.mutateAsync({
         panelId,
@@ -114,7 +213,13 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
         controlNet: controlNetControls.length > 0 ? controlNetControls : undefined,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to generate";
+      let message = err instanceof Error ? err.message : "Failed to generate";
+      // Improve error messages for common connection issues
+      if (message.toLowerCase().includes("cannot connect") ||
+          message.toLowerCase().includes("econnrefused") ||
+          message.toLowerCase().includes("fetch failed")) {
+        message = "Cannot connect to ComfyUI MCP server. Make sure comfyui-mcp is running on port 3001.";
+      }
       setGenerateError(message);
       console.error("Failed to generate:", err);
     }
@@ -313,6 +418,7 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
         .prompt-input {
           width: 100%;
           padding: 0.75rem;
+          padding-right: 5rem;
           background: #27272a;
           border: 1px solid #3f3f46;
           border-radius: 8px;
@@ -321,11 +427,16 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
           font-family: inherit;
           resize: vertical;
           min-height: 80px;
+          box-sizing: border-box;
         }
-        
+
         .prompt-input:focus {
           outline: none;
           border-color: #8b5cf6;
+        }
+
+        .prompt-field {
+          position: relative;
         }
         
         .btn-primary {
@@ -556,6 +667,57 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
           font-size: 0.75rem;
           color: #71717a;
         }
+
+        .spice-btn {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+          border: none;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.875rem;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+          flex-shrink: 0;
+        }
+
+        .spice-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .spice-btn:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .spice-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .spice-spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+
+        .prompt-buttons {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          display: flex;
+          gap: 6px;
+          z-index: 1;
+        }
       `}</style>
 
       <div className="generator-header">
@@ -747,10 +909,29 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
             />
           </div>
 
+          {/* Beat-to-Prompt */}
+          <div className="section">
+            <div className="section-title">Story Beats</div>
+            <BeatSelector
+              projectId={projectId}
+              characters={Array.isArray(characters) ? characters.map((c: any) => ({
+                name: c.name,
+                description: c.profile?.description,
+                species: c.profile?.species,
+              })) : []}
+              onPromptGenerated={(positive, negative) => {
+                setPrompt(positive);
+                setNegativePrompt(negative);
+              }}
+            />
+          </div>
+
           {/* Prompts */}
           <div className="section">
             <div className="section-title">Prompts</div>
-            <div style={{ position: "relative" }}>
+
+            {/* Positive Prompt */}
+            <div className="prompt-field">
               <textarea
                 className="prompt-input"
                 placeholder="Positive prompt (what you want to see)..."
@@ -758,25 +939,48 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
                 onChange={(e) => setPrompt(e.target.value)}
                 data-testid="positive-prompt-input"
               />
-              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
-                <AIAssistButton
-                  onGenerate={async () => {
-                    const result = await generatePanelDescription.mutateAsync({
-                      panelId,
-                      storyboardId,
-                      characterIds: selectedCharacters,
-                      style: "detailed",
-                    });
-                    return result.text;
-                  }}
-                  onAccept={(text) => setPrompt(text)}
-                  isGenerating={generatePanelDescription.isPending}
-                  title="Generate positive prompt with AI"
-                  size="sm"
-                />
+              <div className="prompt-buttons">
+                <button
+                  type="button"
+                  className="spice-btn"
+                  onClick={() => handleSpice("positive")}
+                  disabled={spiceTarget === "positive" || !prompt.trim()}
+                  title="Spice it up 🔥 - Make it NSFW"
+                  data-testid="spice-positive-btn"
+                >
+                  {spiceTarget === "positive" ? (
+                    <span className="spice-spinner" />
+                  ) : (
+                    "🌶️"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="ai-assist-btn ai-assist-btn-sm"
+                  onClick={promptAssist.generate}
+                  disabled={promptAssist.isGenerating}
+                  title="Generate prompt with AI ✨"
+                  data-testid="ai-assist-button"
+                >
+                  {promptAssist.isGenerating ? (
+                    <div className="ai-assist-spinner" />
+                  ) : (
+                    <span className="ai-assist-sparkle">✨</span>
+                  )}
+                </button>
               </div>
             </div>
-            <div style={{ position: "relative", marginTop: "0.75rem" }}>
+            <AIAssistSuggestion
+              suggestion={promptAssist.suggestion}
+              error={promptAssist.error}
+              isGenerating={promptAssist.isGenerating}
+              onAccept={(text) => { setPrompt(text); promptAssist.clear(); }}
+              onRegenerate={promptAssist.generate}
+              onDismiss={promptAssist.clear}
+            />
+
+            {/* Negative Prompt */}
+            <div className="prompt-field" style={{ marginTop: "0.75rem" }}>
               <textarea
                 className="prompt-input"
                 placeholder="Negative prompt (what to avoid)..."
@@ -784,18 +988,44 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
                 onChange={(e) => setNegativePrompt(e.target.value)}
                 data-testid="negative-prompt-input"
               />
-              <div style={{ position: "absolute", top: "8px", right: "8px" }}>
-                <AIAssistButton
-                  onGenerate={async () => {
-                    // For negative prompts, generate quality/artifact avoidance suggestions
-                    return "low quality, blurry, distorted, deformed, bad anatomy, bad proportions, extra limbs, missing limbs, disfigured, ugly, poorly drawn, watermark, text, signature";
-                  }}
-                  onAccept={(text) => setNegativePrompt(text)}
-                  title="Generate negative prompt with AI"
-                  size="sm"
-                />
+              <div className="prompt-buttons">
+                <button
+                  type="button"
+                  className="spice-btn"
+                  onClick={() => handleSpice("negative")}
+                  disabled={spiceTarget === "negative" || !negativePrompt.trim()}
+                  title="Spice it up 🔥 - Add NSFW negatives"
+                  data-testid="spice-negative-btn"
+                >
+                  {spiceTarget === "negative" ? (
+                    <span className="spice-spinner" />
+                  ) : (
+                    "🌶️"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="ai-assist-btn ai-assist-btn-sm"
+                  onClick={negativePromptAssist.generate}
+                  disabled={negativePromptAssist.isGenerating}
+                  title="Generate negative prompt with AI ✨"
+                >
+                  {negativePromptAssist.isGenerating ? (
+                    <div className="ai-assist-spinner" />
+                  ) : (
+                    <span className="ai-assist-sparkle">✨</span>
+                  )}
+                </button>
               </div>
             </div>
+            <AIAssistSuggestion
+              suggestion={negativePromptAssist.suggestion}
+              error={negativePromptAssist.error}
+              isGenerating={negativePromptAssist.isGenerating}
+              onAccept={(text) => { setNegativePrompt(text); negativePromptAssist.clear(); }}
+              onRegenerate={negativePromptAssist.generate}
+              onDismiss={negativePromptAssist.clear}
+            />
           </div>
 
           {/* Generation Controls */}

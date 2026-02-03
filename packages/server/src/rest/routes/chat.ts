@@ -26,11 +26,63 @@ const sendMessageSchema = z.object({
   content: z.string().min(1, "content is required").max(4000, "content too long"),
 });
 
+const enhancedBootstrapSchema = z.object({
+  name: z.string().min(1, "name is required").max(255),
+  description: z.string().optional(),
+  characters: z.array(z.object({
+    name: z.string(),
+    role: z.enum(["protagonist", "antagonist", "supporting", "minor"]),
+    species: z.string().nullable().optional(),
+    visualDescription: z.string(),
+    personality: z.array(z.string()),
+    motivation: z.string().nullable().optional(),
+    arc: z.string().nullable().optional(),
+    relationships: z.array(z.object({
+      character: z.string(),
+      relationship: z.string(),
+    })).optional(),
+  })).min(1, "At least one character is required"),
+  setting: z.object({
+    location: z.string(),
+    timeperiod: z.string().nullable().optional(),
+    atmosphere: z.string(),
+    visualDetails: z.array(z.string()),
+  }).nullable().optional(),
+  arc: z.object({
+    premise: z.object({
+      logline: z.string(),
+      genre: z.string(),
+      tone: z.string(),
+      themes: z.array(z.string()),
+      setting: z.string(),
+    }),
+    structure: z.enum(["three-act", "five-act", "hero-journey"]),
+    // LLM may return either strings or objects with name/description
+    acts: z.array(z.union([
+      z.string(),
+      z.object({ name: z.string(), description: z.string().optional() })
+    ])).transform(acts => acts.map(act => typeof act === 'string' ? act : act.name)),
+    beats: z.array(z.object({
+      type: z.string(),
+      actIndex: z.number().default(0),
+      summary: z.string(),
+      visualDescription: z.string(),
+      emotionalTone: z.string(),
+      involvedCharacters: z.array(z.string()),
+      cameraAngle: z.string().nullable().optional(),
+      narration: z.string().nullable().optional(),
+      sfx: z.string().nullable().optional(),
+    })),
+  }),
+  style: z.string().optional(),
+  pageCount: z.number().optional(),
+});
+
 // =============================================================================
 // Chat Service Import
 // =============================================================================
 
-import { getChatAgentService, getProjectBootstrapService } from "@graphix/core";
+import { getChatAgentService, getProjectBootstrapService, getChatService as getCoreService } from "@graphix/core";
 
 function getChatService() {
   return getChatAgentService();
@@ -268,10 +320,10 @@ chatRoutes.post(
 chatRoutes.post("/sessions/:id/bootstrap", async (c) => {
   const sessionId = c.req.param("id");
   const bootstrapService = getProjectBootstrapService();
-  
+
   try {
     const result = await bootstrapService.bootstrapFromSession(sessionId);
-    
+
     return c.json({
       projectId: result.projectId,
       projectName: result.projectName,
@@ -290,13 +342,111 @@ chatRoutes.post("/sessions/:id/bootstrap", async (c) => {
   }
 });
 
+/**
+ * POST /bootstrap/enhanced
+ *
+ * Create a full project structure from enhanced extraction data.
+ * Creates: Project → Characters → Premise → Story → Storyboards (per act) → Beats → Panels
+ *
+ * This is the main endpoint for Phase 1 chat-driven story creation.
+ */
+chatRoutes.post(
+  "/bootstrap/enhanced",
+  validateBody(enhancedBootstrapSchema),
+  async (c) => {
+    const input = c.req.valid("json");
+    const bootstrapService = getProjectBootstrapService();
+
+    try {
+      const result = await bootstrapService.bootstrapFromExtraction(input);
+
+      return c.json({
+        project: result.project,
+        premise: result.premise,
+        story: result.story,
+        storyboards: result.storyboards,
+        beats: result.beats,
+        panels: result.panels,
+        characters: result.characters,
+      }, 201);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes("required")) {
+          return errors.badRequest(c, error.message);
+        }
+      }
+      throw error;
+    }
+  }
+);
+
+// -----------------------------------------------------------------------------
+// Extraction
+// -----------------------------------------------------------------------------
+
+/**
+ * POST /sessions/:id/extract
+ *
+ * Run enhanced extraction on session conversation to generate
+ * structured characters, setting, and story arc with beats.
+ */
+chatRoutes.post("/sessions/:id/extract", async (c) => {
+  const sessionId = c.req.param("id");
+  const chatAgentService = getChatService();
+  const chatCoreService = getCoreService();
+
+  try {
+    const session = await chatAgentService.getSession(sessionId);
+    if (!session) {
+      return errors.notFound(c, "Session not found");
+    }
+
+    // Build conversation text from messages
+    const conversationText = session.messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n\n");
+
+    if (!conversationText.trim()) {
+      return errors.badRequest(c, "No conversation to extract from");
+    }
+
+    // Determine structure from gathered state
+    const structure = (session.workingMemory?.gathered?.structure as 'three-act' | 'five-act' | 'hero-journey') || 'three-act';
+
+    // Run extraction
+    const extraction = await chatCoreService.runEnhancedExtraction(conversationText, structure);
+
+    // Generate project name from concept
+    const concept = session.workingMemory?.gathered?.concept as string || '';
+    const name = concept
+      ? concept.split(/\s+/).slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      : 'Untitled Project';
+
+    return c.json({
+      name,
+      description: concept,
+      characters: extraction.characters,
+      setting: extraction.setting,
+      arc: extraction.arc,
+      style: session.workingMemory?.gathered?.style as string || undefined,
+      pageCount: session.workingMemory?.gathered?.pageCount as number || 6,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not found")) {
+      return errors.notFound(c, "Session not found");
+    }
+    console.error('Extraction error:', error);
+    return errors.internal(c, "Failed to extract story data");
+  }
+});
+
 // -----------------------------------------------------------------------------
 // Status
 // -----------------------------------------------------------------------------
 
 /**
  * GET /status
- * 
+ *
  * Check if chat/AI is available.
  */
 chatRoutes.get("/status", async (c) => {

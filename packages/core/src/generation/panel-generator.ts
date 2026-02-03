@@ -222,10 +222,6 @@ export class PanelGenerator {
 
       if (options.controlNet && options.controlNet.length > 0) {
         const controlStack = getControlNetStack();
-        const outputPath = path.join(
-          config.storage.outputDir,
-          `panel_${panelId}_${Date.now()}_controlnet.png`
-        );
 
         result = await controlStack.generate({
           prompt: prompt.positive,
@@ -244,7 +240,8 @@ export class PanelGenerator {
             strengthClip: l.weight,
           })),
           seed: options.seed,
-          outputPath,
+          // Let comfyui-mcp choose the output path (defaults to /tmp/comfyui-output/)
+          // so it returns an absolute path the server can read back
         });
       } else if (reference) {
         // Generate with ControlNet guidance

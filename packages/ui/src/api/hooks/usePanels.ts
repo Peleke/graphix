@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../client";
 import type { ControlNetCondition } from "../../types/controlnet";
+import { generationKeys } from "./useGenerations";
 
 // ============================================================================
 // Query Keys
@@ -160,9 +161,10 @@ export function useGeneratePanel() {
       return data;
     },
     onSuccess: (_, variables) => {
-      // Invalidate panel and generations
+      // Invalidate panel and generations so UI refetches the list
       queryClient.invalidateQueries({ queryKey: panelKeys.detail(variables.panelId) });
       queryClient.invalidateQueries({ queryKey: panelKeys.full(variables.panelId) });
+      queryClient.invalidateQueries({ queryKey: generationKeys.byPanel(variables.panelId) });
     },
   });
 }
@@ -174,10 +176,10 @@ export function useGeneratePanelVariants() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      panelId, 
+    mutationFn: async ({
+      panelId,
       count = 4,
-      ...input 
+      ...input
     }: GeneratePanelInput & { panelId: string; count?: number }) => {
       const { data, error } = await apiClient.POST("/panels/{id}/generate/variants", {
         params: { path: { id: panelId } },
@@ -193,6 +195,7 @@ export function useGeneratePanelVariants() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: panelKeys.detail(variables.panelId) });
       queryClient.invalidateQueries({ queryKey: panelKeys.full(variables.panelId) });
+      queryClient.invalidateQueries({ queryKey: generationKeys.byPanel(variables.panelId) });
     },
   });
 }

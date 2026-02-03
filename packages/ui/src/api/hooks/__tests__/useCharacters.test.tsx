@@ -53,7 +53,7 @@ describe("useCharacters", () => {
     ];
 
     vi.mocked(apiClient.GET).mockResolvedValue({
-      data: mockCharacters,
+      data: { characters: mockCharacters },
       error: null,
       response: {} as Response,
     });

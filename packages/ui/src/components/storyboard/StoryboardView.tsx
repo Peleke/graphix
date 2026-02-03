@@ -761,15 +761,22 @@ function PanelCard({ panel, onSelect, onCaptionClick, onEditTextPanel }: PanelCa
           </>
         ) : (
           <>
-            {panel.selectedGeneration ? (
+            {panel.selectedGeneration && (panel.selectedGeneration.cloudUrl || panel.selectedGeneration.localPath || panel.selectedGeneration.id) ? (
               <img
                 src={panel.selectedGeneration.cloudUrl || `${import.meta.env.VITE_API_URL || ''}/api/generations/${panel.selectedGeneration.id}/image`}
                 alt={panel.name || "Panel"}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  // Hide broken image, show fallback text
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
               />
-            ) : (
-              "No image"
-            )}
+            ) : null}
+            <span style={{ display: panel.selectedGeneration ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              No image
+            </span>
 
             {/* Panel type badge for mixed panels */}
             {isMixedPanel && (

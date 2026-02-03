@@ -78,6 +78,14 @@ vi.mock("../../../api/hooks/useGeneratedTexts", () => ({
     data: null,
     isLoading: false,
   }),
+  useCreateGeneratedText: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  useUpdateGeneratedText: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 vi.mock("../../generation-tree", () => ({
@@ -96,6 +104,44 @@ vi.mock("../../controlnet", () => ({
   ControlNetPanel: ({ level }: { level?: number }) => (
     <div data-testid="controlnet-panel" data-level={level ?? "unknown"} />
   ),
+}));
+
+vi.mock("../../../api/hooks/useTextGeneration", () => ({
+  useGeneratePanelDescription: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated description" }),
+    isPending: false,
+  }),
+  useGenerateDialogue: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated dialogue" }),
+    isPending: false,
+  }),
+  useRefineText: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ refined: "Spiced up prompt", text: "Spiced up prompt" }),
+    isPending: false,
+  }),
+  useGeneratePromptFromBeat: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ text: "Generated prompt from beat" }),
+    isPending: false,
+  }),
+}));
+
+vi.mock("../../../api/hooks/useStories", () => ({
+  useStoryboard: () => ({
+    data: { storyboard: { projectId: "project-1" } },
+    isLoading: false,
+  }),
+  usePremises: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  useStories: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  useBeats: () => ({
+    data: [],
+    isLoading: false,
+  }),
 }));
 
 // ============================================================================
@@ -219,12 +265,10 @@ describe("PanelGenerator", () => {
       expect(screen.getByText("Max")).toBeInTheDocument();
     });
 
-    it("renders control level options", () => {
+    it("renders controlnet stack section", () => {
       renderPanelGenerator();
-      expect(screen.getByText("Control Level")).toBeInTheDocument();
-      expect(screen.getByText("Level 4 - Full Control")).toBeInTheDocument();
-      expect(screen.getByText("Level 3 - Visual (Target)")).toBeInTheDocument();
-      expect(screen.getByText("Level 2 - Smart Defaults")).toBeInTheDocument();
+      expect(screen.getByText("ControlNet Stack")).toBeInTheDocument();
+      expect(screen.getByTestId("controlnet-panel")).toBeInTheDocument();
     });
 
     it("renders prompt input fields", () => {
@@ -236,13 +280,13 @@ describe("PanelGenerator", () => {
     it("renders generate buttons", () => {
       renderPanelGenerator();
       expect(screen.getByText("Generate Single")).toBeInTheDocument();
-      expect(screen.getByText(/Generate.*Variants/)).toBeInTheDocument();
+      expect(screen.getByText(/Generate ×\d/)).toBeInTheDocument();
     });
 
-    it("renders variant count input with default value of 4", () => {
+    it("renders variant count select with default value of 4", () => {
       renderPanelGenerator();
-      const input = screen.getByTestId("variant-count-input");
-      expect(input).toHaveValue(4);
+      const select = screen.getByTestId("variant-count-input");
+      expect(select).toHaveValue("4");
     });
   });
 
@@ -285,27 +329,6 @@ describe("PanelGenerator", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Control Level Tests
-  // --------------------------------------------------------------------------
-
-  describe("Control Level Selection", () => {
-    it("has Level 3 selected by default", () => {
-      renderPanelGenerator();
-      const level3 = screen.getByText("Level 3 - Visual (Target)").closest(".level-option");
-      expect(level3).toHaveClass("selected");
-    });
-
-    it("allows changing control level", async () => {
-      renderPanelGenerator();
-      const level4 = screen.getByText("Level 4 - Full Control").closest(".level-option");
-
-      fireEvent.click(level4!);
-
-      expect(level4).toHaveClass("selected");
-    });
-  });
-
-  // --------------------------------------------------------------------------
   // Prompt Input Tests
   // --------------------------------------------------------------------------
 
@@ -313,18 +336,20 @@ describe("PanelGenerator", () => {
     it("allows entering positive prompt", async () => {
       renderPanelGenerator();
       const input = screen.getByPlaceholderText(/Positive prompt/i);
-      
+
+      await userEvent.clear(input);
       await userEvent.type(input, "A beautiful sunset");
-      
+
       expect(input).toHaveValue("A beautiful sunset");
     });
 
     it("allows entering negative prompt", async () => {
       renderPanelGenerator();
       const input = screen.getByPlaceholderText(/Negative prompt/i);
-      
+
+      await userEvent.clear(input);
       await userEvent.type(input, "blurry, bad quality");
-      
+
       expect(input).toHaveValue("blurry, bad quality");
     });
   });
@@ -337,13 +362,14 @@ describe("PanelGenerator", () => {
     it("calls generatePanel when Generate Single is clicked", async () => {
       mockGeneratePanel.mockResolvedValueOnce({ success: true });
       renderPanelGenerator();
-      
+
       const positivePrompt = screen.getByPlaceholderText(/Positive prompt/i);
+      await userEvent.clear(positivePrompt);
       await userEvent.type(positivePrompt, "Test prompt");
-      
+
       const generateBtn = screen.getByText("Generate Single");
       await userEvent.click(generateBtn);
-      
+
       expect(mockGeneratePanel).toHaveBeenCalledWith(
         expect.objectContaining({
           panelId: "panel-1",
@@ -355,10 +381,10 @@ describe("PanelGenerator", () => {
     it("calls generateVariants when Generate Variants is clicked", async () => {
       mockGenerateVariants.mockResolvedValueOnce({ success: true });
       renderPanelGenerator();
-      
-      const variantsBtn = screen.getByText(/Generate.*Variants/);
+
+      const variantsBtn = screen.getByText(/Generate ×\d/);
       await userEvent.click(variantsBtn);
-      
+
       expect(mockGenerateVariants).toHaveBeenCalledWith(
         expect.objectContaining({
           panelId: "panel-1",
@@ -370,14 +396,13 @@ describe("PanelGenerator", () => {
     it("allows changing variant count", async () => {
       mockGenerateVariants.mockResolvedValueOnce({ success: true });
       renderPanelGenerator();
-      
-      const input = screen.getByTestId("variant-count-input") as HTMLInputElement;
-      // Clear and set value directly to avoid type concatenation issues
-      fireEvent.change(input, { target: { value: "6" } });
-      
-      const variantsBtn = screen.getByText(/Generate.*Variants/);
+
+      const select = screen.getByTestId("variant-count-input");
+      fireEvent.change(select, { target: { value: "6" } });
+
+      const variantsBtn = screen.getByText(/Generate ×\d/);
       await userEvent.click(variantsBtn);
-      
+
       expect(mockGenerateVariants).toHaveBeenCalledWith(
         expect.objectContaining({
           count: 6,
@@ -388,16 +413,18 @@ describe("PanelGenerator", () => {
     it("passes negative prompt to generation", async () => {
       mockGeneratePanel.mockResolvedValueOnce({ success: true });
       renderPanelGenerator();
-      
+
       const positivePrompt = screen.getByPlaceholderText(/Positive prompt/i);
       const negativePrompt = screen.getByPlaceholderText(/Negative prompt/i);
-      
+
+      await userEvent.clear(positivePrompt);
       await userEvent.type(positivePrompt, "Good stuff");
+      await userEvent.clear(negativePrompt);
       await userEvent.type(negativePrompt, "Bad stuff");
-      
+
       const generateBtn = screen.getByText("Generate Single");
       await userEvent.click(generateBtn);
-      
+
       expect(mockGeneratePanel).toHaveBeenCalledWith(
         expect.objectContaining({
           prompt: "Good stuff",
@@ -427,8 +454,8 @@ describe("PanelGenerator", () => {
     it("displays error when variant generation fails", async () => {
       mockGenerateVariants.mockRejectedValueOnce(new Error("Queue full"));
       renderPanelGenerator();
-      
-      const variantsBtn = screen.getByText(/Generate.*Variants/);
+
+      const variantsBtn = screen.getByText(/Generate ×\d/);
       await userEvent.click(variantsBtn);
       
       await waitFor(() => {
@@ -638,6 +665,111 @@ describe("PanelGenerator", () => {
       // With our mock setup, data is pre-loaded so loading indicator should not show
       renderPanelGenerator();
       expect(screen.queryByText("Loading generations...")).not.toBeInTheDocument();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Spice Button Tests
+  // --------------------------------------------------------------------------
+
+  describe("Spice Buttons", () => {
+    it("renders spice button for positive prompt", () => {
+      renderPanelGenerator();
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeInTheDocument();
+      expect(spiceBtn).toHaveAttribute("title", "Spice it up 🔥 - Make it NSFW");
+    });
+
+    it("renders spice button for negative prompt", () => {
+      renderPanelGenerator();
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeInTheDocument();
+      expect(spiceBtn).toHaveAttribute("title", "Spice it up 🔥 - Add NSFW negatives");
+    });
+
+    it("disables positive spice button when prompt is empty", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      // Clear the auto-populated prompt
+      await userEvent.clear(promptInput);
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeDisabled();
+    });
+
+    it("disables negative spice button when negative prompt is empty", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      // Clear the auto-populated negative prompt
+      await userEvent.clear(negativeInput);
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeDisabled();
+    });
+
+    it("enables positive spice button when prompt has content", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      await userEvent.clear(promptInput);
+      await userEvent.type(promptInput, "A wolf in the forest");
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      expect(spiceBtn).toBeEnabled();
+    });
+
+    it("enables negative spice button when negative prompt has content", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      await userEvent.clear(negativeInput);
+      await userEvent.type(negativeInput, "bad quality");
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      expect(spiceBtn).toBeEnabled();
+    });
+
+    it("updates prompt when positive spice button is clicked", async () => {
+      renderPanelGenerator();
+      const promptInput = screen.getByPlaceholderText(/Positive prompt/i);
+
+      // The prompt is auto-populated from the selected generation (gen-2)
+      expect(promptInput).toHaveValue("A fox by the river");
+
+      const spiceBtn = screen.getByTestId("spice-positive-btn");
+      await userEvent.click(spiceBtn);
+
+      // The refineText mock returns { refined: "Spiced up prompt" }
+      await waitFor(() => {
+        expect(promptInput).toHaveValue("Spiced up prompt");
+      });
+    });
+
+    it("updates negative prompt when negative spice button is clicked", async () => {
+      renderPanelGenerator();
+      const negativeInput = screen.getByPlaceholderText(/Negative prompt/i);
+
+      // The negative prompt is auto-populated from the selected generation (gen-2)
+      expect(negativeInput).toHaveValue("blurry");
+
+      const spiceBtn = screen.getByTestId("spice-negative-btn");
+      await userEvent.click(spiceBtn);
+
+      // The refineText mock returns { refined: "Spiced up prompt" }
+      await waitFor(() => {
+        expect(negativeInput).toHaveValue("Spiced up prompt");
+      });
+    });
+
+    it("displays 🌶️ emoji on spice buttons", () => {
+      renderPanelGenerator();
+      const positiveSpiceBtn = screen.getByTestId("spice-positive-btn");
+      const negativeSpiceBtn = screen.getByTestId("spice-negative-btn");
+
+      expect(positiveSpiceBtn).toHaveTextContent("🌶️");
+      expect(negativeSpiceBtn).toHaveTextContent("🌶️");
     });
   });
 });

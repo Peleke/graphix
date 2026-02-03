@@ -387,3 +387,50 @@ textGenerationRoutes.post(
     }
   }
 );
+
+/** Beat-to-prompt request schema */
+const beatToPromptSchema = z.object({
+  visualDescription: z.string().min(1, "visualDescription is required").max(MAX_DESCRIPTION_LENGTH),
+  emotionalTone: z.string().optional(),
+  cameraAngle: z.enum([
+    "wide", "medium", "close-up", "extreme close-up",
+    "over-the-shoulder", "bird's eye", "low angle", "dutch angle"
+  ]).optional(),
+  characters: z.array(z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    species: z.string().optional(),
+  })).optional(),
+  modelFamily: z.enum(["pony", "illustrious", "flux", "sdxl", "sd15", "realistic"]).optional(),
+  style: z.string().optional(),
+});
+
+/**
+ * POST /beat-to-prompt
+ *
+ * Generate Stable Diffusion prompt from a story beat.
+ * Translates narrative beat fields into optimized positive/negative prompts.
+ */
+textGenerationRoutes.post(
+  "/beat-to-prompt",
+  validateBody(beatToPromptSchema),
+  async (c) => {
+    const context = c.req.valid("json");
+
+    try {
+      const service = getTextGenerationService();
+      const result = await service.generatePromptFromBeat(context);
+
+      return c.json({
+        ...result,
+        provider: service.getProvider(),
+      });
+    } catch (error) {
+      console.error("Error generating prompt from beat:", error);
+      return errors.internal(
+        c,
+        error instanceof Error ? error.message : "Failed to generate prompt from beat"
+      );
+    }
+  }
+);

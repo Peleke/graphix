@@ -30,7 +30,7 @@ import {
   type CaptionType,
   type CaptionPosition,
 } from "../db/index.js";
-import { getPanelService } from "./panel.service.js";
+import { getPanelService, PanelService } from "./panel.service.js";
 import { getLLMService } from "./llm.service.js";
 import { getTextGenerationService } from "./text-generation.service.js";
 import type { InferredCaption } from "./text-generation.types.js";
@@ -135,9 +135,12 @@ export interface GenerateCaptionsResult {
 
 export class NarrativeService {
   private db: Database;
+  private panelService: PanelService;
 
   constructor(db?: Database) {
     this.db = db ?? getDefaultDatabase();
+    // Create panel service with same db to ensure consistency
+    this.panelService = new PanelService(this.db);
   }
 
   // ==========================================================================
@@ -657,10 +660,8 @@ export class NarrativeService {
       throw new Error(`Beat already converted to panel: ${beat.panelId}`);
     }
 
-    const panelService = getPanelService();
-
     // Get the next position in the storyboard
-    const existingPanels = await panelService.getByStoryboard(storyboardId);
+    const existingPanels = await this.panelService.getByStoryboard(storyboardId);
     const nextPosition = existingPanels.length;
 
     // Map beat camera angles to valid panel camera angles
@@ -727,7 +728,7 @@ export class NarrativeService {
     const mappedMood = moodMap[beat.emotionalTone ?? "neutral"] ?? "neutral";
 
     // Create the panel from beat data
-    const panel = await panelService.create({
+    const panel = await this.panelService.create({
       storyboardId,
       position: nextPosition,
       description: beat.visualDescription,

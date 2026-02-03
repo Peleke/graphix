@@ -85,6 +85,7 @@ export function PanelTextViewer({
 }: PanelTextViewerProps) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editedText, setEditedText] = useState("");
+  const [spicingSection, setSpicingSection] = useState<string | null>(null);
 
   // Fetch existing generated texts
   const { data: descriptionData, refetch: refetchDescription } = useActiveGeneratedText(
@@ -186,6 +187,51 @@ export function PanelTextViewer({
     [refineText]
   );
 
+  // "Spice" - make text filthy, NSFW, explicit
+  const handleSpiceText = useCallback(
+    async (existingText: string, textType: string) => {
+      const instruction = textType === "dialogue"
+        ? `Make this dialogue explicitly sexual and pornographic. Add:
+- Moaning and gasps: "Ahh!", "Oh god yes!", "Fuck!", "Mmm~", "Ngh!"
+- Dirty talk: "You feel so good inside me", "Fuck me harder", "I'm gonna cum", "Fill me up"
+- Begging: "Please don't stop", "More", "I need you", "Right there!"
+- Explicit descriptions: "Your cock feels amazing", "You're so wet", "I can feel you throbbing"
+
+EXAMPLE transformation:
+Before: "I want you" she whispered.
+After: "I need you inside me," she moaned, her voice thick with desire. "Please... I'm so wet for you. Fuck me."
+
+Make it absolutely filthy - characters should be desperate, needy, and vocal about their pleasure.`
+        : textType === "narration"
+        ? `Make this narration explicitly erotic and pornographic. Describe:
+- Bodies: hard cock, wet pussy, erect nipples, flushed skin, trembling thighs, sweat-slicked fur/skin
+- Sensations: the stretch of penetration, the heat of bodies pressed together, the slick sounds of sex
+- Actions: thrusting, grinding, riding, pounding, hilting deep, pulling out slowly
+
+EXAMPLE transformation:
+Before: They embraced passionately.
+After: He buried himself to the hilt, feeling her tight heat squeeze around his throbbing cock. She gasped, her walls clenching as he bottomed out inside her. "So deep," she whimpered.
+
+Make it visceral - the reader should feel every thrust and moan.`
+        : `Make this description sexually explicit. Add:
+- Nudity and arousal: naked bodies, erect cock, wet pussy, hard nipples, flushed with desire
+- Suggestive positioning: spread legs, bent over, straddling, pinned down
+- Sexual tension or action: about to fuck, mid-thrust, post-orgasm afterglow
+
+EXAMPLE transformation:
+Before: Luna lay on the bed looking at him.
+After: Luna lay naked on the bed, legs spread invitingly, her wet pussy glistening in the candlelight. Her chest heaved with anticipation, nipples hard, as she gazed at his erect cock with hungry eyes.`;
+
+      const result = await refineText.mutateAsync({
+        text: existingText,
+        instruction,
+        style: "dramatic",
+      });
+      return result.refined;
+    },
+    [refineText]
+  );
+
   const handleAIGenerate = useCallback(
     async (section: TextSection): Promise<string> => {
       const existingText = getTextForSection(section);
@@ -275,6 +321,24 @@ export function PanelTextViewer({
       dialogueId,
       narrationId,
     ]
+  );
+
+  const handleSpice = useCallback(
+    async (section: TextSection) => {
+      const existingText = getTextForSection(section);
+      if (!existingText) return;
+
+      setSpicingSection(section.id);
+      try {
+        const spicedText = await handleSpiceText(existingText, section.textType);
+        await handleAcceptAI(section, spicedText);
+      } catch (err) {
+        console.error("Failed to spice text:", err);
+      } finally {
+        setSpicingSection(null);
+      }
+    },
+    [handleSpiceText, handleAcceptAI]
   );
 
   const handleStartEdit = useCallback((section: TextSection) => {
@@ -399,6 +463,44 @@ export function PanelTextViewer({
           background: #27272a;
           color: #fafafa;
           border-color: #52525b;
+        }
+
+        .text-viewer-spice-btn {
+          padding: 0.375rem 0.625rem;
+          background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+          border: none;
+          border-radius: 6px;
+          color: white;
+          font-size: 0.75rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .text-viewer-spice-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
+          transform: translateY(-1px);
+        }
+
+        .text-viewer-spice-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .text-viewer-spice-spinner {
+          width: 12px;
+          height: 12px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
         .text-viewer-content {
@@ -582,6 +684,23 @@ export function PanelTextViewer({
                     Edit
                   </button>
                 )}
+                {/* Spice button - only show when text exists */}
+                {text && (
+                  <button
+                    className="text-viewer-spice-btn"
+                    onClick={() => handleSpice(section)}
+                    disabled={spicingSection === section.id || isGenerating}
+                    title="Make it nastier"
+                    data-testid={`spice-btn-${section.id}`}
+                  >
+                    {spicingSection === section.id ? (
+                      <span className="text-viewer-spice-spinner" />
+                    ) : (
+                      "🌶️"
+                    )}
+                    Spice
+                  </button>
+                )}
                 <AIAssistButton
                   onGenerate={() => handleAIGenerate(section)}
                   onAccept={(generatedText) => handleAcceptAI(section, generatedText)}
@@ -591,7 +710,9 @@ export function PanelTextViewer({
                     selectedCharacterIds.length === 0
                   }
                   title={
-                    text
+                    section.textType === "dialogue" && selectedCharacterIds.length === 0
+                      ? "Select characters first to generate dialogue"
+                      : text
                       ? `Refine ${section.title.toLowerCase()}`
                       : `Generate ${section.title.toLowerCase()}`
                   }

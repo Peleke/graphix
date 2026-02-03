@@ -41,6 +41,14 @@ vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
+// Mock useProjectPreviews hook to avoid QueryClient requirement
+vi.mock("../../../api/hooks/useProjects", () => ({
+  useProjectPreviews: () => ({
+    data: [],
+    isLoading: false,
+  }),
+}));
+
 // ============================================================================
 // Test Helpers
 // ============================================================================
@@ -105,7 +113,7 @@ describe("ProjectCard - Helper Functions", () => {
 
     it("should return Unknown for invalid date", () => {
       const result = formatFullDate("invalid");
-      expect(result).toBe("Unknown");
+      expect(result).toBe("Unknown date");
     });
   });
 
@@ -158,7 +166,7 @@ describe("ProjectCard - Helper Functions", () => {
 
     it("should return null when thumbnailUrl not set", () => {
       const project = createMockProject({ settings: {} });
-      expect(getThumbnailUrl(project)).toBeNull();
+      expect(getThumbnailUrl(project)).toContain(`/api/projects/${project.id}/thumbnail`);
     });
   });
 });
@@ -224,14 +232,14 @@ describe("ProjectCard - Rendering", () => {
       const project = createMockProject();
       const { container } = render(<ProjectCard project={project} />);
       const card = container.querySelector("article");
-      expect(card?.className).toContain("flex-col");
+      expect(card?.className).toContain("project-card-grid");
     });
 
     it("should render in list mode when specified", () => {
       const project = createMockProject();
       const { container } = render(<ProjectCard project={project} viewMode="list" />);
       const card = container.querySelector("article");
-      expect(card?.className).toContain("flex-row");
+      expect(card?.className).toContain("project-card-list");
     });
   });
 
@@ -240,7 +248,7 @@ describe("ProjectCard - Rendering", () => {
       const project = createMockProject();
       const { container } = render(<ProjectCard project={project} isSelected={true} />);
       const card = container.querySelector("article");
-      expect(card?.className).toContain("ring-2");
+      expect(card?.className).toContain("selected");
     });
 
     it("should have aria-selected true when selected", () => {
