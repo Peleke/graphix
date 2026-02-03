@@ -13,7 +13,7 @@ import { useGenerationsByPanel, useRateGeneration } from "../../api/hooks/useGen
 import { useStoryboard } from "../../api/hooks/useStories";
 import { useCaptionsByPanel, useGenerateCaptions } from "../../api/hooks/useCaptions";
 import { useGeneratedTextsByPanel } from "../../api/hooks/useGeneratedTexts";
-import { useGeneratePanelDescription, useRefineText } from "../../api/hooks/useTextGeneration";
+import { useGeneratePanelDescription, useRefineText, useSpicePrompt } from "../../api/hooks/useTextGeneration";
 import { GenerationTreeVisualization } from "../generation-tree";
 import { useGenerationTreeData } from "../generation-tree/useGenerationTreeData";
 import { ControlNetPanel, type ControlNetMode } from "../controlnet";
@@ -78,8 +78,9 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
   const rateGeneration = useRateGeneration();
   const generatePanelDescription = useGeneratePanelDescription();
 
-  // Spice button - makes prompts more intense/dramatic
+  // Spice button - transforms prompts into explicit NSFW content
   const refineText = useRefineText();
+  const spicePrompt = useSpicePrompt();
   const [spiceTarget, setSpiceTarget] = useState<"positive" | "negative" | null>(null);
 
   const handleSpice = async (target: "positive" | "negative") => {
@@ -88,38 +89,15 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
 
     setSpiceTarget(target);
     try {
-      const instruction = target === "positive"
-        ? `Transform this into an explicit NSFW image generation prompt. Use comma-separated tags and short phrases (under 400 words total).
-
-REQUIRED EXPLICIT TAGS to add based on scene:
-- Nudity: nude, naked, bare skin, topless, bottomless, fully nude
-- Genitals: pussy, cock, penis, erect, wet pussy, hard cock, spread pussy, throbbing
-- Sexual acts: sex, penetration, penis in pussy, cock buried inside, balls deep, hilted, breeding, creampie, cum inside, flooding her insides, nutting inside
-- Arousal: aroused, horny, needy, desperate, bedroom eyes, lustful gaze, flushed skin, erect nipples, dripping wet, precum
-- Expressions: ahegao, fucked silly, orgasm face, moaning, tongue out, drooling, eyes rolling back, o-face
-- Poses: spread legs, on back, doggy style, riding, bent over, legs up, presenting
-
-EXAMPLES of good explicit prompts:
-- "score_9, nude female fox, spread legs, wet pussy visible, aroused, bedroom eyes, flushed cheeks, on bed, soft lighting"
-- "explicit, wolf and rabbit, passionate sex, penis buried in pussy, both moaning, sweaty bodies intertwined, romantic lighting"
-- "rating_explicit, afterglow, cum dripping from pussy, exhausted satisfied expression, messy fur, intimate bedroom scene"
-
-For Pony/Illustrious: score_9, score_8_up, explicit, rating_explicit, source_furry
-For SDXL/Realistic: nsfw, explicit, photorealistic, detailed genitals
-
-Keep the original characters/scene but make it explicitly sexual. Output ONLY the enhanced prompt.`
-        : "Add NSFW negative tags: ugly genitals, bad pussy, bad dick, malformed penis, weird nipples, censorship, mosaic, pixelated genitals, black bars, censor bar, extra limbs, deformed anatomy, merged bodies, bad hands, missing fingers, fused fingers, anatomically incorrect, wrong proportions";
-
-      const result = await refineText.mutateAsync({
-        text: currentValue,
-        instruction,
-        style: "dramatic",
+      const result = await spicePrompt.mutateAsync({
+        prompt: currentValue,
+        target,
       });
 
       if (target === "positive") {
-        setPrompt(result.refined);
+        setPrompt(result.spicedPrompt);
       } else {
-        setNegativePrompt(result.refined);
+        setNegativePrompt(result.spicedPrompt);
       }
     } catch (error) {
       console.error("Spice failed:", error);

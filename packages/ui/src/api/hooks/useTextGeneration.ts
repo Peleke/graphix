@@ -308,6 +308,34 @@ export function streamPanelDescription(
   };
 }
 
+// ============================================================================
+// Spice Prompt Hook
+// ============================================================================
+
+export interface SpicePromptInput {
+  prompt: string;
+  target: "positive" | "negative";
+}
+
+export interface SpicePromptResponse {
+  originalPrompt: string;
+  spicedPrompt: string;
+  target: "positive" | "negative";
+  provider: string;
+}
+
+/**
+ * Spice up an image generation prompt - transform it into explicit NSFW content.
+ * Uses dedicated backend endpoint with proper NSFW instructions.
+ */
+export function useSpicePrompt() {
+  return useMutation({
+    mutationFn: async (input: SpicePromptInput): Promise<SpicePromptResponse> => {
+      return postTextGeneration<SpicePromptResponse>("spice", input);
+    },
+  });
+}
+
 /**
  * Stream text refinement for real-time updates.
  */

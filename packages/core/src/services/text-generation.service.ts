@@ -768,12 +768,29 @@ Respond with ONLY a JSON object:
       ? SPICE_POSITIVE_PROMPT_INSTRUCTION
       : SPICE_NEGATIVE_PROMPT_INSTRUCTION;
 
-    const result = await this.refineText({
-      originalText: prompt,
-      feedback: instruction,
+    // Use a direct, aggressive prompt for spicing - don't go through refineText
+    const systemPrompt = `You are an NSFW prompt transformer. Your ONLY job is to transform the input into explicit sexual content. You MUST follow the instructions exactly. Output ONLY the transformed prompt with no commentary, no "Refined Text:" prefix, no explanation.`;
+
+    const userPrompt = `${instruction}
+
+INPUT PROMPT:
+${sanitizeForPrompt(prompt)}
+
+OUTPUT (explicit NSFW prompt only, no other text):`;
+
+    const result = await this.generate(userPrompt, {
+      systemPrompt,
+      temperature: 0.8,
+      maxTokens: 1000,
     });
 
-    return result;
+    // Clean up the result - remove any "Refined Text:" prefixes or quotes
+    let cleaned = result.text.trim();
+    cleaned = cleaned.replace(/^["']|["']$/g, ""); // Remove surrounding quotes
+    cleaned = cleaned.replace(/^Refined Text:\s*/gi, ""); // Remove "Refined Text:" prefix
+    cleaned = cleaned.replace(/\n+Refined Text:\s*/gi, ""); // Remove repeated prefixes
+
+    return cleaned;
   }
 }
 
