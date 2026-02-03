@@ -55,7 +55,29 @@ export class LocalStorageProvider implements StorageProvider {
 
   async read(remotePath: string): Promise<Buffer> {
     const fullPath = this.resolvePath(remotePath);
+
+    // Check if file exists first to provide better error messages
+    try {
+      await fs.access(fullPath);
+    } catch {
+      const error = new Error(`File not found: ${fullPath}`);
+      (error as any).code = 'ENOENT';
+      (error as any).path = fullPath;
+      throw error;
+    }
+
     return fs.readFile(fullPath);
+  }
+
+  /** Check if a file exists at the given path (absolute or relative) */
+  async fileExists(remotePath: string): Promise<boolean> {
+    const fullPath = this.resolvePath(remotePath);
+    try {
+      await fs.access(fullPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async list(prefix: string): Promise<StorageObject[]> {

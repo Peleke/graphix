@@ -293,12 +293,21 @@ generationRoutes.get("/:id/image", validateId(), async (c) => {
 
   const generation = await service.getById(id);
   if (!generation) {
-    return c.json({ error: "Generation not found" }, 404);
+    return c.json({ error: "Generation not found", id }, 404);
   }
 
   // If we have a cloud URL, redirect to it
   if (generation.cloudUrl) {
     return c.redirect(generation.cloudUrl, 302);
+  }
+
+  // Check if localPath exists
+  if (!generation.localPath) {
+    return c.json({
+      error: "No image path available",
+      id,
+      hint: "Generation has no localPath or cloudUrl"
+    }, 404);
   }
 
   // Use storage provider to read the file
@@ -313,9 +322,17 @@ generationRoutes.get("/:id/image", validateId(), async (c) => {
         "Cache-Control": "public, max-age=31536000",
       },
     });
-  } catch (err) {
+  } catch (err: any) {
+    const isDev = process.env.NODE_ENV !== 'production';
     console.error(`Failed to read image: ${generation.localPath}`, err);
-    return c.json({ error: "Failed to read image file" }, 404);
+    return c.json({
+      error: "Image file not found",
+      ...(isDev && {
+        path: generation.localPath,
+        code: err.code,
+        hint: "File may not exist or path is from mock data"
+      })
+    }, 404);
   }
 });
 
@@ -326,7 +343,7 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
 
   const generation = await service.getById(id);
   if (!generation) {
-    return c.json({ error: "Generation not found" }, 404);
+    return c.json({ error: "Generation not found", id }, 404);
   }
 
   // Use thumbnail if available, otherwise fall back to main image
@@ -335,6 +352,15 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
   // If we have a cloud URL and no thumbnail, redirect
   if (generation.cloudUrl && !generation.thumbnailPath) {
     return c.redirect(generation.cloudUrl, 302);
+  }
+
+  // Check if path exists
+  if (!imagePath) {
+    return c.json({
+      error: "No thumbnail path available",
+      id,
+      hint: "Generation has no thumbnailPath, localPath, or cloudUrl"
+    }, 404);
   }
 
   // Use storage provider to read the file
@@ -349,9 +375,17 @@ generationRoutes.get("/:id/thumbnail", validateId(), async (c) => {
         "Cache-Control": "public, max-age=31536000",
       },
     });
-  } catch (err) {
+  } catch (err: any) {
+    const isDev = process.env.NODE_ENV !== 'production';
     console.error(`Failed to read thumbnail: ${imagePath}`, err);
-    return c.json({ error: "Failed to read thumbnail file" }, 404);
+    return c.json({
+      error: "Thumbnail file not found",
+      ...(isDev && {
+        path: imagePath,
+        code: err.code,
+        hint: "File may not exist or path is from mock data"
+      })
+    }, 404);
   }
 });
 

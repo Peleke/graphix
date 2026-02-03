@@ -11,3 +11,4 @@ export { storyboardRoutes } from "./routes/storyboards.js";
 export { panelRoutes } from "./routes/panels.js";
 export { generationRoutes } from "./routes/generations.js";
 export { compositionRoutes } from "./routes/composition.js";
+export { healthRoutes } from "./routes/health.js";
