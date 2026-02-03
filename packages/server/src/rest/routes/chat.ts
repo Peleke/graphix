@@ -41,7 +41,7 @@ const enhancedBootstrapSchema = z.object({
       character: z.string(),
       relationship: z.string(),
     })).optional(),
-  })),
+  })).min(1, "At least one character is required"),
   setting: z.object({
     location: z.string(),
     timeperiod: z.string().optional(),

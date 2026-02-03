@@ -109,6 +109,8 @@ export async function setupTestDatabase(): Promise<DatabaseConnection> {
       storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
       position INTEGER NOT NULL,
       description TEXT DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'image',
+      text_content TEXT,
       direction TEXT,
       character_ids TEXT NOT NULL DEFAULT '[]',
       selected_output_id TEXT,

@@ -23,7 +23,7 @@ import { getChatAgentService, type ChatAgentService } from "./chat-agent.service
 import { ProjectService } from "./project.service.js";
 import { CharacterService } from "./character.service.js";
 import { StoryboardService } from "./storyboard.service.js";
-import { getNarrativeService, type NarrativeService } from "./narrative.service.js";
+import { NarrativeService } from "./narrative.service.js";
 import { canCreateProject } from "../agents/project-creation.agent.js";
 import type {
   ExtractedCharacter,
@@ -113,7 +113,7 @@ export interface EnhancedBootstrapResult {
 // =============================================================================
 
 export class ProjectBootstrapService {
-  private db: Database | null = null;
+  private db: Database;
   private projectService: ProjectService;
   private characterService: CharacterService;
   private storyboardService: StoryboardService;
@@ -121,11 +121,13 @@ export class ProjectBootstrapService {
   private chatService: ChatAgentService;
 
   constructor(db?: Database) {
-    this.db = db ?? (hasDefaultDatabase() ? getDefaultDatabase() : null);
-    this.projectService = new ProjectService(this.db ?? undefined);
-    this.characterService = new CharacterService(this.db ?? undefined);
-    this.storyboardService = new StoryboardService(this.db ?? undefined);
-    this.narrativeService = getNarrativeService();
+    // Always use the provided db or the default database to ensure consistency
+    this.db = db ?? getDefaultDatabase();
+    this.projectService = new ProjectService(this.db);
+    this.characterService = new CharacterService(this.db);
+    this.storyboardService = new StoryboardService(this.db);
+    // Create a new NarrativeService with the same db to ensure consistency
+    this.narrativeService = new NarrativeService(this.db);
     this.chatService = getChatAgentService();
   }
 
