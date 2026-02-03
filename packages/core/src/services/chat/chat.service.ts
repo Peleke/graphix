@@ -244,8 +244,27 @@ export class ChatService {
       });
 
       const parsed = JSON.parse(result.text);
-      const acts = parsed.acts?.length > 0 ? parsed.acts : this.getDefaultActs(structure);
-      const beats = parsed.beats?.length > 0 ? parsed.beats : [];
+
+      // Normalize acts - LLM may return strings or objects with name/description
+      const rawActs = parsed.acts?.length > 0 ? parsed.acts : this.getDefaultActs(structure);
+      const acts: string[] = rawActs.map((act: string | { name: string }) =>
+        typeof act === 'string' ? act : act.name
+      );
+
+      // Normalize beats - ensure actIndex is set and optional fields are handled
+      const rawBeats = parsed.beats?.length > 0 ? parsed.beats : [];
+      const beats = rawBeats.map((beat: Record<string, unknown>, index: number) => ({
+        type: beat.type as string,
+        actIndex: typeof beat.actIndex === 'number' ? beat.actIndex : this.inferActIndex(index, rawBeats.length, structure),
+        summary: beat.summary as string,
+        visualDescription: beat.visualDescription as string,
+        emotionalTone: beat.emotionalTone as string,
+        involvedCharacters: (beat.involvedCharacters as string[]) || [],
+        cameraAngle: beat.cameraAngle as string | undefined,
+        narration: beat.narration || undefined, // Convert null to undefined
+        sfx: beat.sfx || undefined, // Convert null to undefined
+      }));
+
       return {
         premise: parsed.premise,
         structure: parsed.structure || structure,
@@ -272,6 +291,17 @@ export class ChatService {
       default:
         return ['Act 1', 'Act 2', 'Act 3'];
     }
+  }
+
+  /**
+   * Infer act index for a beat based on its position in the beat sequence.
+   * Used when LLM doesn't provide actIndex.
+   */
+  private inferActIndex(beatIndex: number, totalBeats: number, structure: StoryStructure): number {
+    // Distribute beats across acts based on structure
+    const actCount = structure === 'five-act' ? 5 : 3;
+    const beatsPerAct = Math.ceil(totalBeats / actCount);
+    return Math.min(Math.floor(beatIndex / beatsPerAct), actCount - 1);
   }
 
   /**

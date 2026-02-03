@@ -32,11 +32,11 @@ const enhancedBootstrapSchema = z.object({
   characters: z.array(z.object({
     name: z.string(),
     role: z.enum(["protagonist", "antagonist", "supporting", "minor"]),
-    species: z.string().optional(),
+    species: z.string().nullable().optional(),
     visualDescription: z.string(),
     personality: z.array(z.string()),
-    motivation: z.string().optional(),
-    arc: z.string().optional(),
+    motivation: z.string().nullable().optional(),
+    arc: z.string().nullable().optional(),
     relationships: z.array(z.object({
       character: z.string(),
       relationship: z.string(),
@@ -44,7 +44,7 @@ const enhancedBootstrapSchema = z.object({
   })).min(1, "At least one character is required"),
   setting: z.object({
     location: z.string(),
-    timeperiod: z.string().optional(),
+    timeperiod: z.string().nullable().optional(),
     atmosphere: z.string(),
     visualDetails: z.array(z.string()),
   }).nullable().optional(),
@@ -57,17 +57,21 @@ const enhancedBootstrapSchema = z.object({
       setting: z.string(),
     }),
     structure: z.enum(["three-act", "five-act", "hero-journey"]),
-    acts: z.array(z.string()),
+    // LLM may return either strings or objects with name/description
+    acts: z.array(z.union([
+      z.string(),
+      z.object({ name: z.string(), description: z.string().optional() })
+    ])).transform(acts => acts.map(act => typeof act === 'string' ? act : act.name)),
     beats: z.array(z.object({
       type: z.string(),
-      actIndex: z.number(),
+      actIndex: z.number().default(0),
       summary: z.string(),
       visualDescription: z.string(),
       emotionalTone: z.string(),
       involvedCharacters: z.array(z.string()),
-      cameraAngle: z.string().optional(),
-      narration: z.string().optional(),
-      sfx: z.string().optional(),
+      cameraAngle: z.string().nullable().optional(),
+      narration: z.string().nullable().optional(),
+      sfx: z.string().nullable().optional(),
     })),
   }),
   style: z.string().optional(),
