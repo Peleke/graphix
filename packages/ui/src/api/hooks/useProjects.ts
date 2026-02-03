@@ -237,3 +237,37 @@ export function useDuplicateProject() {
     },
   });
 }
+
+// ============================================================================
+// Preview Images Hook
+// ============================================================================
+
+export interface ProjectPreview {
+  url: string;
+  panelId: string;
+}
+
+/**
+ * Fetch preview images for a project (up to 4 for masonry layout)
+ */
+export function useProjectPreviews(projectId: string | null) {
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+
+  return useQuery({
+    queryKey: [...projectKeys.detail(projectId ?? ""), "previews"] as const,
+    queryFn: async (): Promise<ProjectPreview[]> => {
+      if (!projectId) return [];
+
+      const response = await fetch(`${apiBase}/api/projects/${projectId}/previews`);
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+      return data.previews || [];
+    },
+    enabled: !!projectId,
+    staleTime: 1000 * 60 * 5, // 5 minutes - images don't change often
+    retry: false, // Don't retry on failure - just show placeholder
+  });
+}

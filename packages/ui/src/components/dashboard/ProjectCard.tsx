@@ -3,9 +3,10 @@
  *
  * Displays a project in the dashboard grid/list view.
  * Uses inline styles for consistent rendering without Tailwind.
+ * Features masonry-style preview grid for multiple generated images.
  */
 
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import type { Project } from "@graphix/client";
 import {
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { formatDistanceToNow, format } from "date-fns";
+import { useProjectPreviews } from "../../api/hooks/useProjects";
 
 // ============================================================================
 // Types
@@ -99,12 +101,12 @@ export function getTemplateType(project: Project): string | null {
   return null;
 }
 
+// getThumbnailUrl is deprecated in favor of useProjectPreviews masonry grid
+// Kept for backwards compatibility with tests
 export function getThumbnailUrl(project: Project): string | null {
-  // First check if there's an explicit thumbnail URL in settings
   if (typeof project.settings?.thumbnailUrl === "string") {
     return project.settings.thumbnailUrl;
   }
-  // Otherwise, use the API endpoint that returns the first generated image
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3002';
   return `${apiBase}/api/projects/${project.id}/thumbnail`;
 }
@@ -141,10 +143,26 @@ export const ProjectCard = memo(function ProjectCard({
   const handleMouseEnter = useCallback(() => onHoverChange?.(project.id), [project.id, onHoverChange]);
   const handleMouseLeave = useCallback(() => onHoverChange?.(null), [onHoverChange]);
 
-  const thumbnailUrl = getThumbnailUrl(project);
+  // Track which images failed to load
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  // Fetch preview images for masonry grid
+  const { data: previews = [] } = useProjectPreviews(project.id);
+
+  // Filter out failed images
+  const validPreviews = previews.filter(p => !failedImages.has(p.url));
+
   const template = getTemplateType(project);
   const panelCount = getPanelCount(project);
   const updatedAt = formatProjectDate(project.updatedAt);
+
+  // Determine grid layout based on number of valid images
+  const getGridClass = (count: number) => {
+    if (count === 1) return 'preview-grid-1';
+    if (count === 2) return 'preview-grid-2';
+    if (count === 3) return 'preview-grid-3';
+    return 'preview-grid-4';
+  };
 
   const motionProps: HTMLMotionProps<"article"> = disableAnimations
     ? {}
@@ -200,7 +218,7 @@ export const ProjectCard = memo(function ProjectCard({
         }
         .card-thumbnail-grid {
           width: 100%;
-          height: 140px;
+          height: 160px;
         }
         .card-thumbnail-list {
           width: 96px;
@@ -213,6 +231,8 @@ export const ProjectCard = memo(function ProjectCard({
           position: absolute;
           inset: 0;
           background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.6) 100%);
+          pointer-events: none;
+          z-index: 1;
         }
         .card-thumbnail-icon {
           position: absolute;
@@ -230,6 +250,59 @@ export const ProjectCard = memo(function ProjectCard({
         }
         .project-card:hover .card-thumbnail img {
           transform: scale(1.05);
+        }
+        /* Masonry preview grid */
+        .preview-grid {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          gap: 2px;
+        }
+        .preview-grid-1 {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr;
+        }
+        .preview-grid-2 {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr;
+        }
+        .preview-grid-3 {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+        }
+        .preview-grid-3 .preview-item:first-child {
+          grid-row: span 2;
+        }
+        .preview-grid-4 {
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr 1fr;
+        }
+        .preview-item {
+          position: relative;
+          overflow: hidden;
+          background: #27272a;
+        }
+        .preview-item img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+        .project-card:hover .preview-item img {
+          transform: scale(1.08);
+        }
+        .preview-count-badge {
+          position: absolute;
+          bottom: 8px;
+          right: 8px;
+          z-index: 2;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          background: rgba(0, 0, 0, 0.6);
+          color: #e4e4e7;
+          backdrop-filter: blur(4px);
         }
         .card-badge {
           position: absolute;
@@ -374,32 +447,40 @@ export const ProjectCard = memo(function ProjectCard({
         data-testid={testId ?? `project-card-${project.id}`}
         {...motionProps}
       >
-        {/* Thumbnail */}
+        {/* Thumbnail with Masonry Preview Grid */}
         <div className={`card-thumbnail ${isGrid ? 'card-thumbnail-grid' : 'card-thumbnail-list'}`}>
-          {thumbnailUrl ? (
-            <img
-              src={thumbnailUrl}
-              alt={project.name}
-              loading="lazy"
-              onError={(e) => {
-                // Hide the broken image and show placeholder
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const placeholder = target.nextElementSibling as HTMLElement;
-                if (placeholder) placeholder.style.display = 'flex';
-              }}
-            />
-          ) : null}
-          <div
-            className="card-thumbnail-icon"
-            style={{ display: thumbnailUrl ? 'none' : 'flex' }}
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-              <line x1="9" y1="21" x2="9" y2="9" />
-            </svg>
-          </div>
+          {validPreviews.length > 0 ? (
+            <>
+              <div className={`preview-grid ${getGridClass(Math.min(validPreviews.length, 4))}`}>
+                {validPreviews.slice(0, 4).map((preview, i) => (
+                  <div key={preview.panelId || i} className="preview-item">
+                    <img
+                      src={preview.url}
+                      alt=""
+                      loading="lazy"
+                      onError={() => {
+                        setFailedImages(prev => new Set(prev).add(preview.url));
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              {panelCount > 4 && (
+                <div className="preview-count-badge">+{panelCount - 4} more</div>
+              )}
+            </>
+          ) : (
+            <div
+              className="card-thumbnail-icon"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}
+            >
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="9" y1="21" x2="9" y2="9" />
+              </svg>
+            </div>
+          )}
           {template && isGrid && <div className="card-badge">{template}</div>}
         </div>
 
