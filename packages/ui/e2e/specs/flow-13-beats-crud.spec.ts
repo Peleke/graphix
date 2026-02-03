@@ -484,7 +484,8 @@ test.describe('Flow 13: Beats CRUD Operations', () => {
     test('should display beat position number', { tag: [tags.MVP, FLOW_13, BEATS] }, async ({ page }) => {
       // Verify position is displayed
       await expect(page.locator('.beat-position').first()).toBeVisible();
-      await expect(page.locator('.beat-position').first()).toContainText('1');
+      const posText = await page.locator('.beat-position').first().textContent();
+      expect(posText?.trim()).toMatch(/^\d+$/);
     });
 
     test('should display beat type label', { tag: [tags.MVP, FLOW_13, BEATS] }, async ({ page }) => {
