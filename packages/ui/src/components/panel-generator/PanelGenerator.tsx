@@ -20,6 +20,7 @@ import { ControlNetPanel, type ControlNetMode } from "../controlnet";
 import type { ControlNetCondition } from "../../types/controlnet";
 import { useAIAssist, AIAssistSuggestion } from "./AIAssistButton";
 import { PanelTextViewer } from "./PanelTextViewer";
+import { BeatSelector } from "./BeatSelector";
 
 interface PanelGeneratorProps {
   panelId: string;
@@ -162,7 +163,13 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
         controlNet: controlNetControls.length > 0 ? controlNetControls : undefined,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to generate";
+      let message = err instanceof Error ? err.message : "Failed to generate";
+      // Improve error messages for common connection issues
+      if (message.toLowerCase().includes("cannot connect") ||
+          message.toLowerCase().includes("econnrefused") ||
+          message.toLowerCase().includes("fetch failed")) {
+        message = "Cannot connect to ComfyUI MCP server. Make sure comfyui-mcp is running on port 3001.";
+      }
       setGenerateError(message);
       console.error("Failed to generate:", err);
     }
@@ -792,6 +799,23 @@ export function PanelGenerator({ panelId, storyboardId, onGenerationSelected, on
               projectId={(storyboardFull as any)?.storyboard?.projectId ?? (storyboardFull as any)?.projectId}
               referenceImages={referenceImages}
               onChange={handleControlNetChange}
+            />
+          </div>
+
+          {/* Beat-to-Prompt */}
+          <div className="section">
+            <div className="section-title">Story Beats</div>
+            <BeatSelector
+              projectId={projectId}
+              characters={Array.isArray(characters) ? characters.map((c: any) => ({
+                name: c.name,
+                description: c.profile?.description,
+                species: c.profile?.species,
+              })) : []}
+              onPromptGenerated={(positive, negative) => {
+                setPrompt(positive);
+                setNegativePrompt(negative);
+              }}
             />
           </div>
 
