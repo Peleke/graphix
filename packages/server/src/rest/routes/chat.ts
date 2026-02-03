@@ -26,6 +26,54 @@ const sendMessageSchema = z.object({
   content: z.string().min(1, "content is required").max(4000, "content too long"),
 });
 
+const enhancedBootstrapSchema = z.object({
+  name: z.string().min(1, "name is required").max(255),
+  description: z.string().optional(),
+  characters: z.array(z.object({
+    name: z.string(),
+    role: z.enum(["protagonist", "antagonist", "supporting", "minor"]),
+    species: z.string().optional(),
+    visualDescription: z.string(),
+    personality: z.array(z.string()),
+    motivation: z.string().optional(),
+    arc: z.string().optional(),
+    relationships: z.array(z.object({
+      character: z.string(),
+      relationship: z.string(),
+    })).optional(),
+  })),
+  setting: z.object({
+    location: z.string(),
+    timeperiod: z.string().optional(),
+    atmosphere: z.string(),
+    visualDetails: z.array(z.string()),
+  }).nullable().optional(),
+  arc: z.object({
+    premise: z.object({
+      logline: z.string(),
+      genre: z.string(),
+      tone: z.string(),
+      themes: z.array(z.string()),
+      setting: z.string(),
+    }),
+    structure: z.enum(["three-act", "five-act", "hero-journey"]),
+    acts: z.array(z.string()),
+    beats: z.array(z.object({
+      type: z.string(),
+      actIndex: z.number(),
+      summary: z.string(),
+      visualDescription: z.string(),
+      emotionalTone: z.string(),
+      involvedCharacters: z.array(z.string()),
+      cameraAngle: z.string().optional(),
+      narration: z.string().optional(),
+      sfx: z.string().optional(),
+    })),
+  }),
+  style: z.string().optional(),
+  pageCount: z.number().optional(),
+});
+
 // =============================================================================
 // Chat Service Import
 // =============================================================================
@@ -268,10 +316,10 @@ chatRoutes.post(
 chatRoutes.post("/sessions/:id/bootstrap", async (c) => {
   const sessionId = c.req.param("id");
   const bootstrapService = getProjectBootstrapService();
-  
+
   try {
     const result = await bootstrapService.bootstrapFromSession(sessionId);
-    
+
     return c.json({
       projectId: result.projectId,
       projectName: result.projectName,
@@ -289,6 +337,44 @@ chatRoutes.post("/sessions/:id/bootstrap", async (c) => {
     throw error;
   }
 });
+
+/**
+ * POST /bootstrap/enhanced
+ *
+ * Create a full project structure from enhanced extraction data.
+ * Creates: Project → Characters → Premise → Story → Storyboards (per act) → Beats → Panels
+ *
+ * This is the main endpoint for Phase 1 chat-driven story creation.
+ */
+chatRoutes.post(
+  "/bootstrap/enhanced",
+  validateBody(enhancedBootstrapSchema),
+  async (c) => {
+    const input = c.req.valid("json");
+    const bootstrapService = getProjectBootstrapService();
+
+    try {
+      const result = await bootstrapService.bootstrapFromExtraction(input);
+
+      return c.json({
+        project: result.project,
+        premise: result.premise,
+        story: result.story,
+        storyboards: result.storyboards,
+        beats: result.beats,
+        panels: result.panels,
+        characters: result.characters,
+      }, 201);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes("required")) {
+          return errors.badRequest(c, error.message);
+        }
+      }
+      throw error;
+    }
+  }
+);
 
 // -----------------------------------------------------------------------------
 // Status

@@ -373,6 +373,140 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 }
 
 // =============================================================================
+// Enhanced Bootstrap Types (Phase 1 Extraction-based)
+// =============================================================================
+
+export interface ExtractedCharacter {
+  name: string;
+  role: 'protagonist' | 'antagonist' | 'supporting' | 'minor';
+  species?: string;
+  visualDescription: string;
+  personality: string[];
+  motivation?: string;
+  arc?: string;
+  relationships?: Array<{ character: string; relationship: string }>;
+}
+
+export interface ExtractedSetting {
+  location: string;
+  timeperiod?: string;
+  atmosphere: string;
+  visualDetails: string[];
+}
+
+export interface ExtractedBeat {
+  type: string;
+  actIndex: number;
+  summary: string;
+  visualDescription: string;
+  emotionalTone: string;
+  involvedCharacters: string[];
+  cameraAngle?: string;
+  narration?: string;
+  sfx?: string;
+}
+
+export interface ExtractedStoryArc {
+  premise: {
+    logline: string;
+    genre: string;
+    tone: string;
+    themes: string[];
+    setting: string;
+  };
+  structure: 'three-act' | 'five-act' | 'hero-journey';
+  acts: string[];
+  beats: ExtractedBeat[];
+}
+
+export interface EnhancedBootstrapInput {
+  name: string;
+  description?: string;
+  characters: ExtractedCharacter[];
+  setting?: ExtractedSetting | null;
+  arc: ExtractedStoryArc;
+  style?: string;
+  pageCount?: number;
+}
+
+export interface EnhancedBootstrapResult {
+  project: { id: string; name: string };
+  premise: { id: string; logline: string };
+  story: { id: string; structure: string };
+  storyboards: Array<{ id: string; name: string; actIndex: number }>;
+  beats: Array<{ id: string; type: string; panelId: string | null }>;
+  panels: Array<{ id: string; beatId: string; storyboardId: string }>;
+  characters: Array<{ id: string; name: string }>;
+}
+
+// =============================================================================
+// Enhanced Bootstrap Hook
+// =============================================================================
+
+export interface UseEnhancedBootstrapOptions {
+  baseUrl?: string;
+  onSuccess?: (result: EnhancedBootstrapResult) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface UseEnhancedBootstrapReturn {
+  bootstrap: (input: EnhancedBootstrapInput) => Promise<EnhancedBootstrapResult | null>;
+  isLoading: boolean;
+  error: Error | null;
+  result: EnhancedBootstrapResult | null;
+}
+
+export function useEnhancedBootstrap(options: UseEnhancedBootstrapOptions = {}): UseEnhancedBootstrapReturn {
+  const {
+    baseUrl = '/api/chat',
+    onSuccess,
+    onError,
+  } = options;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [result, setResult] = useState<EnhancedBootstrapResult | null>(null);
+
+  const bootstrap = useCallback(async (input: EnhancedBootstrapInput): Promise<EnhancedBootstrapResult | null> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await fetch(`${baseUrl}/bootstrap/enhanced`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Bootstrap failed: ${response.statusText}`);
+      }
+
+      const data: EnhancedBootstrapResult = await response.json();
+      setResult(data);
+      onSuccess?.(data);
+      return data;
+
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Bootstrap failed');
+      setError(error);
+      onError?.(error);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [baseUrl, onSuccess, onError]);
+
+  return {
+    bootstrap,
+    isLoading,
+    error,
+    result,
+  };
+}
+
+// =============================================================================
 // Utility: Check if chat API is available
 // =============================================================================
 
@@ -386,7 +520,7 @@ export async function checkChatAvailability(baseUrl = '/api/chat'): Promise<{
     if (!response.ok) {
       return { available: false, error: response.statusText };
     }
-    
+
     const data = await response.json();
     return {
       available: data.available,

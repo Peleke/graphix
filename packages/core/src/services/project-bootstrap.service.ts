@@ -16,13 +16,22 @@ import { getDefaultDatabase, hasDefaultDatabase, type Database } from "../db/cli
 import {
   chatThreads,
   type ChatWorkingMemory,
+  type BeatType,
 } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { getChatAgentService, type ChatAgentService } from "./chat-agent.service.js";
 import { ProjectService } from "./project.service.js";
 import { CharacterService } from "./character.service.js";
 import { StoryboardService } from "./storyboard.service.js";
+import { getNarrativeService, type NarrativeService } from "./narrative.service.js";
 import { canCreateProject } from "../agents/project-creation.agent.js";
+import type {
+  ExtractedCharacter,
+  ExtractedSetting,
+  ExtractedStoryArc,
+  StoryStructure,
+  BootstrapResult as ChatBootstrapResult,
+} from "./chat/chat.types.js";
 
 // =============================================================================
 // Types
@@ -69,6 +78,37 @@ export interface BootstrapValidation {
 }
 
 // =============================================================================
+// Enhanced Bootstrap Types (Phase 1 Extraction-based)
+// =============================================================================
+
+export interface EnhancedBootstrapInput {
+  /** Project name (required) */
+  name: string;
+  /** Project description */
+  description?: string;
+  /** Extracted characters from chat */
+  characters: ExtractedCharacter[];
+  /** Extracted setting */
+  setting?: ExtractedSetting | null;
+  /** Extracted story arc with beats */
+  arc: ExtractedStoryArc;
+  /** Visual style */
+  style?: string;
+  /** Target page count */
+  pageCount?: number;
+}
+
+export interface EnhancedBootstrapResult {
+  project: { id: string; name: string };
+  premise: { id: string; logline: string };
+  story: { id: string; structure: StoryStructure };
+  storyboards: Array<{ id: string; name: string; actIndex: number }>;
+  beats: Array<{ id: string; type: BeatType; panelId: string | null }>;
+  panels: Array<{ id: string; beatId: string; storyboardId: string }>;
+  characters: Array<{ id: string; name: string }>;
+}
+
+// =============================================================================
 // Service Implementation
 // =============================================================================
 
@@ -77,6 +117,7 @@ export class ProjectBootstrapService {
   private projectService: ProjectService;
   private characterService: CharacterService;
   private storyboardService: StoryboardService;
+  private narrativeService: NarrativeService;
   private chatService: ChatAgentService;
 
   constructor(db?: Database) {
@@ -84,6 +125,7 @@ export class ProjectBootstrapService {
     this.projectService = new ProjectService(this.db ?? undefined);
     this.characterService = new CharacterService(this.db ?? undefined);
     this.storyboardService = new StoryboardService(this.db ?? undefined);
+    this.narrativeService = getNarrativeService();
     this.chatService = getChatAgentService();
   }
 
@@ -188,6 +230,159 @@ export class ProjectBootstrapService {
       characterIds,
       storyboardId,
       message: `Created project "${input.name}" with ${characterIds.length} character(s)${storyboardId ? " and initial storyboard" : ""}.`,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Enhanced Bootstrap (Phase 1 Extraction-based)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Bootstrap a complete project from enhanced extraction data.
+   * Creates: Project → Characters → Premise → Story → Storyboards (per act) → Beats → Panels
+   */
+  async bootstrapFromExtraction(input: EnhancedBootstrapInput): Promise<EnhancedBootstrapResult> {
+    // Validate required fields
+    if (!input.name?.trim()) {
+      throw new Error("Project name is required");
+    }
+    if (!input.arc?.premise?.logline) {
+      throw new Error("Story arc with premise is required");
+    }
+
+    // 1. Create project
+    const project = await this.projectService.create({
+      name: input.name.trim(),
+      description: input.description?.trim() || input.arc.premise.logline,
+    });
+
+    // 2. Create characters with enhanced visual traits
+    const createdCharacters: Array<{ id: string; name: string }> = [];
+    const characterIdMap = new Map<string, string>(); // name -> id
+
+    for (const char of input.characters) {
+      const profile = {
+        species: char.species ?? "human",
+        bodyType: "average",
+        features: [char.visualDescription],
+        ageDescriptors: [],
+        clothing: [],
+        distinguishing: [],
+      };
+
+      const promptFragments = {
+        positive: char.visualDescription,
+        negative: "bad anatomy, blurry, low quality, distorted face, extra limbs",
+        triggers: [char.name.toLowerCase().replace(/\s+/g, "_")],
+      };
+
+      const character = await this.characterService.create({
+        projectId: project.id,
+        name: char.name.trim(),
+        profile,
+        promptFragments,
+      });
+
+      createdCharacters.push({ id: character.id, name: character.name });
+      characterIdMap.set(char.name.toLowerCase(), character.id);
+    }
+
+    // 3. Create premise from extracted arc
+    const premise = await this.narrativeService.createPremise({
+      projectId: project.id,
+      logline: input.arc.premise.logline,
+      genre: input.arc.premise.genre,
+      tone: input.arc.premise.tone,
+      themes: input.arc.premise.themes,
+      setting: input.setting?.location || input.arc.premise.setting,
+      characterIds: createdCharacters.map(c => c.id),
+      generatedBy: "chat-extraction",
+      status: "approved",
+    });
+
+    // 4. Create story linked to premise
+    const story = await this.narrativeService.createStory({
+      premiseId: premise.id,
+      title: input.name.trim(),
+      synopsis: input.arc.premise.logline,
+      targetLength: input.pageCount ?? input.arc.beats.length,
+      structure: input.arc.structure,
+      generatedBy: "chat-extraction",
+      status: "draft",
+    });
+
+    // 5. Create storyboards (one per act)
+    const createdStoryboards: Array<{ id: string; name: string; actIndex: number }> = [];
+    const storyboardByAct = new Map<number, string>(); // actIndex -> storyboardId
+
+    for (let i = 0; i < input.arc.acts.length; i++) {
+      const actName = input.arc.acts[i];
+      const storyboard = await this.storyboardService.create({
+        projectId: project.id,
+        name: actName,
+        description: `Act ${i + 1}: ${actName}`,
+      });
+      createdStoryboards.push({ id: storyboard.id, name: actName, actIndex: i });
+      storyboardByAct.set(i, storyboard.id);
+    }
+
+    // Ensure at least one storyboard exists
+    if (createdStoryboards.length === 0) {
+      const defaultStoryboard = await this.storyboardService.create({
+        projectId: project.id,
+        name: "Main Story",
+        description: input.arc.premise.logline,
+      });
+      createdStoryboards.push({ id: defaultStoryboard.id, name: "Main Story", actIndex: 0 });
+      storyboardByAct.set(0, defaultStoryboard.id);
+    }
+
+    // 6. Create beats from extracted arc beats
+    const beatInputs = input.arc.beats.map((beat, index) => ({
+      position: index,
+      actNumber: beat.actIndex + 1, // 1-indexed
+      beatType: beat.type as BeatType,
+      visualDescription: beat.visualDescription,
+      narrativeContext: beat.summary,
+      emotionalTone: beat.emotionalTone,
+      characterIds: beat.involvedCharacters
+        .map(name => characterIdMap.get(name.toLowerCase()))
+        .filter((id): id is string => id !== undefined),
+      cameraAngle: beat.cameraAngle,
+      narration: beat.narration,
+      sfx: beat.sfx,
+      generatedBy: "chat-extraction",
+    }));
+
+    const createdBeats = await this.narrativeService.createBeats(story.id, beatInputs);
+
+    // 7. Convert beats to panels (link to appropriate storyboard by act)
+    const createdPanels: Array<{ id: string; beatId: string; storyboardId: string }> = [];
+    const beatResults: Array<{ id: string; type: BeatType; panelId: string | null }> = [];
+
+    for (const beat of createdBeats) {
+      const actIndex = (beat.actNumber ?? 1) - 1; // Convert back to 0-indexed
+      const storyboardId = storyboardByAct.get(actIndex) ?? storyboardByAct.get(0)!;
+
+      try {
+        const { panelId } = await this.narrativeService.convertBeatToPanel(beat.id, storyboardId);
+        createdPanels.push({ id: panelId, beatId: beat.id, storyboardId });
+        beatResults.push({ id: beat.id, type: beat.beatType as BeatType, panelId });
+      } catch (error) {
+        // Log but continue - some beats may fail to convert
+        console.warn(`Failed to convert beat ${beat.id} to panel:`, error);
+        beatResults.push({ id: beat.id, type: beat.beatType as BeatType, panelId: null });
+      }
+    }
+
+    return {
+      project: { id: project.id, name: project.name },
+      premise: { id: premise.id, logline: premise.logline },
+      story: { id: story.id, structure: input.arc.structure },
+      storyboards: createdStoryboards,
+      beats: beatResults,
+      panels: createdPanels,
+      characters: createdCharacters,
     };
   }
 
