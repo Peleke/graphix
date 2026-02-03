@@ -130,14 +130,13 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
   // Get the first storyboard for this project
   const storyboards = await storyboardService.listByProject(id);
   if (!storyboards || storyboards.length === 0) {
-    // Return 204 No Content if no storyboards
-    return c.body(null, 204);
+    return c.json({ error: "No storyboards" }, 404);
   }
 
   // Get panels from the first storyboard
   const panels = await panelService.listByStoryboard(storyboards[0].id);
   if (!panels || panels.length === 0) {
-    return c.body(null, 204);
+    return c.json({ error: "No panels with images" }, 404);
   }
 
   // Find the first panel with a selected generation or any generation
@@ -170,8 +169,8 @@ projectRoutes.get("/:id/thumbnail", validateId(), async (c) => {
     }
   }
 
-  // No thumbnail available
-  return c.body(null, 204);
+  // No thumbnail available - return 404 so img onError fires
+  return c.json({ error: "No thumbnail available" }, 404);
 });
 
 export { projectRoutes };

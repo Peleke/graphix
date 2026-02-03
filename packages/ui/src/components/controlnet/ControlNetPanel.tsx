@@ -1018,15 +1018,29 @@ export function ControlNetPanel({ panelId, projectId, referenceImages, onChange 
                   data-testid={`history-card-${img.id}`}
                   data-selected={isSelected}
                   onClick={() => {
-                    setSelectedReferenceId(img.id);
-                    setReferenceImage(img.path);
-                    setSettings({
-                      ...settings,
-                      controls: settings.controls.map((control) => ({
-                        ...control,
-                        image: img.path,
-                      })),
-                    });
+                    if (isSelected) {
+                      // Deselect: clear reference image
+                      setSelectedReferenceId(null);
+                      setReferenceImage("");
+                      setSettings({
+                        ...settings,
+                        controls: settings.controls.map((control) => ({
+                          ...control,
+                          image: "",
+                        })),
+                      });
+                    } else {
+                      // Select this image
+                      setSelectedReferenceId(img.id);
+                      setReferenceImage(img.path);
+                      setSettings({
+                        ...settings,
+                        controls: settings.controls.map((control) => ({
+                          ...control,
+                          image: img.path,
+                        })),
+                      });
+                    }
                   }}
                   style={s.historyCard(isSelected)}
                 >
