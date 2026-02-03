@@ -36,6 +36,9 @@ coverage/
 # Local project storage (dev only)
 projects/
 
+# Generated images output directory
+output/
+
 # Large binary assets (keep in cloud storage)
 *.png
 *.jpg

@@ -139,10 +139,11 @@ export function getDefaultInputDir(): string {
 
 /**
  * Get the default ComfyUI output directory.
- * Uses COMFYUI_OUTPUT_DIR env var, or falls back to /tmp/comfyui-output
+ * Uses COMFYUI_OUTPUT_DIR env var, or falls back to ./output/generations
+ * (persistent, gitignored directory instead of /tmp which gets cleaned)
  */
 export function getComfyUIOutputDir(): string {
-  return process.env.COMFYUI_OUTPUT_DIR || "/tmp/comfyui-output";
+  return process.env.COMFYUI_OUTPUT_DIR || "./output/generations";
 }
 
 /**
