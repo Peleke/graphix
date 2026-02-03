@@ -232,11 +232,31 @@ export interface BeatPromptContext {
     name: string;
     description?: string;
     species?: string;
+    /** Character's base prompt fragment for consistent appearance */
+    basePrompt?: string;
+    /** Visual features like hair color, eye color, etc. */
+    features?: string[];
+    /** Current clothing/outfit */
+    clothing?: string[];
   }>;
   /** Model family for prompt optimization */
   modelFamily?: "pony" | "illustrious" | "flux" | "sdxl" | "sd15" | "realistic";
   /** Style hints (e.g., "comic", "manga", "realistic") */
   style?: string;
+  /** Narrative context - what's happening in the story */
+  narrativeContext?: string;
+  /** Composition hints (e.g., "rule-of-thirds", "centered") */
+  composition?: string;
+  /** What each character is doing: { characterId: "action description" } */
+  characterActions?: Record<string, string>;
+  /** Beat type for narrative pacing hints */
+  beatType?: string;
+  /** Dialogue in this beat */
+  dialogue?: Array<{ characterId: string; text: string; type: "speech" | "thought" | "whisper" }>;
+  /** Narration text */
+  narration?: string;
+  /** Sound effects */
+  sfx?: string;
 }
 
 /** Generated prompt result from beat */
