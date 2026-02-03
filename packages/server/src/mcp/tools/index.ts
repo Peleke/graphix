@@ -29,6 +29,10 @@ import { batchTools, handleBatchTool } from "./batch.tools.js";
 import { textGenerationTools, handleTextGenerationTool } from "./text-generation.tools.js";
 // Generated text storage tools
 import { generatedTextTools, handleGeneratedTextTool } from "./generated-text.tools.js";
+// Beat management tools (Phase 5)
+import { beatTools, handleBeatTool } from "./beat.tools.js";
+// Chat session & bootstrap tools (Phase 5)
+import { chatTools, handleChatTool } from "./chat.tools.js";
 
 // All tools
 export const tools = {
@@ -57,6 +61,10 @@ export const tools = {
   ...textGenerationTools,
   // Generated text storage
   ...generatedTextTools,
+  // Beat management (Phase 5)
+  ...beatTools,
+  // Chat session & bootstrap (Phase 5)
+  ...chatTools,
 };
 
 // Tool handlers by category
@@ -267,6 +275,28 @@ const handlers: Record<string, (name: string, args: Record<string, unknown>) => 
   generated_text_stats: handleGeneratedTextTool,
   generated_text_delete_by_panel: handleGeneratedTextTool,
   generated_text_batch_archive: handleGeneratedTextTool,
+
+  // Beat management tools (Phase 5)
+  story_beat_create: handleBeatTool,
+  story_beat_create_batch: handleBeatTool,
+  story_beat_get: handleBeatTool,
+  story_beat_list: handleBeatTool,
+  story_beat_update: handleBeatTool,
+  story_beat_reorder: handleBeatTool,
+  story_beat_delete: handleBeatTool,
+  story_beat_to_panel: handleBeatTool,
+  story_beat_to_prompt: handleBeatTool,
+
+  // Chat session & bootstrap tools (Phase 5)
+  chat_create_session: handleChatTool,
+  chat_get_session: handleChatTool,
+  chat_list_sessions: handleChatTool,
+  chat_send_message: handleChatTool,
+  chat_delete_session: handleChatTool,
+  chat_extract_story: handleChatTool,
+  chat_can_bootstrap: handleChatTool,
+  chat_bootstrap_project: handleChatTool,
+  chat_bootstrap_from_extraction: handleChatTool,
 };
 
 /**
