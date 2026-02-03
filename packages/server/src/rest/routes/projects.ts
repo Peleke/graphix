@@ -191,7 +191,7 @@ projectRoutes.get("/:id/previews", validateId(), async (c) => {
   const apiBase = c.req.url.replace(/\/api\/projects\/.*/, '');
 
   // Get all storyboards for this project
-  const storyboards = await storyboardService.listByProject(id);
+  const storyboards = await storyboardService.getByProject(id);
   if (!storyboards || storyboards.length === 0) {
     return c.json({ previews: [] });
   }
@@ -200,7 +200,7 @@ projectRoutes.get("/:id/previews", validateId(), async (c) => {
   for (const storyboard of storyboards) {
     if (previews.length >= 4) break;
 
-    const panels = await panelService.listByStoryboard(storyboard.id);
+    const panels = await panelService.getByStoryboard(storyboard.id);
     if (!panels) continue;
 
     for (const panel of panels) {
@@ -213,16 +213,26 @@ projectRoutes.get("/:id/previews", validateId(), async (c) => {
       const selectedGen = generations.find((g: any) => g.id === panel.selectedOutputId) || generations[0];
 
       if (selectedGen) {
-        // Check if cloudUrl exists
+        // Check if cloudUrl exists - prefer this
         if (selectedGen.cloudUrl && typeof selectedGen.cloudUrl === 'string') {
           previews.push({ url: selectedGen.cloudUrl, panelId: panel.id });
           continue;
         }
 
-        // Check if localPath exists and file is accessible
+        // Check if localPath exists - try to serve via generations endpoint
+        // The client handles image load errors gracefully, so we return the URL
+        // even if we're not 100% sure the file exists
         if (selectedGen.localPath && typeof selectedGen.localPath === 'string') {
+          // Check if file actually exists on disk
           if (existsSync(selectedGen.localPath)) {
-            // Return URL to serve via generations endpoint
+            previews.push({
+              url: `${apiBase}/api/generations/${selectedGen.id}/image`,
+              panelId: panel.id
+            });
+          }
+          // If file doesn't exist but we have an ID, still try the endpoint
+          // (it might be accessible through other means)
+          else if (selectedGen.id) {
             previews.push({
               url: `${apiBase}/api/generations/${selectedGen.id}/image`,
               panelId: panel.id
