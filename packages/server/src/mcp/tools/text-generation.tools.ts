@@ -24,7 +24,10 @@ export const textGenerationTools: Record<string, Tool> = {
   text_status: {
     name: "text_status",
     description:
-      "Get the current text generation provider status, including availability and configuration",
+      "Check whether the active LLM text generation provider is reachable and return its current configuration. " +
+      "Call before any text_generate/text_dialogue/text_panel_description call when you are unsure if the provider is online. " +
+      "Unlike text_list_providers (which enumerates all providers), this checks only the currently active one. " +
+      "Returns { provider, available: boolean, model, config: { temperature, maxTokens } }. Response ~0.3 KB. No parameters required.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -34,7 +37,11 @@ export const textGenerationTools: Record<string, Tool> = {
 
   text_list_providers: {
     name: "text_list_providers",
-    description: "List all available text generation providers with their status",
+    description:
+      "Enumerate all configured LLM providers (ollama, claude, openai) with their availability status and which one is currently active. " +
+      "Call when the user asks which text backends are available or before switching providers with text_set_provider. " +
+      "Unlike text_status (single active provider health check), this returns info on every provider. " +
+      "Returns { current: string, providers: [{ name, available, model }] }. Response ~0.5 KB. No parameters required.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -45,7 +52,10 @@ export const textGenerationTools: Record<string, Tool> = {
   text_set_provider: {
     name: "text_set_provider",
     description:
-      "Switch to a different text generation provider (ollama, claude, or openai)",
+      "Switch the active LLM text generation backend to a different provider. " +
+      "Call when the user explicitly requests a provider change, or when the current provider is unavailable (check with text_status first). " +
+      "Valid values: 'ollama', 'claude', 'openai'. All subsequent text_generate/text_dialogue/text_panel_description calls will use the new provider. " +
+      "Returns { message, provider, available, model }. Response ~0.3 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -61,7 +71,11 @@ export const textGenerationTools: Record<string, Tool> = {
 
   text_generate: {
     name: "text_generate",
-    description: "Generate text from a prompt using the current provider",
+    description:
+      "Send a free-form prompt to the active LLM provider and return the raw generated text. " +
+      "Call for general-purpose text generation that does not fit the specialized tools (text_panel_description, text_dialogue, text_suggest_captions, text_refine, prompt_spice). " +
+      "Supports systemPrompt, temperature (0-2), maxTokens (up to 100k), and timeoutMs. " +
+      "Returns { text: string, provider, tokensUsed }. Response size depends on maxTokens (default 4096).",
     inputSchema: {
       type: "object",
       properties: {
@@ -93,7 +107,10 @@ export const textGenerationTools: Record<string, Tool> = {
   text_panel_description: {
     name: "text_panel_description",
     description:
-      "Generate a visual panel description for a comic/storyboard based on context",
+      "Generate an image-generation-ready visual description for a single comic panel from scene context (setting, characters, action, mood, camera angle). " +
+      "Call when you have narrative context and need a detailed prompt suitable for feeding into panels_generate_batch or the image generation pipeline. " +
+      "Unlike text_dialogue (generates spoken lines) or text_suggest_captions (generates overlay text), this produces visual scene descriptions. " +
+      "Returns { description: string, provider }. Response ~0.5-1 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -136,7 +153,11 @@ export const textGenerationTools: Record<string, Tool> = {
 
   text_dialogue: {
     name: "text_dialogue",
-    description: "Generate dialogue for a character based on context",
+    description:
+      "Generate in-character dialogue (speech, thought, whisper, or narration) for a named character given their personality, speaking style, emotional state, and scene situation. " +
+      "Call when writing dialogue for a specific panel and you want text that sounds like the character. " +
+      "Unlike text_suggest_captions (infers all caption types from a visual description) or text_panel_description (visual scene prompt), this focuses on one character's voice. " +
+      "Returns { dialogue: string, provider }. Response ~0.3-0.5 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -178,7 +199,10 @@ export const textGenerationTools: Record<string, Tool> = {
   text_suggest_captions: {
     name: "text_suggest_captions",
     description:
-      "Suggest captions (speech, thought, narration, SFX) from a visual panel description",
+      "Given a visual description of a panel, suggest a set of captions (dialogue, thought bubbles, narration boxes, SFX) that would accompany the image. " +
+      "Call after generating or describing a panel image when you need to populate it with text overlays. " +
+      "Unlike text_dialogue (one character's lines given personality context) this infers ALL caption types from the visual scene. " +
+      "Returns { captions: [{ type, text, characterName? }], count, provider }. Response ~0.5-1 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -194,7 +218,11 @@ export const textGenerationTools: Record<string, Tool> = {
 
   text_refine: {
     name: "text_refine",
-    description: "Refine text based on feedback",
+    description:
+      "Rewrite existing text (dialogue, description, caption, or narration) according to specific feedback instructions. " +
+      "Call when the user says 'make it shorter', 'more dramatic', 'change tone', etc. on text that was already generated. " +
+      "Unlike text_generate (free-form, from scratch) or prompt_spice (image prompt enhancement), this takes original text + feedback and returns a refined version. " +
+      "Returns { originalText, refinedText, provider }. Response ~0.5-1 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -218,7 +246,11 @@ export const textGenerationTools: Record<string, Tool> = {
 
   prompt_spice: {
     name: "prompt_spice",
-    description: "Spice up an image generation prompt - transform it into explicit NSFW content with appropriate tags and descriptions",
+    description:
+      "Enhance an image generation prompt with artistic, stylistic, and explicit NSFW details and tags. " +
+      "Call when the user wants to amplify a plain prompt for more vivid or explicit image generation output. Target 'positive' adds content tags; 'negative' adds quality-negative tags. " +
+      "Unlike text_refine (rewrites arbitrary text from feedback) or text_panel_description (generates scene descriptions from context), this specifically transforms image generation prompts. " +
+      "Returns { originalPrompt, spicedPrompt, target, provider }. Response ~0.5 KB.",
     inputSchema: {
       type: "object",
       properties: {

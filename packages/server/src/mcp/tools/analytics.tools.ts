@@ -16,8 +16,7 @@ export const analyticsTools: Record<string, Tool> = {
   generation_analyze: {
     name: "generation_analyze",
     description:
-      "Analyze successful generations to find patterns. Identifies which CFG, sampler, " +
-      "model, LoRAs, and prompt terms lead to the highest-rated results.",
+      "Mine rated generations across a project to discover which parameter combinations (CFG, sampler, model, LoRAs, prompt terms) correlate with high ratings. Call after accumulating 10+ rated generations to learn what works. Unlike generation_stats which analyzes a specific set of IDs, this scans project-wide (up to 500 generations). Returns JSON with {topModels, topSamplers, cfgDistribution, topPromptTerms, sampleSize}. ~500-1000 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -45,8 +44,7 @@ export const analyticsTools: Record<string, Tool> = {
   generation_suggest_params: {
     name: "generation_suggest_params",
     description:
-      "Get AI-suggested generation parameters based on past successes. " +
-      "Returns recommended CFG, sampler, steps, model, and LoRAs.",
+      "Recommend optimal generation parameters (CFG, sampler, steps, model, LoRAs) based on patterns mined from past highly-rated generations. Call before generating a new panel when you want data-driven defaults. Unlike generation_analyze which returns raw pattern data, this returns a ready-to-use parameter set. Returns JSON with {suggestedCfg, suggestedSampler, suggestedSteps, suggestedModel, suggestedLoras, confidence}. ~300 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -66,8 +64,7 @@ export const analyticsTools: Record<string, Tool> = {
   generation_find_similar: {
     name: "generation_find_similar",
     description:
-      "Find past successful generations similar to a prompt. " +
-      "Useful for seeing what worked before for similar content.",
+      "Search for past highly-rated generations whose prompts are textually similar to a given prompt string. Call before generating a new panel to see what parameters and prompt phrasing worked for similar content. Returns JSON with {similar: [{imageId, prompt, rating, similarity, matchedTerms, localPath}], count}. Up to 20 results, ~500-1500 tokens.",
     inputSchema: {
       type: "object",
       properties: {

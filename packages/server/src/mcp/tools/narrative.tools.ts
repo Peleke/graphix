@@ -19,7 +19,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_create: {
     name: "story_premise_create",
-    description: "Create a new story premise (the foundational concept for a story)",
+    description: "Create a new story premise -- the top-level narrative concept (logline, genre, tone, themes, setting, world rules) that contains one or more stories. Call when starting a new narrative arc within an existing project. Requires projectId and logline. Returns a JSON object (~200-400 tokens) with the full premise record including generated id, status ('draft'), and all supplied fields. This is a CRUD create for the premise entity only -- it does NOT auto-generate stories or beats underneath. Use narrative_story_create to add stories to the premise afterward.",
     inputSchema: {
       type: "object",
       properties: {
@@ -65,7 +65,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_get: {
     name: "story_premise_get",
-    description: "Get a specific premise by ID",
+    description: "Retrieve a single story premise by its ID, returning the premise record only (logline, genre, tone, themes, setting, worldRules, status). Call when you need to inspect or display a specific premise without its child stories. Returns a JSON object (~200-400 tokens). Unlike story_premise_get_with_stories, this does NOT include the associated stories array -- use that variant when you need the full premise-to-stories tree.",
     inputSchema: {
       type: "object",
       properties: {
@@ -80,7 +80,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_get_with_stories: {
     name: "story_premise_get_with_stories",
-    description: "Get a premise with all its associated stories",
+    description: "Retrieve a story premise together with all its child stories in a single call. Call when you need the full narrative outline -- the premise plus every story (chapter/episode) beneath it. Returns a JSON object (~400-2000 tokens, scales with story count) containing the premise fields and a stories[] array with each story's title, synopsis, structure, and status. Unlike story_premise_get, this eagerly loads the stories relationship. Does NOT include beats within each story -- use narrative_story_get_with_beats for that.",
     inputSchema: {
       type: "object",
       properties: {
@@ -95,7 +95,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_list: {
     name: "story_premise_list",
-    description: "List all premises for a project",
+    description: "List all story premises belonging to a project as an array of premise summaries. Call when you need to see every narrative concept defined in a project, for example to let the user pick which premise to expand. Returns a JSON object (~100-300 tokens per premise) with a premises[] array and a count field. Each entry includes the premise's id, logline, genre, tone, and status. Does NOT include child stories -- use story_premise_get_with_stories on a specific premise for that.",
     inputSchema: {
       type: "object",
       properties: {
@@ -110,7 +110,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_update: {
     name: "story_premise_update",
-    description: "Update an existing premise",
+    description: "Update one or more fields on an existing story premise (logline, genre, tone, themes, characterIds, setting, worldRules, or status). Call when the user refines the narrative concept -- e.g., changing the genre, advancing status from 'draft' to 'approved', or adding new themes. Only supplied fields are overwritten; omitted fields remain unchanged. Returns the full updated premise object (~200-400 tokens). Does NOT cascade changes to child stories or beats.",
     inputSchema: {
       type: "object",
       properties: {
@@ -161,7 +161,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   story_premise_delete: {
     name: "story_premise_delete",
-    description: "Delete a premise (and all associated stories and beats)",
+    description: "Permanently delete a story premise and cascade-delete all its child stories and their beats. Call when the user wants to discard an entire narrative concept and everything beneath it. Returns a minimal JSON confirmation (~30 tokens) with success and message. This is destructive and irreversible. If you only need to remove a single story, use narrative_story_delete instead to preserve the premise and sibling stories.",
     inputSchema: {
       type: "object",
       properties: {
@@ -180,7 +180,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_create: {
     name: "narrative_story_create",
-    description: "Create a new story under a premise",
+    description: "Create a new story (chapter/episode) under an existing premise in the narrative hierarchy. Call when adding the next installment or chapter to a premise's story collection. Requires premiseId and title; optionally accepts synopsis, targetLength (panel count), structure (three-act, five-act, hero-journey, save-the-cat, freytag), and structureNotes. Returns the full story record (~200-400 tokens) with generated id and status 'draft'. This is CRUD for the story entity only -- it does NOT auto-generate beats. Use beat tools in beat.tools.ts to populate story beats afterward. Different from story scaffold tools in story.tools.ts, which parse/generate stories from text.",
     inputSchema: {
       type: "object",
       properties: {
@@ -216,7 +216,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_get: {
     name: "narrative_story_get",
-    description: "Get a specific story by ID",
+    description: "Retrieve a single narrative story by its ID, returning the story metadata only (title, synopsis, structure, targetLength, status). Call when you need to inspect a specific chapter/episode without loading its beats. Returns a JSON object (~200 tokens). Unlike narrative_story_get_with_beats, this does NOT include the beats array -- use that variant when you need the full story-to-beats breakdown.",
     inputSchema: {
       type: "object",
       properties: {
@@ -231,7 +231,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_get_with_beats: {
     name: "narrative_story_get_with_beats",
-    description: "Get a story with all its beats",
+    description: "Retrieve a narrative story together with all its child beats in a single call. Call when you need the full scene-by-scene breakdown of a chapter -- e.g., to review pacing, plan panel layouts, or verify beat completeness. Returns a JSON object (~400-3000 tokens, scales with beat count) containing the story fields and a beats[] array with each beat's type, summary, visual description, emotional tone, and involved characters. Unlike narrative_story_get, this eagerly loads the beats relationship. For beats CRUD, use tools in beat.tools.ts.",
     inputSchema: {
       type: "object",
       properties: {
@@ -246,7 +246,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_list: {
     name: "narrative_story_list",
-    description: "List all stories for a premise",
+    description: "List all stories (chapters/episodes) belonging to a specific premise. Call when you need to see every story under a narrative concept, for example to let the user pick which chapter to work on or to check story count. Returns a JSON object (~100-300 tokens per story) with a stories[] array and a count field. Each entry includes the story's id, title, synopsis, structure, and status. Does NOT include beats within each story -- use narrative_story_get_with_beats for that.",
     inputSchema: {
       type: "object",
       properties: {
@@ -261,7 +261,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_update: {
     name: "narrative_story_update",
-    description: "Update an existing story",
+    description: "Update one or more fields on an existing narrative story (title, synopsis, targetLength, structure, structureNotes, or status). Call when the user revises a chapter outline -- e.g., changing the synopsis, switching from three-act to hero-journey structure, or advancing status from 'draft' to 'beats_created'. Only supplied fields are overwritten; omitted fields remain unchanged. Returns the full updated story object (~200-400 tokens). Does NOT cascade changes to child beats.",
     inputSchema: {
       type: "object",
       properties: {
@@ -302,7 +302,7 @@ export const narrativeTools: Record<string, Tool> = {
 
   narrative_story_delete: {
     name: "narrative_story_delete",
-    description: "Delete a story (and all associated beats)",
+    description: "Permanently delete a narrative story and cascade-delete all its child beats. Call when the user wants to discard a specific chapter/episode while keeping the parent premise and sibling stories intact. Returns a minimal JSON confirmation (~30 tokens) with success and message. This is destructive and irreversible. If you want to remove the entire premise and all its stories, use story_premise_delete instead.",
     inputSchema: {
       type: "object",
       properties: {

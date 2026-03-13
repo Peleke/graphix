@@ -15,8 +15,7 @@ export const curationTools: Record<string, Tool> = {
   generation_compare: {
     name: "generation_compare",
     description:
-      "Get generations for side-by-side comparison with metadata summary. " +
-      "Returns images with stats like average rating, favorite count, etc.",
+      "Retrieve all (or specific) generated image variants for a panel, formatted for side-by-side comparison with metadata summaries. Call after generating multiple variants for a panel when you need to present them for selection. Returns JSON with array of {imageId, localPath, prompt, rating, isFavorite, params} plus aggregate stats. Unlike generation_stats which returns statistical analysis, this returns the images themselves. ~500-3000 tokens depending on variant count.",
     inputSchema: {
       type: "object",
       properties: {
@@ -36,7 +35,8 @@ export const curationTools: Record<string, Tool> = {
 
   generation_batch_rate: {
     name: "generation_batch_rate",
-    description: "Rate multiple generations at once. Efficient for bulk curation.",
+    description:
+      "Assign 1-5 star ratings to multiple generated images in a single call. Call after reviewing variants when you want to rate several at once instead of one by one. Accepts an array of {imageId, rating} pairs. Returns JSON with {updated: count, results: [{imageId, rating, success}]}. ~200-500 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -64,7 +64,8 @@ export const curationTools: Record<string, Tool> = {
 
   generation_batch_favorite: {
     name: "generation_batch_favorite",
-    description: "Favorite or unfavorite multiple generations at once.",
+    description:
+      "Toggle the favorite flag on multiple generated images in a single call. Call when bookmarking the best variants for later use or clearing old favorites. Unlike generation_batch_rate (1-5 stars), this is a binary favorite/unfavorite toggle. Returns JSON with {updated: count}. ~100 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -85,8 +86,7 @@ export const curationTools: Record<string, Tool> = {
   generation_quick_select: {
     name: "generation_quick_select",
     description:
-      "Automatically select the best generation based on criteria. " +
-      "Useful for quickly picking winners without manual review.",
+      "Auto-select the single best generated image for a panel based on a sorting criterion: highest_rating, most_recent, oldest, or favorite. Call when you want to finalize a panel's image without manual comparison. Returns JSON with {selected: {imageId, localPath, rating, ...}} or {success: false} if no match. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -108,8 +108,7 @@ export const curationTools: Record<string, Tool> = {
   generation_stats: {
     name: "generation_stats",
     description:
-      "Get statistics and patterns from a set of generations. " +
-      "Helps identify which settings produce the best results.",
+      "Compute aggregate rating statistics (average, distribution, top-rated settings) across a specific set of generation IDs. Call when you want to understand rating patterns for a batch of variants. Unlike generation_compare which returns full image data for display, this returns only statistical summaries. Unlike generation_analyze which mines project-wide patterns, this scopes to the exact IDs you provide. Returns JSON with rating distribution and parameter correlations. ~300 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -125,7 +124,8 @@ export const curationTools: Record<string, Tool> = {
 
   generation_get_unrated: {
     name: "generation_get_unrated",
-    description: "Get all unrated generations for a panel. Useful for curation workflow.",
+    description:
+      "Fetch all generated images for a panel that have no rating yet. Call at the start of a curation session to identify which variants still need review. Returns JSON with {unrated: [{imageId, localPath, prompt, ...}], count}. ~300-2000 tokens depending on unrated count.",
     inputSchema: {
       type: "object",
       properties: {

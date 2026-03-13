@@ -11,7 +11,7 @@ import { getChatAgentService, getProjectBootstrapService } from "@graphix/core";
 export const chatTools: Record<string, Tool> = {
   chat_create_session: {
     name: "chat_create_session",
-    description: "Create a new chat session for AI-guided story creation",
+    description: "Start a new brainstorming chat session for conversational story development. Call at the beginning of a new project ideation flow, before any chat_send_message calls. Returns a lightweight JSON object (~200 tokens) with session id, threadId, status, empty workingMemory, and createdAt. Does NOT create any project or narrative entities -- use chat_bootstrap_project after the conversation is complete. Optionally resumes an existing thread by passing threadId.",
     inputSchema: {
       type: "object",
       properties: {
@@ -29,7 +29,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_get_session: {
     name: "chat_get_session",
-    description: "Get a chat session with its full message history and state",
+    description: "Retrieve a single chat session by ID, including its full message history, working memory, and current status. Call when you need to inspect conversation progress or review what was discussed before extracting story data. Returns a potentially large JSON object (scales with message count -- expect 500-5000+ tokens for long conversations). Unlike chat_list_sessions, this returns the complete message array, not just metadata summaries.",
     inputSchema: {
       type: "object",
       properties: {
@@ -44,7 +44,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_list_sessions: {
     name: "chat_list_sessions",
-    description: "List all chat sessions for a user/resource",
+    description: "List all chat sessions for a given user/resource as lightweight summaries. Call when the user wants to pick up a previous brainstorming conversation or see how many sessions exist. Returns a compact JSON array (~100 tokens per session) with each session's id, title, status, messageCount, and lastActivity timestamp. Does NOT include message contents -- use chat_get_session to load the full conversation for a specific session.",
     inputSchema: {
       type: "object",
       properties: {
@@ -58,7 +58,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_send_message: {
     name: "chat_send_message",
-    description: "Send a message to a chat session and get the AI response (non-streaming)",
+    description: "Send a user message to an active brainstorming chat session and receive the AI assistant's reply (non-streaming, blocks until complete). Call each time the user provides new story ideas, answers prompts, or refines details during the conversational creation flow. Returns JSON (~300-800 tokens) with userMessage, assistantMessage, updated sessionState, and follow-up suggestions. Requires a sessionId from chat_create_session. This is the iterative step -- repeat until enough story material is gathered, then call chat_extract_story.",
     inputSchema: {
       type: "object",
       properties: {
@@ -77,7 +77,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_delete_session: {
     name: "chat_delete_session",
-    description: "Delete a chat session",
+    description: "Permanently delete a chat session and all its messages. Call when the user explicitly wants to discard a brainstorming conversation, or to clean up after a successful bootstrap. Returns a minimal JSON confirmation (~30 tokens) with success and message fields. This is destructive and irreversible -- the session cannot be recovered after deletion.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,7 +92,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_extract_story: {
     name: "chat_extract_story",
-    description: "Extract structured story data (characters, setting, beats) from a chat conversation",
+    description: "Parse a completed brainstorming chat session into structured story elements: characters (with roles, species, visual descriptions), setting (location, time period, atmosphere), and story arc (premise, structure, beats). Call after the conversational brainstorming phase is done and before checking bootstrap readiness with chat_can_bootstrap. Returns a rich extraction JSON (~500-2000 tokens) containing the parsed narrative data. Uses LLM analysis internally, so expect moderate latency. Unlike chat_bootstrap_from_extraction, this only extracts -- it does NOT create any project entities.",
     inputSchema: {
       type: "object",
       properties: {
@@ -107,7 +107,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_can_bootstrap: {
     name: "chat_can_bootstrap",
-    description: "Check if a chat session has enough data to bootstrap a project",
+    description: "Check whether a chat session has gathered sufficient story material (characters, setting, arc) to bootstrap a full graphic novel project. Call after chat_extract_story to gate the bootstrap step -- only proceed to chat_bootstrap_project if this returns ready: true. Returns a small JSON (~100 tokens) with a boolean ready flag and, if not ready, a list of missing elements. Does NOT modify any data or create entities.",
     inputSchema: {
       type: "object",
       properties: {
@@ -122,7 +122,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_bootstrap_project: {
     name: "chat_bootstrap_project",
-    description: "Create a complete project from a chat session's gathered story data",
+    description: "Generate a complete graphic novel project from a chat session's accumulated story data, creating the project, premise, story, storyboards, beats, panels, and characters in one operation. Call after chat_can_bootstrap confirms readiness. Returns a large JSON (~1000-3000 tokens) containing all created entity objects: project, premise, story, storyboards[], beats[], panels[], and characters[]. This is a heavy write operation with significant latency. Unlike chat_bootstrap_from_extraction, this takes a sessionId and internally performs extraction. Unlike project_bootstrap, this creates the full narrative hierarchy (premise, story, beats, panels), not just a project shell with characters.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,7 +137,7 @@ export const chatTools: Record<string, Tool> = {
 
   chat_bootstrap_from_extraction: {
     name: "chat_bootstrap_from_extraction",
-    description: "Create a complete project from extracted story data (one-shot bootstrap without chat session)",
+    description: "Generate a complete graphic novel project from pre-structured story data you already have (characters, setting, arc with beats), bypassing the chat session entirely. Call when story elements are available from an external source or were manually assembled -- no sessionId needed. Requires name, characters[], and arc as inputs. Returns a large JSON (~1000-3000 tokens) with project, premise, story, storyboards[], beats[], panels[], and characters[]. Unlike chat_bootstrap_project, this accepts raw extraction data directly instead of reading from a session. Unlike project_bootstrap, this creates the full narrative hierarchy including beats and panels.",
     inputSchema: {
       type: "object",
       properties: {
@@ -228,7 +228,7 @@ export const chatTools: Record<string, Tool> = {
 
   project_bootstrap: {
     name: "project_bootstrap",
-    description: "Create a basic project with characters and optional storyboard (simpler than chat_bootstrap_from_extraction)",
+    description: "Create a minimal project scaffold with characters and an optional empty storyboard -- no chat session, no narrative hierarchy. Call when you need a lightweight project shell to start building manually, without auto-generating premise, story, beats, or panels. Requires only name and characters[]. Returns a compact JSON (~200 tokens) with projectId, projectName, characterIds[], optional storyboardId, and a confirmation message. Unlike chat_bootstrap_project and chat_bootstrap_from_extraction, this does NOT create any narrative entities (premise, story, beats, panels) -- just the project container and character records.",
     inputSchema: {
       type: "object",
       properties: {

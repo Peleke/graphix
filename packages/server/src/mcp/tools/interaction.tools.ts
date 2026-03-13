@@ -20,8 +20,11 @@ export const interactionTools: Record<string, Tool> = {
   interaction_pose_list: {
     name: "interaction_pose_list",
     description:
-      "List available interaction pose presets. Filter by category (romantic, intimate, action, conversation), " +
-      "rating (safe, suggestive, explicit), character count, or search by name.",
+      "Call when the user wants to browse or search multi-character pose templates (hugging, fighting, " +
+      "talking, etc.). These are spatial-relationship presets for 2+ characters -- distinct from single-character " +
+      "pose/keypoint tools. Filter by category, rating, character count, or name search. " +
+      "Returns {count, poses: [{id, name, displayName, category, characterCount, rating, tags, usageCount, " +
+      "isBuiltin}]} (~100-500 tokens depending on result count).",
     inputSchema: {
       type: "object",
       properties: {
@@ -67,7 +70,11 @@ export const interactionTools: Record<string, Tool> = {
 
   interaction_pose_get: {
     name: "interaction_pose_get",
-    description: "Get details of a specific interaction pose preset by ID or name.",
+    description:
+      "Call when the user needs full details of a specific multi-character pose template (by ID or name). " +
+      "Returns the complete pose definition including per-character positions, GLIGEN bounding boxes, " +
+      "prompt/negative fragments, tags, and rating (~200-400 tokens). Use interaction_pose_list to browse first " +
+      "if the ID/name is unknown.",
     inputSchema: {
       type: "object",
       properties: {
@@ -86,8 +93,11 @@ export const interactionTools: Record<string, Tool> = {
   interaction_pose_create: {
     name: "interaction_pose_create",
     description:
-      "Create a new custom interaction pose preset. Define pose positions for each character, " +
-      "prompt fragments, and optionally GLIGEN bounding boxes for precise placement.",
+      "Call when the user defines a new multi-character spatial arrangement not covered by built-in presets. " +
+      "Creates a reusable interaction pose template with per-character pose descriptions, prompt fragments, " +
+      "and optional GLIGEN bounding boxes for precise spatial placement. Unlike single-character pose tools, " +
+      "this defines relationships between 2-3 characters (e.g., embracing, sparring). " +
+      "Returns the created pose object with generated ID (~300 tokens). Name must be unique.",
     inputSchema: {
       type: "object",
       properties: {
@@ -172,7 +182,11 @@ export const interactionTools: Record<string, Tool> = {
 
   interaction_pose_update: {
     name: "interaction_pose_update",
-    description: "Update an existing interaction pose preset.",
+    description:
+      "Call to modify fields on an existing custom multi-character pose template (display name, pose definitions, " +
+      "GLIGEN boxes, prompt fragments, tags, rating, etc.). Cannot modify built-in presets -- only user-created ones. " +
+      "Returns the full updated pose object (~300 tokens). Requires the pose ID from interaction_pose_list or " +
+      "interaction_pose_get.",
     inputSchema: {
       type: "object",
       properties: {
@@ -226,7 +240,9 @@ export const interactionTools: Record<string, Tool> = {
 
   interaction_pose_delete: {
     name: "interaction_pose_delete",
-    description: "Delete a custom interaction pose preset (cannot delete built-in presets).",
+    description:
+      "Call to permanently remove a user-created multi-character pose template. Cannot delete built-in presets. " +
+      "Returns {success, id} (~30 tokens). Use interaction_pose_list to confirm the ID before deleting.",
     inputSchema: {
       type: "object",
       properties: {
@@ -242,8 +258,11 @@ export const interactionTools: Record<string, Tool> = {
   interaction_pose_apply: {
     name: "interaction_pose_apply",
     description:
-      "Apply an interaction pose to a panel, mapping characters to positions. " +
-      "Returns prompt fragments and GLIGEN boxes ready for generation.",
+      "Call when generating a panel that needs two or more characters in a specific spatial arrangement. " +
+      "Maps character IDs to pose positions (character_a, character_b, character_c) and returns ready-to-use " +
+      "prompt fragments, negative fragments, GLIGEN bounding boxes, and per-character pose descriptions " +
+      "for image generation (~200 tokens). Records usage for analytics. This is the bridge between " +
+      "interaction pose templates and the generate_image/imagine tools.",
     inputSchema: {
       type: "object",
       properties: {
@@ -267,7 +286,11 @@ export const interactionTools: Record<string, Tool> = {
 
   interaction_pose_popular: {
     name: "interaction_pose_popular",
-    description: "Get the most frequently used interaction poses.",
+    description:
+      "Call to suggest multi-character pose templates based on popularity when the user is unsure which to pick. " +
+      "Returns up to N poses ranked by usage count: [{id, name, displayName, category, rating, usageCount}] " +
+      "(~100-200 tokens). Unlike interaction_pose_list, this always sorts by usage frequency and omits " +
+      "filter options.",
     inputSchema: {
       type: "object",
       properties: {
@@ -281,7 +304,10 @@ export const interactionTools: Record<string, Tool> = {
 
   interaction_pose_list_categories: {
     name: "interaction_pose_list_categories",
-    description: "List all available interaction pose categories and ratings.",
+    description:
+      "Call to discover valid filter values before calling interaction_pose_list. " +
+      "Returns {categories: string[], ratings: string[]} (~30 tokens). No parameters needed. " +
+      "Use this when the user asks what kinds of interaction poses exist without wanting the full pose list.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -291,7 +317,9 @@ export const interactionTools: Record<string, Tool> = {
   interaction_pose_seed: {
     name: "interaction_pose_seed",
     description:
-      "Seed the default interaction pose presets. Only adds presets that don't already exist.",
+      "Call once during project setup to populate the database with built-in multi-character pose templates. " +
+      "Idempotent -- skips presets that already exist. Returns {message, totalPresets, newlyAdded} (~50 tokens). " +
+      "No parameters needed. Only call at initialization; do not call during normal panel generation workflows.",
     inputSchema: {
       type: "object",
       properties: {},

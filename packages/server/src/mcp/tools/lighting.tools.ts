@@ -22,8 +22,7 @@ export const lightingTools: Record<string, Tool> = {
   storyboard_set_lighting: {
     name: "storyboard_set_lighting",
     description:
-      "Set scene lighting configuration for a storyboard. All panels will automatically " +
-      "inherit these lighting keywords in their prompts for visual consistency.",
+      "Set or overwrite the global lighting configuration (light sources, time of day, weather) on a storyboard. Call when establishing or changing a scene's mood -- all panels in this storyboard will auto-inherit the resulting lighting prompt keywords. To see what keywords get injected, call lighting_preview first. Returns JSON with {storyboard, lightingConfig, promptFragment}. ~300 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -103,7 +102,8 @@ export const lightingTools: Record<string, Tool> = {
 
   storyboard_get_lighting: {
     name: "storyboard_get_lighting",
-    description: "Get the current lighting configuration for a storyboard.",
+    description:
+      "Read the current lighting configuration for a storyboard. Call to check what lighting is active before modifying or clearing it. Returns JSON with {storyboardId, lightingConfig, promptFragment} or lightingConfig: null if none is set. ~250 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -118,7 +118,8 @@ export const lightingTools: Record<string, Tool> = {
 
   storyboard_clear_lighting: {
     name: "storyboard_clear_lighting",
-    description: "Remove lighting configuration from a storyboard. Panels will no longer have auto-injected lighting.",
+    description:
+      "Remove the lighting configuration from a storyboard, stopping auto-injection of lighting keywords into panel prompts. Call when transitioning to a scene with no prescribed lighting or when starting fresh. Returns JSON with {storyboard, message}. ~100 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -134,8 +135,7 @@ export const lightingTools: Record<string, Tool> = {
   lighting_suggest: {
     name: "lighting_suggest",
     description:
-      "Get AI-suggested lighting configuration based on a scene description. " +
-      "Returns a config you can use with storyboard_set_lighting.",
+      "Generate an AI-recommended lighting configuration from a natural-language scene description (e.g., 'forest at dusk with campfire'). Call when you know the scene mood but not the specific light sources/directions. Returns JSON with {suggestedConfig, promptFragment} ready to pass to storyboard_set_lighting. ~300 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -150,7 +150,8 @@ export const lightingTools: Record<string, Tool> = {
 
   lighting_preview: {
     name: "lighting_preview",
-    description: "Preview what prompt fragment will be generated from a lighting config.",
+    description:
+      "Dry-run a lighting configuration to see the exact prompt fragment text that would be injected into panel prompts, without applying it. Call before storyboard_set_lighting to verify the generated keywords match your intent. Returns JSON with {config, promptFragment}. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -190,7 +191,8 @@ export const lightingTools: Record<string, Tool> = {
 
   lighting_list_options: {
     name: "lighting_list_options",
-    description: "List all available lighting options (light types, directions, times, weather).",
+    description:
+      "List all valid enum values for lighting configuration: light types (sun, moon, fire...), directions, times of day, and weather conditions. Call before storyboard_set_lighting when you need to see valid option values. Returns JSON with {lightTypes[], directions[], timesOfDay[], weatherConditions[]}. ~300 tokens. No parameters required.",
     inputSchema: {
       type: "object",
       properties: {},

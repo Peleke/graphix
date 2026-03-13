@@ -22,9 +22,7 @@ export const inpaintTools = {
   panel_inpaint: {
     name: "panel_inpaint",
     description:
-      "Inpaint (regenerate) a specific region of a generated image using a mask. " +
-      "Use mask presets like 'hands', 'face', 'background' for common fixes, " +
-      "or provide a custom mask image path.",
+      "Regenerate a masked region of an already-generated panel image using inpainting. Call when a specific area (hands, face, background) needs fixing after generation. Requires either a maskPreset name or a customMaskPath (white=inpaint, black=preserve). Unlike panel_edit which uses text instructions without a mask, this gives precise spatial control. Returns JSON with {outputPath, seed, denoisingStrength}. ~200 tokens.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -88,9 +86,7 @@ export const inpaintTools = {
   panel_edit: {
     name: "panel_edit",
     description:
-      "Edit an image using natural language instructions without needing a mask. " +
-      "Good for global adjustments or when you can't easily define a mask region. " +
-      "Examples: 'improve the hands', 'add more detail to the background', 'make it more dramatic'",
+      "Apply a natural-language edit instruction to a generated panel image without defining a mask (InstructPix2Pix-style). Call when the desired change is global or hard to localize to a mask region, e.g. 'make it more dramatic' or 'improve the lighting'. Unlike panel_inpaint which needs a mask for spatial control, this tool applies edits holistically. Returns JSON with {outputPath, seed}. ~150 tokens.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -131,8 +127,7 @@ export const inpaintTools = {
   panel_create_mask: {
     name: "panel_create_mask",
     description:
-      "Generate a mask image from a preset type. Use this to preview or customize " +
-      "the mask before inpainting. Note: some presets require manual mask creation.",
+      "Auto-detect and generate a binary mask PNG from a preset type (hands, face, eyes, background, etc.) for a given generated image. Call before panel_inpaint when you want to preview or manually adjust the mask region before committing to inpainting. Returns JSON with {maskPath, preset, dimensions}. ~150 tokens.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -169,7 +164,8 @@ export const inpaintTools = {
    */
   inpaint_list_presets: {
     name: "inpaint_list_presets",
-    description: "List all available mask presets with descriptions and auto-detection support status.",
+    description:
+      "List all available mask preset names (hands, face, background, clothing, etc.) with descriptions and whether each supports auto-detection. Call before panel_inpaint or panel_create_mask when you need to see valid preset options. Returns JSON array of preset objects. ~200 tokens. No parameters required.",
     inputSchema: {
       type: "object" as const,
       properties: {},

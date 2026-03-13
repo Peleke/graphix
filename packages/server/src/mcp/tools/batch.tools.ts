@@ -23,8 +23,10 @@ export const batchTools: Record<string, Tool> = {
   panels_create_batch: {
     name: "panels_create_batch",
     description:
-      "Create multiple panels in a storyboard at once. " +
-      "Panels are created in order. Positions auto-increment if not specified.",
+      "Insert multiple empty panel records into a single storyboard in one call. " +
+      "Call after scaffolding a storyboard when you need to add panels that were not part of the original outline, or when building a storyboard incrementally. " +
+      "This only creates panel metadata (description, position, characters) -- no image generation happens. Use panels_generate_batch to generate images afterward. " +
+      "Returns { created: [{ id, position }], errors: [], summary: { requested, created, failed } }. Response ~0.5-2 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -71,7 +73,11 @@ export const batchTools: Record<string, Tool> = {
 
   panels_delete_batch: {
     name: "panels_delete_batch",
-    description: "Delete multiple panels at once.",
+    description:
+      "Permanently delete multiple panels by ID in a single call. " +
+      "Call when removing scenes or restructuring a storyboard. Deletes panel records, their outputs, and captions. " +
+      "Returns { deleted: [panelId], errors: [], summary: { requested, deleted, failed } }. Response ~0.5 KB. " +
+      "Irreversible -- unlike captions_clear_batch (which only removes caption overlays), this destroys the panels themselves.",
     inputSchema: {
       type: "object",
       properties: {
@@ -88,8 +94,10 @@ export const batchTools: Record<string, Tool> = {
   captions_add_batch: {
     name: "captions_add_batch",
     description:
-      "Add captions to multiple panels at once. " +
-      "Each input specifies which panel to add the caption to.",
+      "Attach caption records (dialogue bubbles, thought bubbles, narration boxes, SFX) to multiple panels in one call. " +
+      "Call after panels have generated images and you want to add text overlays. Each caption specifies panelId, type, text, and x/y position (0-100 coordinate space). " +
+      "This writes caption metadata only -- use panels_render_captions_batch to composite them onto images. " +
+      "Returns { created: [{ id, panelId }], errors: [], summary: { requested, created, failed } }. Response ~1-3 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -166,7 +174,11 @@ export const batchTools: Record<string, Tool> = {
 
   captions_clear_batch: {
     name: "captions_clear_batch",
-    description: "Clear all captions from multiple panels.",
+    description:
+      "Remove all caption records from multiple panels in one call. " +
+      "Call when re-doing dialogue/narration or before re-adding captions with captions_add_batch. " +
+      "Only deletes caption metadata -- panel images and outputs are untouched. Unlike panels_delete_batch (which destroys entire panels), this only strips text overlays. " +
+      "Returns { cleared: number, summary: { panels, captionsCleared } }. Response ~0.3 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -183,9 +195,11 @@ export const batchTools: Record<string, Tool> = {
   panels_generate_batch: {
     name: "panels_generate_batch",
     description:
-      "Generate images for multiple panels. " +
-      "Processes sequentially to avoid overwhelming the generation server. " +
-      "Returns results for each panel including success/failure status.",
+      "Trigger image generation (GPU) for multiple panels sequentially. " +
+      "Call after panels exist (via panels_create_batch or story_scaffold) and you want to produce one image per panel. " +
+      "EXPENSIVE: runs ComfyUI inference per panel, 5-60s each depending on quality preset. For multiple variants per panel, use panels_generate_variants_batch instead. " +
+      "Returns { results: [{ panelId, outputId, success }], summary: { requested, generated, failed } }. Response ~1-3 KB. " +
+      "Set continueOnError: true (default) to skip failures without aborting the batch.",
     inputSchema: {
       type: "object",
       properties: {
@@ -232,7 +246,11 @@ export const batchTools: Record<string, Tool> = {
 
   panels_generate_variants_batch: {
     name: "panels_generate_variants_batch",
-    description: "Generate multiple variants for each of multiple panels.",
+    description:
+      "Generate N image variants (default 3) for each of multiple panels using varied seeds. " +
+      "Call when the user wants to pick the best image from several options per panel. Unlike panels_generate_batch (one image per panel), this produces variantCount images per panel. " +
+      "EXPENSIVE: runs ComfyUI inference (variantCount x panelCount) times, 5-60s each. " +
+      "Returns { results: [{ panelId, outputs: [{ outputId }] }], summary: { panels, variantsPerPanel, totalGenerated, totalFailed } }. Response ~2-5 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -267,8 +285,10 @@ export const batchTools: Record<string, Tool> = {
   panels_render_captions_batch: {
     name: "panels_render_captions_batch",
     description:
-      "Render captions onto generated images for multiple panels. " +
-      "Each panel's selected output image is composited with its captions.",
+      "Composite caption overlays (speech bubbles, narration boxes, SFX) onto each panel's selected output image and write final files to disk. " +
+      "Call after captions_add_batch and after selecting outputs (panels_select_outputs_batch or panels_auto_select_batch). Requires an outputDir path. " +
+      "Unlike captions_add_batch (metadata only), this produces actual rendered image files in png/jpeg/webp. " +
+      "Returns { results: [{ panelId, outputPath }], summary: { requested, rendered, failed, outputDir } }. Response ~1-2 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -297,7 +317,10 @@ export const batchTools: Record<string, Tool> = {
 
   panels_select_outputs_batch: {
     name: "panels_select_outputs_batch",
-    description: "Select outputs for multiple panels at once.",
+    description:
+      "Manually set which generated output image is the 'selected' one for each of multiple panels, using explicit panelId-to-outputId mappings. " +
+      "Call when the user has reviewed variants and picked favorites. Unlike panels_auto_select_batch (which picks first/latest automatically), this requires explicit outputId choices. " +
+      "Returns { selected: number, errors: [], summary: { requested, selected, failed } }. Response ~0.5 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -321,7 +344,10 @@ export const batchTools: Record<string, Tool> = {
   panels_auto_select_batch: {
     name: "panels_auto_select_batch",
     description:
-      "Auto-select the first or latest generated image for multiple panels.",
+      "Automatically select an output image for each of multiple panels using a simple heuristic ('first' or 'latest' generated). " +
+      "Call to quickly finalize panels without manual review -- useful after panels_generate_batch when only one output exists per panel, or to fast-forward past variant selection. " +
+      "Unlike panels_select_outputs_batch (requires explicit outputId per panel), this selects automatically. " +
+      "Returns { selected, skipped, errors: [], summary: { panels, selected, skipped, failed } }. Response ~0.5 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -342,7 +368,11 @@ export const batchTools: Record<string, Tool> = {
 
   storyboard_get_panel_ids: {
     name: "storyboard_get_panel_ids",
-    description: "Get all panel IDs from a storyboard in position order.",
+    description:
+      "Return all panel IDs for a storyboard, sorted by position. " +
+      "Call before any batch operation (panels_generate_batch, captions_add_batch, etc.) when you have a storyboardId but need the individual panelIds. " +
+      "This is a lightweight read-only query -- no mutations. " +
+      "Returns { storyboardId, panelIds: string[], count: number }. Response ~0.2-1 KB depending on panel count.",
     inputSchema: {
       type: "object",
       properties: {

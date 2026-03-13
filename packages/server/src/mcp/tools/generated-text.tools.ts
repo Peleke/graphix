@@ -20,7 +20,7 @@ import {
 export const generatedTextTools: Record<string, Tool> = {
   generated_text_create: {
     name: "generated_text_create",
-    description: "Store a new generated text entry. Can be associated with a panel, page layout, or project.",
+    description: "Persist an LLM-generated text output (dialogue, caption, narration, etc.) to the version store. Call after text_generate/text_dialogue produces content you want to keep. Returns a single GeneratedText record {id, text, textType, version, status, provider, model, createdAt}. Lightweight DB write (~1 KB response). Not for generating text -- use text_generate/text_dialogue for that; this tool only stores the result.",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,7 +72,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_get: {
     name: "generated_text_get",
-    description: "Get a generated text entry by ID",
+    description: "Fetch a single stored generated-text record by its UUID. Call when you have a specific text ID and need the full record including version history and metadata. Returns {success, generatedText: {id, text, textType, version, status, provider, model, prompt, tokensUsed, metadata, createdAt, updatedAt}}. Small response (~1 KB). Use generated_text_by_panel/page/project to query by scope instead of by ID.",
     inputSchema: {
       type: "object",
       properties: {
@@ -87,7 +87,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_list: {
     name: "generated_text_list",
-    description: "List generated texts with optional filtering by panel, page, project, type, or status",
+    description: "Query stored generated-text records with multi-field filtering (panel, page, project, textType, status). Call when you need to search across scopes or combine filters that the single-scope shortcuts (generated_text_by_panel/page/project) cannot express. Returns {success, texts: GeneratedText[], count}. Response can be large -- use the limit param (max 1000) to cap results. For single-scope queries prefer the dedicated by_panel/by_page/by_project tools.",
     inputSchema: {
       type: "object",
       properties: {
@@ -123,7 +123,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_update: {
     name: "generated_text_update",
-    description: "Update a generated text entry (edit text, change type or status)",
+    description: "Mutate fields on an existing generated-text record (text content, textType, status, metadata). Call when a user manually edits stored text or you need to reclassify its type/status. Marks the record as edited (not a new version). Returns the updated GeneratedText record (~1 KB). To create a new version instead, use generated_text_regenerate. To soft-delete, use generated_text_archive.",
     inputSchema: {
       type: "object",
       properties: {
@@ -156,7 +156,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_delete: {
     name: "generated_text_delete",
-    description: "Permanently delete a generated text entry",
+    description: "Permanently destroy a single generated-text record by UUID. Call only when the user explicitly wants irreversible deletion. Returns {success, message}. ~0.5 KB response. For reversible removal, use generated_text_archive instead. To wipe all texts for a panel at once, use generated_text_delete_by_panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -171,7 +171,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_archive: {
     name: "generated_text_archive",
-    description: "Archive a generated text (soft delete - can be restored)",
+    description: "Soft-delete a single generated-text record by setting its status to 'archived'. Call when the user wants to hide/discard text without permanent loss. The record remains in the DB and can be restored via generated_text_update(status='active'). Returns the updated GeneratedText record (~1 KB). For permanent deletion use generated_text_delete. To archive many at once, use generated_text_batch_archive.",
     inputSchema: {
       type: "object",
       properties: {
@@ -186,7 +186,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_regenerate: {
     name: "generated_text_regenerate",
-    description: "Regenerate text for an existing entry. Creates a new version and optionally keeps history.",
+    description: "Create a new version of an existing generated-text record by re-running generation. Call when the user wants a fresh LLM pass on the same (or tweaked) prompt. Optionally preserves the previous version via keepHistory. Returns the new GeneratedText record with incremented version number (~1 KB). Different from generated_text_update, which edits in-place without re-generating. Different from generated_text_revert, which rolls back to the original.",
     inputSchema: {
       type: "object",
       properties: {
@@ -217,7 +217,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_revert: {
     name: "generated_text_revert",
-    description: "Revert text to its original content (undo all edits)",
+    description: "Roll back a generated-text record to its original content, undoing all manual edits and version changes. Call when the user wants to discard all modifications and restore the first-generation output. Returns the reverted GeneratedText record (~1 KB). Different from generated_text_regenerate, which creates a new LLM-generated version forward.",
     inputSchema: {
       type: "object",
       properties: {
@@ -232,7 +232,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_get_active: {
     name: "generated_text_get_active",
-    description: "Get the most recent active text of a specific type for a panel",
+    description: "Fetch the single current-version active text for a panel, filtered by textType (dialogue, caption, narration, etc.). Call when you need the 'live' text a panel is using right now -- not the full version history. Returns one GeneratedText record or an error if none is active (~1 KB). Different from generated_text_by_panel, which returns all texts (all types, all statuses) for that panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -252,7 +252,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_by_panel: {
     name: "generated_text_by_panel",
-    description: "Get all generated texts for a panel",
+    description: "Fetch every generated-text record linked to a single panel (all types, all statuses, all versions). Call when reviewing or auditing all text outputs for one panel. Returns {success, texts: GeneratedText[], count, panelId}. Response scales with panel history -- could be 5-50+ records. For just the current active text of one type, use generated_text_get_active. For multi-field filtering, use generated_text_list.",
     inputSchema: {
       type: "object",
       properties: {
@@ -267,7 +267,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_by_page: {
     name: "generated_text_by_page",
-    description: "Get all generated texts for a page layout",
+    description: "Fetch every generated-text record linked to a single page layout (all panels on that page, all types/statuses). Call when reviewing all text outputs across an entire page. Returns {success, texts: GeneratedText[], count, pageLayoutId}. Response can be large for text-heavy pages (10-100+ records). For panel-level queries use generated_text_by_panel; for project-wide use generated_text_by_project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -282,7 +282,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_by_project: {
     name: "generated_text_by_project",
-    description: "Get all generated texts for a project",
+    description: "Fetch every generated-text record across an entire project (all pages, all panels, all types/statuses). Call when auditing total text output or exporting a project's generated content. Returns {success, texts: GeneratedText[], count, projectId}. WARNING: potentially very large response for active projects (hundreds of records). For narrower queries use generated_text_by_page or generated_text_by_panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -297,7 +297,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_stats: {
     name: "generated_text_stats",
-    description: "Get statistics about generated texts (counts by type, status, provider, etc.)",
+    description: "Return aggregate counts and distribution of generated-text records, broken down by textType, status, and provider. Call when the user asks 'how much text has been generated?' or before deciding on cleanup/archival. Returns {success, stats: {totalCount, byType: {}, byStatus: {}, byProvider: {}}} (~1 KB). Optionally scoped to a projectId. Read-only summary -- does not return actual text content.",
     inputSchema: {
       type: "object",
       properties: {
@@ -311,7 +311,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_delete_by_panel: {
     name: "generated_text_delete_by_panel",
-    description: "Delete all generated texts for a panel",
+    description: "Permanently destroy ALL generated-text records linked to a single panel (every type, every version). Call when a panel is being removed or the user wants a clean slate for that panel's text. Returns {success, deleted: number, message}. Irreversible bulk operation. For single-record deletion use generated_text_delete; for soft-removal use generated_text_archive or generated_text_batch_archive.",
     inputSchema: {
       type: "object",
       properties: {
@@ -326,7 +326,7 @@ export const generatedTextTools: Record<string, Tool> = {
 
   generated_text_batch_archive: {
     name: "generated_text_batch_archive",
-    description: "Archive multiple generated texts by IDs",
+    description: "Soft-delete multiple generated-text records in one call by setting their status to 'archived'. Call when cleaning up old versions or bulk-dismissing text across panels. Accepts up to 1000 UUIDs. Returns {success, archived: number, message} (~0.5 KB). Records remain in DB and can be restored. For single-record archival use generated_text_archive; for permanent bulk deletion use generated_text_delete_by_panel.",
     inputSchema: {
       type: "object",
       properties: {

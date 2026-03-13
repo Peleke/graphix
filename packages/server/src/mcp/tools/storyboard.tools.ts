@@ -10,7 +10,7 @@ import { getStoryboardService } from "@graphix/core";
 export const storyboardTools: Record<string, Tool> = {
   storyboard_create: {
     name: "storyboard_create",
-    description: "Create a new storyboard in a project",
+    description: "Create a new storyboard in a project with name and optional description/synopsis. Returns JSON {success, storyboard} with the new storyboard object including generated ID (~200 tokens). Call after creating a project and characters, when ready to lay out scenes. Unlike storyboard_duplicate, this creates an empty storyboard with no panels; add panels afterward to build the scene sequence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -33,7 +33,7 @@ export const storyboardTools: Record<string, Tool> = {
 
   storyboard_get: {
     name: "storyboard_get",
-    description: "Get a storyboard by ID with all its panels",
+    description: "Fetch a single storyboard by ID with all its panels. Returns JSON {success, storyboard} with full storyboard details including name, description, and nested panels array with prompt/image data (~300-2000 tokens depending on panel count). Call to inspect panel sequence before generating images or to review progress on a scene. Unlike storyboard_list, this returns one storyboard with all nested panel data.",
     inputSchema: {
       type: "object",
       properties: {
@@ -48,7 +48,7 @@ export const storyboardTools: Record<string, Tool> = {
 
   storyboard_list: {
     name: "storyboard_list",
-    description: "List all storyboards in a project",
+    description: "List all storyboards belonging to a project by projectId. Returns JSON {success, storyboards, count} where storyboards is an array of storyboard summaries (~100-500 tokens depending on count). Call to see available scenes/chapters in a project or to find a storyboard ID by name. Unlike storyboard_get, this returns all storyboards without nested panel details.",
     inputSchema: {
       type: "object",
       properties: {
@@ -63,7 +63,7 @@ export const storyboardTools: Record<string, Tool> = {
 
   storyboard_update: {
     name: "storyboard_update",
-    description: "Update a storyboard's metadata",
+    description: "Update a storyboard's name or description by storyboardId. Returns JSON {success, storyboard} with the updated storyboard object (~200 tokens). Call when renaming a scene or revising its synopsis. Does NOT modify child panels -- use panel tools for that. Unlike storyboard_duplicate, this modifies the existing storyboard in place.",
     inputSchema: {
       type: "object",
       properties: {
@@ -86,7 +86,7 @@ export const storyboardTools: Record<string, Tool> = {
 
   storyboard_duplicate: {
     name: "storyboard_duplicate",
-    description: "Create a copy of a storyboard with all its panels",
+    description: "Deep-copy an existing storyboard and all its panels into a new storyboard, optionally with a new name. Returns JSON {success, storyboard} with the duplicated storyboard including all cloned panels and a new ID (~300-2000 tokens depending on panel count). Call when branching a scene to try alternate compositions or styles without losing the original. Unlike storyboard_create, this starts with a full copy of panels rather than an empty storyboard.",
     inputSchema: {
       type: "object",
       properties: {
@@ -105,7 +105,7 @@ export const storyboardTools: Record<string, Tool> = {
 
   storyboard_delete: {
     name: "storyboard_delete",
-    description: "Delete a storyboard and all its panels",
+    description: "Permanently delete a storyboard and all its child panels (cascading). Returns JSON {success, message} (~50 tokens). DESTRUCTIVE -- cannot be undone. Call only when the user explicitly confirms they want to remove an entire scene and all its panels. Unlike storyboard_update, this destroys the record rather than modifying metadata.",
     inputSchema: {
       type: "object",
       properties: {

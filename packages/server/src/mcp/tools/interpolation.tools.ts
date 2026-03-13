@@ -18,8 +18,12 @@ export const interpolationTools: Record<string, Tool> = {
   panel_interpolate: {
     name: "panel_interpolate",
     description:
-      "Generate in-between panels from two keyframe panels. Creates smooth transitions " +
-      "by interpolating poses and optionally maintaining character identity with IP-Adapter.",
+      "Call after the user requests a smooth transition or animation sequence between two existing panels. " +
+      "Generates 1-30 new transitional panels by interpolating poses (via ControlNet) and optionally " +
+      "preserving character identity (via IP-Adapter) between panel A and panel B. Unlike panel generation " +
+      "tools that create standalone images, this produces a batch of ordered in-between frames. " +
+      "Returns {frames: [{path, index, seed}], count, outputDir} (~200 tokens). " +
+      "Requires both panels to have a selected output image.",
     inputSchema: {
       type: "object",
       properties: {
@@ -94,7 +98,10 @@ export const interpolationTools: Record<string, Tool> = {
   interpolation_suggest_count: {
     name: "interpolation_suggest_count",
     description:
-      "Get a suggested number of in-between frames based on panel positions and desired smoothness.",
+      "Call before panel_interpolate when the user hasn't specified how many in-between frames to generate. " +
+      "Computes optimal frame count from storyboard positions, target FPS, and duration. " +
+      "Returns {suggestedCount, panelGap, fps, duration} (~4 fields, <50 tokens). " +
+      "Does not generate images -- use panel_interpolate with the returned suggestedCount to produce frames.",
     inputSchema: {
       type: "object",
       properties: {

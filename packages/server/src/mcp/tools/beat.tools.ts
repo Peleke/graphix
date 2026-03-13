@@ -11,7 +11,7 @@ import { getNarrativeService } from "@graphix/core";
 export const beatTools: Record<string, Tool> = {
   story_beat_create: {
     name: "story_beat_create",
-    description: "Create a new story beat (narrative unit/panel) within a story",
+    description: "Add a single plot-point beat (setup, inciting, climax, etc.) to an existing story's ordered sequence. Call after story_create/story_scaffold when building out the narrative beat-by-beat. Returns the created Beat record {id, storyId, position, visualDescription, beatType, actNumber, emotionalTone, cameraAngle, ...} (~1 KB). To add many beats at once, use story_beat_create_batch. Different from story_scaffold, which generates an entire story structure.",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,7 +72,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_create_batch: {
     name: "story_beat_create_batch",
-    description: "Create multiple story beats at once",
+    description: "Insert multiple plot-point beats into a story in one call, each with its own position, visualDescription, beatType, and narrative metadata. Call when populating an entire act or story arc at once (e.g., after outlining). Returns {success, beats: Beat[], count}. Response scales linearly (~1 KB per beat). For adding a single beat, use story_beat_create. Positions auto-increment from array index if omitted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -106,7 +106,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_get: {
     name: "story_beat_get",
-    description: "Get a specific beat by ID",
+    description: "Fetch a single story beat record by its UUID, including all narrative fields (visualDescription, beatType, actNumber, emotionalTone, cameraAngle, composition, narration, sfx, characterIds, panelId). Call when you have a specific beat ID and need its full details. Returns {success, beat: Beat} (~1 KB). To list all beats in a story by sequence order, use story_beat_list instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -121,7 +121,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_list: {
     name: "story_beat_list",
-    description: "List all beats for a story, ordered by position",
+    description: "Fetch all beats for a story, returned in position order (the narrative sequence). Call when you need the full beat sheet for a story -- e.g., before converting beats to panels, reordering, or reviewing structure. Returns {success, beats: Beat[], count}. Response scales with story length (~1 KB per beat, typically 5-30 beats). For a single beat by ID use story_beat_get.",
     inputSchema: {
       type: "object",
       properties: {
@@ -136,7 +136,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_update: {
     name: "story_beat_update",
-    description: "Update an existing beat",
+    description: "Modify fields on an existing story beat (visualDescription, beatType, actNumber, emotionalTone, cameraAngle, composition, narration, sfx, characterIds). Call when revising a beat's narrative content or visual direction after review. Returns the updated Beat record (~1 KB). To change a beat's sequence position relative to others, use story_beat_reorder instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -197,7 +197,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_reorder: {
     name: "story_beat_reorder",
-    description: "Reorder beats within a story by providing the new order of beat IDs",
+    description: "Rearrange the narrative sequence of beats in a story by providing the complete ordered list of beat IDs. Call when the user restructures the plot (e.g., moving the climax earlier, swapping scenes). All beat IDs for the story must be included. Returns the beats in their new order. ~1 KB per beat. Different from story_beat_update, which edits a beat's content but not its sequence position.",
     inputSchema: {
       type: "object",
       properties: {
@@ -217,7 +217,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_delete: {
     name: "story_beat_delete",
-    description: "Delete a beat from a story",
+    description: "Permanently remove a single story beat from its story. Call when a plot point is being cut from the narrative. Returns {success, message} (~0.5 KB). Irreversible. If the beat is linked to a panel, the panel remains but loses its beat association. Remaining beats' positions are not auto-compacted -- use story_beat_reorder afterward if needed.",
     inputSchema: {
       type: "object",
       properties: {
@@ -232,7 +232,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_to_panel: {
     name: "story_beat_to_panel",
-    description: "Convert a beat to a panel, creating the panel with beat data pre-filled",
+    description: "Create a new storyboard panel from a beat, pre-filling the panel with the beat's visualDescription, cameraAngle, composition, and character data. Call when transitioning from narrative planning to visual production. Returns {success, beat, panelId} (~1 KB). The beat becomes linked to the new panel. Prerequisite for story_beat_generate_captions. Different from story_beat_to_prompt, which outputs a text prompt without creating a panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -251,7 +251,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_to_prompt: {
     name: "story_beat_to_prompt",
-    description: "Convert a beat's narrative data into image generation prompts (positive/negative)",
+    description: "Transform a beat's narrative data into positive/negative image-generation prompt strings, applying an optional art style. Call when you need a ComfyUI-ready prompt from a beat but do NOT want to create a panel yet. Returns {success, prompt: {positive, negative}} (~1 KB). Text-only output -- no panel is created. Different from story_beat_to_panel, which creates an actual panel entity. Feed the output to imagine/generate_image.",
     inputSchema: {
       type: "object",
       properties: {
@@ -282,7 +282,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_generate_captions: {
     name: "story_beat_generate_captions",
-    description: "Generate panel captions from a beat's dialogue, narration, and SFX. Beat must be linked to a panel first (via story_beat_to_panel).",
+    description: "Generate dialogue, narration, and SFX caption records for a beat's linked panel. The beat MUST already be linked to a panel via story_beat_to_panel -- call that first if panelId is null. Returns {success, captions: Caption[], count, panelId}. Response ~1 KB per caption (typically 1-5 captions). Optionally uses AI to infer captions from visualDescription. To read existing captions, use story_beat_get_captions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -313,7 +313,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_get_captions: {
     name: "story_beat_get_captions",
-    description: "Get all captions linked to a beat's panel",
+    description: "Fetch existing caption records from a beat's linked panel, with optional filtering by type (dialogue, narration, sfx, thought) and enabled status. Call after story_beat_generate_captions to review what was created, or to check current captions before regenerating. Returns {success, captions: Caption[], count} (~1 KB per caption). Beat must be linked to a panel or returns an error.",
     inputSchema: {
       type: "object",
       properties: {
@@ -340,7 +340,7 @@ export const beatTools: Record<string, Tool> = {
 
   story_beat_delete_captions: {
     name: "story_beat_delete_captions",
-    description: "Delete all captions generated from a beat",
+    description: "Permanently delete ALL caption records linked to a beat's panel. Call when clearing captions before regenerating, or when removing a beat's text layer entirely. Returns {success, deletedCount, message} (~0.5 KB). Irreversible. To selectively review captions before deleting, use story_beat_get_captions first. To regenerate fresh captions afterward, use story_beat_generate_captions.",
     inputSchema: {
       type: "object",
       properties: {

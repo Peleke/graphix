@@ -15,9 +15,12 @@ export const storyTools: Record<string, Tool> = {
   story_scaffold: {
     name: "story_scaffold",
     description:
-      "Scaffold a complete story structure from a structured definition. " +
-      "Creates storyboards for each scene and panels within them. " +
-      "Characters are referenced by name and matched to existing project characters.",
+      "Create an entire storyboard hierarchy (acts > scenes > panels) in one call from a structured JSON definition. " +
+      "Call when you already have a fully specified act/scene/panel tree and want to materialize it into the project database. " +
+      "Unlike story_from_outline (which accepts markdown text) or story_parse_outline (dry-run parse only), this writes directly to the DB. " +
+      "Returns { storyboards: [{ id, sceneId, panels: [{ id, position }] }], characterMapping: {} }. " +
+      "Response ~1-3 KB depending on panel count. " +
+      "Characters are matched by name to existing project characters; unmatched names are silently skipped.",
     inputSchema: {
       type: "object",
       properties: {
@@ -111,15 +114,11 @@ export const storyTools: Record<string, Tool> = {
   story_from_outline: {
     name: "story_from_outline",
     description:
-      "Parse a markdown-style text outline and scaffold the story structure. " +
-      "Supports format:\n" +
-      "# Story Title\n" +
-      "> Story description\n" +
-      "## Act 1: Setup\n" +
-      "### Scene 1: Introduction\n" +
-      "- Panel: [ALICE, BOB] Wide shot of the city\n" +
-      "- Panel: [ALICE] Close-up of Alice\n\n" +
-      "Characters in brackets are matched to existing project characters.",
+      "Parse a markdown outline AND create all storyboards/panels in one step. " +
+      "Call when the user provides a plain-text story outline and you want to immediately scaffold it into the project (no dry-run). " +
+      "Input format: '# Title\\n## Act\\n### Scene\\n- Panel: [CHAR] description'. " +
+      "Unlike story_scaffold (requires structured JSON) or story_parse_outline (parse-only, no DB writes), this is the fastest path from raw text to a populated storyboard. " +
+      "Returns { storyboards: [...], characterMapping, summary: { actCount, sceneCount, panelCount } }. Response ~1-3 KB.",
     inputSchema: {
       type: "object",
       properties: {
@@ -139,8 +138,10 @@ export const storyTools: Record<string, Tool> = {
   story_parse_outline: {
     name: "story_parse_outline",
     description:
-      "Parse a text outline without creating anything. " +
-      "Returns the structured scaffold definition for review before creation.",
+      "Dry-run parse of a markdown outline into a structured scaffold definition without writing anything to the database. " +
+      "Call before story_from_outline to let the user preview and adjust the parsed structure. " +
+      "Returns { parsed: true, title, acts: [...], characterNames: [...], summary: { actCount, sceneCount, panelCount, characterCount } }. " +
+      "Response ~1-2 KB. Pure preprocessing -- no side effects, no storyboard creation.",
     inputSchema: {
       type: "object",
       properties: {
