@@ -24,7 +24,7 @@ export const consistencyTools: Record<string, Tool> = {
   consistency_extract_identity: {
     name: "consistency_extract_identity",
     description:
-      "Extract character identity from reference image(s) or panel(s) for reuse in future generations. Creates a stored identity that maintains character consistency.",
+      "Extracts a reusable character identity (IP-Adapter embedding) from one or more reference images or panel IDs and stores it by name. Returns {success, identityId}. Call when you have a reference image of a character and need to generate consistent appearances in future panels. This creates the identity -- to apply it during generation, use consistency_apply_identity. ~200 tokens response.",
     inputSchema: {
       type: "object",
       properties: {
@@ -66,7 +66,7 @@ export const consistencyTools: Record<string, Tool> = {
   consistency_apply_identity: {
     name: "consistency_apply_identity",
     description:
-      "Apply a stored identity to a panel, generating an image that maintains character consistency with the reference.",
+      "Generates an image for a single panel while injecting a stored character identity (from consistency_extract_identity) via IP-Adapter to preserve face/features. Returns {success, panelId, generatedPath, seed}. Call when generating a new panel that must match an existing character. For propagating identity across adjacent panels without a stored identity, use consistency_chain_panels instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -105,7 +105,7 @@ export const consistencyTools: Record<string, Tool> = {
   consistency_chain_panels: {
     name: "consistency_chain_panels",
     description:
-      "Chain generation from a previous panel, maintaining continuity in pose, composition, identity, or style.",
+      "Generates one panel by chaining from a single previous panel, selectively maintaining identity, pose, composition, and/or style via IP-Adapter + ControlNet. Returns {success, panelId, generatedPath, seed}. Call when generating the next panel in a sequence that should visually follow the previous one. For chaining a full sequence of 3+ panels in batch, use consistency_chain_sequence instead. Unlike consistency_apply_identity, this does not require a stored identity -- it reads directly from the previous panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -161,7 +161,7 @@ export const consistencyTools: Record<string, Tool> = {
 
   consistency_list_identities: {
     name: "consistency_list_identities",
-    description: "List all stored character identities",
+    description: "Returns an array of all stored character identities with summary fields (id, name, description, adapterModel, referenceCount, usageCount, createdAt). Call to discover which identities are available before using consistency_apply_identity. Lightweight list response -- for full details on one identity, use consistency_get_identity.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -171,7 +171,7 @@ export const consistencyTools: Record<string, Tool> = {
 
   consistency_get_identity: {
     name: "consistency_get_identity",
-    description: "Get details of a stored identity",
+    description: "Returns full details of a single stored character identity including defaultStrength, referenceImages paths, usageCount, and timestamps. Call when you need to inspect an identity's configuration before applying it or to verify its reference images. For a lightweight list of all identities, use consistency_list_identities instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -186,7 +186,7 @@ export const consistencyTools: Record<string, Tool> = {
 
   consistency_delete_identity: {
     name: "consistency_delete_identity",
-    description: "Delete a stored identity",
+    description: "Permanently deletes a stored character identity by ID. Returns {success, message}. Call when an identity is no longer needed or was created incorrectly. This is irreversible -- the identity must be re-extracted with consistency_extract_identity to restore it.",
     inputSchema: {
       type: "object",
       properties: {
@@ -202,7 +202,7 @@ export const consistencyTools: Record<string, Tool> = {
   consistency_create_reference_sheet: {
     name: "consistency_create_reference_sheet",
     description:
-      "Generate a reference sheet for a character identity with multiple poses and optionally expressions.",
+      "Generates a multi-pose reference sheet (1-8 images) for an existing character identity, showing the character in different angles and optionally different expressions. Returns {success, imageCount, images: [paths...]}. Call after consistency_extract_identity when you need a visual turnaround sheet for character review or to strengthen identity extraction. This generates new images -- it does not compose existing panels (use composition tools for that).",
     inputSchema: {
       type: "object",
       properties: {
@@ -242,7 +242,7 @@ export const consistencyTools: Record<string, Tool> = {
   consistency_chain_sequence: {
     name: "consistency_chain_sequence",
     description:
-      "Chain an entire sequence of panels, maintaining continuity from one panel to the next.",
+      "Batch-generates a sequence of 3+ panels where each panel chains from the previous one, propagating identity/pose/composition/style through the entire sequence. Returns {success, totalPanels, successCount, results: [{panelId, success}...]}. The first panel in the array is used as the reference (must already be generated); the rest are generated in order. Call when you need to produce an entire scene sequence with visual continuity. For chaining just one panel from another, use consistency_chain_panels instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -279,7 +279,7 @@ export const consistencyTools: Record<string, Tool> = {
 
   consistency_list_adapter_models: {
     name: "consistency_list_adapter_models",
-    description: "List available IP-Adapter models with their recommended settings",
+    description: "Returns an array of available IP-Adapter model variants (e.g., 'ip-adapter-plus-face', 'ip-adapter-faceid') with recommended strength, use case, and settings for each. Call before consistency_extract_identity to choose the right adapter model for your use case (face vs. style vs. composition). Small static response (~10 entries). Does not list LoRAs -- use style_list_loras for style models.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -289,7 +289,7 @@ export const consistencyTools: Record<string, Tool> = {
 
   consistency_list_control_presets: {
     name: "consistency_list_control_presets",
-    description: "List available ControlNet stack presets for different continuity scenarios",
+    description: "Returns an array of ControlNet stack presets (id, name, description, controls) used internally by consistency_chain_panels and consistency_chain_sequence. Call to inspect available continuity modes (e.g., pose-only, composition-only, full-continuity) and understand what each preset controls. Small static response (~5-10 entries). Does not list IP-Adapter models -- use consistency_list_adapter_models for those.",
     inputSchema: {
       type: "object",
       properties: {},

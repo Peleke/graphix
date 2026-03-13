@@ -19,7 +19,11 @@ import type { CaptionType, CaptionPosition, CaptionStyle } from "@graphix/core";
 export const captionTools: Record<string, Tool> = {
   caption_add: {
     name: "caption_add",
-    description: "Add a caption (speech bubble, thought bubble, narration, SFX, or whisper) to a panel",
+    description:
+      "Call when the user wants to place dialogue, narration, or sound effects text on a panel. Creates a new " +
+      "caption of type speech (round bubble), thought (cloud bubble), narration (rectangular box), sfx (bold " +
+      "stylized text), or whisper (dashed bubble) at a specific x/y position. Returns {success, caption} " +
+      "with the created record (~150 tokens). Use caption_suggest_position first if optimal placement is unknown.",
     inputSchema: {
       type: "object",
       properties: {
@@ -83,7 +87,9 @@ export const captionTools: Record<string, Tool> = {
 
   caption_get: {
     name: "caption_get",
-    description: "Get a caption by ID",
+    description:
+      "Call to retrieve full details of a single caption (text, type, position, tail direction, style overrides, " +
+      "z-index) by its ID. Returns {success, caption} (~100 tokens). Use caption_list to find IDs for a panel.",
     inputSchema: {
       type: "object",
       properties: {
@@ -98,7 +104,10 @@ export const captionTools: Record<string, Tool> = {
 
   caption_list: {
     name: "caption_list",
-    description: "List all captions for a panel",
+    description:
+      "Call to enumerate every caption (speech bubbles, narration boxes, SFX, etc.) attached to a panel. " +
+      "Returns {success, captions: [...], count} (~50-300 tokens depending on caption count). " +
+      "Use this before caption_reorder or to find caption IDs for caption_update/caption_delete.",
     inputSchema: {
       type: "object",
       properties: {
@@ -113,7 +122,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_update: {
     name: "caption_update",
-    description: "Update a caption's text, position, or style",
+    description:
+      "Call to modify an existing caption's text, type, position (x/y), tail direction, font size, colors, " +
+      "or z-index. Only fields provided are changed; omitted fields are preserved. " +
+      "Returns {success, caption} with the updated record (~150 tokens). Requires the caption ID " +
+      "from caption_list or caption_add.",
     inputSchema: {
       type: "object",
       properties: {
@@ -173,7 +186,9 @@ export const captionTools: Record<string, Tool> = {
 
   caption_delete: {
     name: "caption_delete",
-    description: "Delete a caption",
+    description:
+      "Call to permanently remove a caption from a panel. Returns {success, message} (~20 tokens). " +
+      "This is irreversible -- use caption_update to hide or restyle instead if the user might want the text back.",
     inputSchema: {
       type: "object",
       properties: {
@@ -188,7 +203,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_reorder: {
     name: "caption_reorder",
-    description: "Reorder captions within a panel (change z-index layering)",
+    description:
+      "Call when captions on a panel overlap and the user wants to change which appears on top. " +
+      "Accepts an ordered array of caption IDs (first = bottom layer, last = top layer) and reassigns z-index " +
+      "values accordingly. Returns {success, captions} with updated z-indices (~100-300 tokens). " +
+      "Use caption_list first to get current caption IDs and order.",
     inputSchema: {
       type: "object",
       properties: {
@@ -208,7 +227,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_preview: {
     name: "caption_preview",
-    description: "Render a panel image with its captions overlaid and save to a file",
+    description:
+      "Call to generate a visual preview image showing all captions composited onto the panel artwork. " +
+      "Reads the panel's captions from the database, renders bubbles/boxes/SFX text on top of the source " +
+      "image, and writes the result to outputPath. Returns {success, outputPath, captionCount} (~50 tokens). " +
+      "Unlike caption_list which returns data, this produces an actual rendered image file.",
     inputSchema: {
       type: "object",
       properties: {
@@ -231,7 +254,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_defaults: {
     name: "caption_defaults",
-    description: "Get the default style settings for each caption type",
+    description:
+      "Call to retrieve the default font size, font color, background color, border style, and other styling " +
+      "for each caption type (speech, thought, narration, sfx, whisper). Returns {success, defaults, types} " +
+      "(~200 tokens). No parameters needed. Use this when the user asks about current styling or before " +
+      "creating captions with custom overrides.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -240,7 +267,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_suggest_position: {
     name: "caption_suggest_position",
-    description: "Analyze a panel image and suggest optimal positions for captions. Uses edge detection to find calm regions that won't obscure important visual content.",
+    description:
+      "Call before caption_add when the user wants smart placement for a single caption. Analyzes the panel " +
+      "image using edge detection to find visually calm regions that won't obscure important content. " +
+      "Returns ranked suggestions: {success, suggestions: [{x, y, score}], bestSuggestion} (~100 tokens). " +
+      "For placing multiple captions at once without overlap, use caption_suggest_multiple instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -265,7 +296,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_suggest_multiple: {
     name: "caption_suggest_multiple",
-    description: "Suggest non-overlapping positions for multiple caption types in a single panel",
+    description:
+      "Call when placing 2+ captions on a panel at once to get non-overlapping positions for all of them. " +
+      "Analyzes the panel image and returns a map of caption type to suggested position, ensuring no two " +
+      "captions collide: {success, suggestions: {speech: {x,y}, narration: {x,y}, ...}} (~100-200 tokens). " +
+      "Unlike caption_suggest_position which handles one caption, this coordinates placement across all provided types.",
     inputSchema: {
       type: "object",
       properties: {
@@ -288,7 +323,11 @@ export const captionTools: Record<string, Tool> = {
 
   caption_quick_position: {
     name: "caption_quick_position",
-    description: "Get a quick position suggestion based on comic conventions (no image analysis, pure heuristics)",
+    description:
+      "Call for instant caption placement using comic-convention heuristics (e.g., speech at top-center, " +
+      "narration at top-left, SFX at center) without analyzing the actual panel image. Returns {success, " +
+      "suggestion: {position: {x, y}}} (~30 tokens). Faster than caption_suggest_position but less precise -- " +
+      "use this when speed matters more than avoiding content occlusion.",
     inputSchema: {
       type: "object",
       properties: {

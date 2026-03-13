@@ -10,7 +10,7 @@ import { getGeneratedImageService } from "@graphix/core";
 export const generationTools: Record<string, Tool> = {
   generation_create: {
     name: "generation_create",
-    description: "Record a new generated image (usually called internally after ComfyUI generation)",
+    description: "Register a generated image record in the database after ComfyUI has produced output. Typically called internally by panel_generate, not directly by the agent. Call this only if you have a raw ComfyUI output that was produced outside the normal panel_generate flow and needs to be tracked. Returns {success, generation: {id, panelId, localPath, seed, prompt, model, width, height, ...}}. Metadata write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -81,7 +81,7 @@ export const generationTools: Record<string, Tool> = {
 
   generation_get: {
     name: "generation_get",
-    description: "Get a generated image by ID",
+    description: "Fetch a single generated image's full metadata: prompt, seed, model, dimensions, CFG, sampler, LoRAs, rating, and favorite status. Call this when inspecting a specific generation's parameters (e.g., to reproduce or compare settings). For listing all generations under a panel, use generation_list instead. Returns {success, generation} with all generation fields. Small JSON response; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -96,7 +96,7 @@ export const generationTools: Record<string, Tool> = {
 
   generation_list: {
     name: "generation_list",
-    description: "List all generated images for a panel",
+    description: "List all generated images belonging to a panel, optionally filtered to favorites only. Call this when reviewing a panel's generation history to compare outputs, check ratings, or decide which to select via panel_select_output. Returns {success, generations: [{id, seed, prompt, model, width, height, rating, isFavorite, ...}], count}. Response size scales with generation count. No GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -115,7 +115,7 @@ export const generationTools: Record<string, Tool> = {
 
   generation_favorite: {
     name: "generation_favorite",
-    description: "Toggle favorite status on a generated image",
+    description: "Toggle the favorite flag on a generated image (on if off, off if on). Use this to bookmark promising outputs for later comparison. Unlike panel_select_output (which commits one image as the panel's canonical output), favoriting is non-exclusive -- multiple generations can be favorited simultaneously. Returns {success, generation} with updated isFavorite. Metadata write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -130,7 +130,7 @@ export const generationTools: Record<string, Tool> = {
 
   generation_rate: {
     name: "generation_rate",
-    description: "Rate a generated image (1-5 stars, or null to clear)",
+    description: "Assign a 1-5 star rating to a generated image, or pass null to clear the rating. Use this for structured quality scoring across generations (e.g., ranking variants before selecting a winner with panel_select_output). Unlike generation_favorite (binary bookmark), this captures degree of quality. Returns {success, generation} with updated rating field. Metadata write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -149,7 +149,7 @@ export const generationTools: Record<string, Tool> = {
 
   generation_delete: {
     name: "generation_delete",
-    description: "Delete a generated image record",
+    description: "Permanently delete a single generated image record and its metadata. Call this to discard a bad generation and reduce clutter. If this image is the panel's selected output, the selection will be cleared. To delete the entire panel and all its generations at once, use panel_delete instead. Returns {success, message}. Destructive and irreversible. No GPU cost.",
     inputSchema: {
       type: "object",
       properties: {

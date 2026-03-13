@@ -10,7 +10,7 @@ import { getProjectService } from "@graphix/core";
 export const projectTools: Record<string, Tool> = {
   project_create: {
     name: "project_create",
-    description: "Create a new project for a graphic novel or animated short",
+    description: "Create a new project with name, optional description, default model, and resolution. Returns JSON {success, project} with the new project object including generated ID and settings (~200 tokens). Call at the very start of a new graphic novel or animated short workflow, before creating characters or storyboards. Unlike project_update, this initializes a fresh project container that holds all downstream characters, storyboards, and panels.",
     inputSchema: {
       type: "object",
       properties: {
@@ -41,7 +41,7 @@ export const projectTools: Record<string, Tool> = {
 
   project_get: {
     name: "project_get",
-    description: "Get a project by ID",
+    description: "Fetch a single project by ID. Returns JSON {success, project} with full project details including name, description, settings (defaultModel, resolution), and timestamps (~200 tokens). Call to inspect project configuration before creating characters or storyboards, or to verify settings after an update. Unlike project_list, this returns one project with complete settings rather than an array of summaries.",
     inputSchema: {
       type: "object",
       properties: {
@@ -56,7 +56,7 @@ export const projectTools: Record<string, Tool> = {
 
   project_list: {
     name: "project_list",
-    description: "List all projects",
+    description: "List projects with optional pagination (limit/offset). Returns JSON {success, projects, count} where projects is an array of project summaries (~100-500 tokens depending on count). Call to browse available projects, find one by name, or resume a previous session. Unlike project_get, this returns multiple projects but without nested child details.",
     inputSchema: {
       type: "object",
       properties: {
@@ -74,7 +74,7 @@ export const projectTools: Record<string, Tool> = {
 
   project_update: {
     name: "project_update",
-    description: "Update a project",
+    description: "Update project fields (name, description) by ID. Returns JSON {success, project} with the updated project object (~200 tokens). Call when renaming a project or changing its description. Does NOT affect child characters, storyboards, or panels. Unlike project_create, this modifies an existing project rather than creating a new one.",
     inputSchema: {
       type: "object",
       properties: {
@@ -97,7 +97,7 @@ export const projectTools: Record<string, Tool> = {
 
   project_delete: {
     name: "project_delete",
-    description: "Delete a project and all its contents",
+    description: "Permanently delete a project and all child characters, storyboards, and panels (cascading). Returns JSON {success, message} (~50 tokens). DESTRUCTIVE -- cannot be undone. Call only when the user explicitly confirms they want to remove an entire project and all its contents.",
     inputSchema: {
       type: "object",
       properties: {

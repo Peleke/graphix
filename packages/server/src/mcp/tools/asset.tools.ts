@@ -18,8 +18,10 @@ export const assetTools: Record<string, Tool> = {
   asset_register: {
     name: "asset_register",
     description:
-      "Register a custom LoRA or textual inversion embedding for use in a project. " +
-      "The asset file must already exist in the appropriate ComfyUI models directory.",
+      "Call when the user adds a new custom LoRA or textual-inversion embedding to a project. The .safetensors " +
+      "file must already exist in the ComfyUI models directory. Unlike built-in style/lora tools that work with " +
+      "pre-configured models, this registers user-provided resources with trigger words and strength defaults. " +
+      "Returns the created asset object with generated ID (~300 tokens). Name must be unique within the project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -94,7 +96,10 @@ export const assetTools: Record<string, Tool> = {
 
   asset_get: {
     name: "asset_get",
-    description: "Get details of a custom asset by ID or by name within a project.",
+    description:
+      "Call to retrieve full metadata for a single user-registered custom asset (LoRA or embedding). " +
+      "Look up by asset ID or by projectId + name. Returns the complete asset record including trigger words, " +
+      "strengths, base model, tags, and usage count (~250 tokens). Use asset_list to browse if the ID is unknown.",
     inputSchema: {
       type: "object",
       properties: {
@@ -116,7 +121,11 @@ export const assetTools: Record<string, Tool> = {
 
   asset_list: {
     name: "asset_list",
-    description: "List custom assets. Filter by project, character, type, or search.",
+    description:
+      "Call to browse user-registered custom assets (LoRAs and embeddings) with optional filters for project, " +
+      "character, type (lora|embedding), base model, tags, or name search. Returns {count, assets: [{id, name, " +
+      "displayName, type, triggerWord, defaultStrength, baseModel, usageCount, isActive, characterId}]} " +
+      "(~100-500 tokens). Unlike list_loras which shows built-in models, this shows user-registered resources.",
     inputSchema: {
       type: "object",
       properties: {
@@ -160,7 +169,10 @@ export const assetTools: Record<string, Tool> = {
 
   asset_update: {
     name: "asset_update",
-    description: "Update a custom asset's configuration.",
+    description:
+      "Call to modify a user-registered custom asset's display name, trigger words, strength defaults, " +
+      "character association, tags, base model, or active status. Returns the full updated asset object " +
+      "(~250 tokens). Requires the asset ID from asset_list or asset_get.",
     inputSchema: {
       type: "object",
       properties: {
@@ -188,7 +200,10 @@ export const assetTools: Record<string, Tool> = {
 
   asset_delete: {
     name: "asset_delete",
-    description: "Delete a custom asset. This does not delete the underlying file.",
+    description:
+      "Call to permanently remove a custom asset registration from the project database. Does NOT delete the " +
+      "underlying .safetensors file on disk. Returns {success, id} (~30 tokens). Use asset_deactivate instead " +
+      "if the user may want to re-enable the asset later.",
     inputSchema: {
       type: "object",
       properties: {
@@ -204,8 +219,11 @@ export const assetTools: Record<string, Tool> = {
   asset_apply: {
     name: "asset_apply",
     description:
-      "Apply an asset to get the trigger word and LoRA configuration for generation. " +
-      "Records usage for analytics.",
+      "Call when building a generation prompt that should include a specific custom asset. Returns the trigger " +
+      "word to inject into the prompt and LoRA stack config (filePath, strength, clipStrength) ready for " +
+      "the generation pipeline: {assetId, assetName, type, triggerToInject, loraConfig} (~100 tokens). " +
+      "Records usage for analytics. Unlike asset_apply_character which bundles all character assets at once, " +
+      "this applies a single asset by ID.",
     inputSchema: {
       type: "object",
       properties: {
@@ -229,8 +247,10 @@ export const assetTools: Record<string, Tool> = {
   asset_apply_character: {
     name: "asset_apply_character",
     description:
-      "Get all triggers and LoRA configurations for a character's assets. " +
-      "Useful for automatically including character-specific assets in generations.",
+      "Call when generating a panel featuring a specific character to auto-include all their associated custom " +
+      "assets. Returns {characterId, triggers: string[], loraStack: [{filePath, strength, clipStrength}], " +
+      "promptSuffix} (~150 tokens). Unlike asset_apply which handles one asset, this bundles every active " +
+      "custom asset linked to a character into a single response ready for prompt injection.",
     inputSchema: {
       type: "object",
       properties: {
@@ -245,7 +265,10 @@ export const assetTools: Record<string, Tool> = {
 
   asset_popular: {
     name: "asset_popular",
-    description: "Get the most frequently used assets in a project.",
+    description:
+      "Call to surface the most-used custom assets in a project when suggesting assets for a new panel. " +
+      "Returns [{id, name, displayName, type, usageCount}] ranked by frequency (~100-200 tokens). " +
+      "Unlike asset_list which supports rich filtering, this is a quick popularity-ranked shortlist.",
     inputSchema: {
       type: "object",
       properties: {
@@ -264,7 +287,11 @@ export const assetTools: Record<string, Tool> = {
 
   asset_deactivate: {
     name: "asset_deactivate",
-    description: "Deactivate an asset without deleting it. Can be reactivated later.",
+    description:
+      "Call to temporarily hide a custom asset from listings and prevent it from being applied, without " +
+      "permanently deleting the registration. Returns {success, id, status: 'deactivated'|'not_found'} " +
+      "(~30 tokens). Use asset_activate to restore it later. Prefer this over asset_delete when the user " +
+      "may want the asset back.",
     inputSchema: {
       type: "object",
       properties: {
@@ -279,7 +306,10 @@ export const assetTools: Record<string, Tool> = {
 
   asset_activate: {
     name: "asset_activate",
-    description: "Reactivate a previously deactivated asset.",
+    description:
+      "Call to restore a previously deactivated custom asset so it appears in listings and can be applied " +
+      "to generations again. Returns {success, id, status: 'activated'|'not_found'} (~30 tokens). " +
+      "Only needed after asset_deactivate was used; newly registered assets are active by default.",
     inputSchema: {
       type: "object",
       properties: {

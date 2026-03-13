@@ -20,7 +20,7 @@ import {
 export const panelTools: Record<string, Tool> = {
   panel_create: {
     name: "panel_create",
-    description: "Create a new panel in a storyboard",
+    description: "Create an empty panel (scene slot) in a storyboard at a given position. Call this when starting a new scene before setting artistic direction with panel_describe or assigning characters with panel_add_character. Returns a JSON object with {success, panel: {id, storyboardId, position, description, characters[], selectedOutputId}}. Lightweight metadata write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -43,7 +43,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_get: {
     name: "panel_get",
-    description: "Get a panel by ID with all its outputs",
+    description: "Fetch a single panel's full state including its artistic direction, assigned characters, all generation outputs, and the currently selected output ID. Call this when you need to inspect a panel before generating, editing, or selecting an output. Returns {success, panel} where panel contains id, description, direction, characters[], generatedImages[], and selectedOutputId. Small JSON response; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -58,7 +58,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_describe: {
     name: "panel_describe",
-    description: "Set or update the artistic direction for a panel",
+    description: "Set or update a panel's artistic direction -- scene description, camera angle, lighting, and mood -- WITHOUT generating an image. Call this after panel_create and before panel_generate to define what the scene should look like. This is a metadata-only write (no GPU cost). To actually produce an image from this direction, call panel_generate afterward. To edit an already-generated image, use panel_inpaint or panel_edit instead. Returns {success, panel} with the updated direction fields.",
     inputSchema: {
       type: "object",
       properties: {
@@ -125,7 +125,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_add_character: {
     name: "panel_add_character",
-    description: "Add a character to appear in a panel",
+    description: "Attach an existing character (by ID) to a panel so the character appears in future generations. Call this after panel_create and before panel_generate; the character's visual description will be woven into the generation prompt automatically. To remove a character, use panel_remove_character. Returns {success, panel} with the updated characters[] array. Metadata-only write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -144,7 +144,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_remove_character: {
     name: "panel_remove_character",
-    description: "Remove a character from a panel",
+    description: "Detach a character from a panel so they no longer appear in future generations. Call this when a character should exit a scene. Does not affect already-generated images; only influences subsequent panel_generate calls. Returns {success, panel} with the updated characters[] array. Metadata-only write; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -163,7 +163,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_select_output: {
     name: "panel_select_output",
-    description: "Select a generated image as the panel's chosen output",
+    description: "Promote one of a panel's generated images to be the panel's final chosen output for page composition. Call this after reviewing generations (via generation_list, generation_rate, or generation_favorite) to lock in the winner. Unlike generation_favorite (which bookmarks for comparison), this sets the canonical image used when composing pages. To undo, use panel_clear_selection. Returns {success, panel} with selectedOutputId set. Metadata-only; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -182,7 +182,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_clear_selection: {
     name: "panel_clear_selection",
-    description: "Clear the selected output for a panel",
+    description: "Remove the panel's selected output, reverting it to having no chosen image for page composition. Call this when you want to re-evaluate generations before committing to a final pick via panel_select_output. Returns {success, panel} with selectedOutputId cleared. Metadata-only; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -197,7 +197,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_reorder: {
     name: "panel_reorder",
-    description: "Move a panel to a new position in the storyboard",
+    description: "Move a panel to a new sequence position within its storyboard, shifting other panels to accommodate. Call this when reordering scenes in the narrative flow. Returns {success, panel} with the updated position. Metadata-only; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -216,7 +216,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_delete: {
     name: "panel_delete",
-    description: "Delete a panel and all its generated outputs",
+    description: "Permanently delete a panel and all of its generated images from the storyboard. Call this to remove a scene entirely. This is destructive and cannot be undone. To merely remove the selected output without deleting the panel, use panel_clear_selection instead. Returns {success, message}. No GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -231,7 +231,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_generate: {
     name: "panel_generate",
-    description: "Generate an image for a panel based on its direction and characters",
+    description: "Trigger GPU image generation for a panel using its artistic direction and assigned characters. This is the primary GPU-expensive call (~5-30s depending on quality preset). Call this after panel_describe and panel_add_character have set up the scene. Produces exactly one image per call; use panel_generate_variants for batch exploration. To modify an existing image region, use panel_inpaint instead. Returns {success, generatedImage: {id, localPath, width, height}, seed, dimensions}. Supports size/quality presets and composition slot targeting.",
     inputSchema: {
       type: "object",
       properties: {
@@ -302,7 +302,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_generate_variants: {
     name: "panel_generate_variants",
-    description: "Generate multiple variant images for a panel with different seeds",
+    description: "Batch-generate N variant images for a panel (default 4), each with a different seed and optionally varying CFG scale. Call this when exploring creative options before committing to a final image via panel_select_output. GPU-expensive: cost scales linearly with count (~5-30s per variant). Unlike panel_generate (single image), this produces a comparison set. Returns {success, total, successful, failed, generatedImages: [{id, localPath, width, height}, ...]}.",
     inputSchema: {
       type: "object",
       properties: {
@@ -360,7 +360,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_list_size_presets: {
     name: "panel_list_size_presets",
-    description: "List all available size presets for image generation",
+    description: "List available image size presets (aspect ratios and pixel dimensions), optionally filtered by category: square, portrait, landscape, comic, manga, or social. Call this before panel_generate to pick the right sizePreset ID. Returns {success, presets: [{id, name, aspectRatio, suggestedFor, dimensions}], count}. Small static lookup; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {
@@ -375,7 +375,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_list_quality_presets: {
     name: "panel_list_quality_presets",
-    description: "List all available quality presets for image generation",
+    description: "List the four quality presets (draft, standard, high, ultra) with their steps, CFG, sampler, scheduler, and hi-res fix settings. Call this before panel_generate to understand the speed/quality tradeoffs of each qualityPreset. Returns {success, presets: [{id, name, steps, cfg, sampler, scheduler, hiResFix, upscale}], count}. Small static lookup; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -384,7 +384,7 @@ export const panelTools: Record<string, Tool> = {
 
   panel_recommend_size: {
     name: "panel_recommend_size",
-    description: "Get recommended generation size for a composition slot",
+    description: "Calculate the optimal pixel dimensions for generating an image that fits a specific slot in a page composition template (e.g., slot 'A' in 'six-grid'). Call this before panel_generate when targeting a layout slot, to avoid cropping or stretching. Returns {success, templateId, slotId, recommended: {width, height, aspectRatio, presetId}}. Lightweight computation; no GPU cost.",
     inputSchema: {
       type: "object",
       properties: {

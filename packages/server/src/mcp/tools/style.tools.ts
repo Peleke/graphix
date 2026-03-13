@@ -27,7 +27,7 @@ export const styleTools: Record<string, Tool> = {
   style_list_loras: {
     name: "style_list_loras",
     description:
-      "List available LoRAs, optionally filtered by checkpoint compatibility or category.",
+      "Returns an array of LoRA models from the catalog (filename, name, trigger, category, strength, notes), optionally filtered by checkpoint compatibility or category (style/character/quality/pose/concept). Call before style_apply or lora_build_stack to discover which LoRAs are available. Response size varies: ~10-50 entries unfiltered. Does not list IP-Adapter models -- use consistency_list_adapter_models for those.",
     inputSchema: {
       type: "object",
       properties: {
@@ -48,7 +48,7 @@ export const styleTools: Record<string, Tool> = {
   style_apply: {
     name: "style_apply",
     description:
-      "Apply a style LoRA to a panel's image via img2img, creating a styled version.",
+      "Applies a single LoRA style to one existing panel image via img2img, producing a new styled version. Returns {success, outputPath, seed}. Call when a panel is already generated and you want to restyle it (e.g., apply comic ink, watercolor, or anime look). For applying a style to ALL panels in a storyboard at once, use style_apply_batch instead. This is post-generation restyling -- to include LoRAs during initial generation, use lora_build_stack.",
     inputSchema: {
       type: "object",
       properties: {
@@ -88,7 +88,7 @@ export const styleTools: Record<string, Tool> = {
   style_apply_batch: {
     name: "style_apply_batch",
     description:
-      "Apply a style LoRA to all panels in a storyboard for unified visual appearance.",
+      "Applies a single LoRA style to every panel in a storyboard via img2img, producing styled versions with a unified visual look. Returns {success, results: [{panelId, outputPath}...], successCount}. Call when you want consistent artistic style across an entire storyboard. For styling just one panel, use style_apply instead. This is post-generation batch restyling -- all panels must already be generated.",
     inputSchema: {
       type: "object",
       properties: {
@@ -128,7 +128,7 @@ export const styleTools: Record<string, Tool> = {
   lora_info: {
     name: "lora_info",
     description:
-      "Get detailed information about a LoRA including trigger words, strength recommendations, and compatibility.",
+      "Returns detailed metadata for a single LoRA by filename or name: trigger words, recommended strength range, compatible model families, category, stack position, and usage notes. Call when you need trigger words or strength settings before applying a LoRA. Small single-object response. For browsing all available LoRAs, use style_list_loras instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -144,7 +144,7 @@ export const styleTools: Record<string, Tool> = {
   lora_suggest: {
     name: "lora_suggest",
     description:
-      "Get recommended LoRA stack for a checkpoint based on intended use case.",
+      "Returns a curated LoRA stack recommendation for a given checkpoint and use case (comic, realistic, anime, general). Response includes ordered LoRA entries with filenames, trigger words, and recommended strengths. Call when you do not know which LoRAs pair well with a checkpoint -- this provides expert defaults. For manually assembling a custom stack, use lora_build_stack instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -165,7 +165,7 @@ export const styleTools: Record<string, Tool> = {
   lora_build_stack: {
     name: "lora_build_stack",
     description:
-      "Build a properly ordered LoRA stack with trigger words for generation.",
+      "Assembles a correctly ordered multi-LoRA stack (character first, then style, then quality) with resolved trigger words and strengths, ready to pass into a generation workflow. Returns {stack: [{filename, trigger, strength, position}...], combinedTrigger}. Call when you know exactly which LoRAs you want and need them properly sequenced. For automatic recommendations, use lora_suggest instead. For validating a single LoRA's compatibility, use lora_validate.",
     inputSchema: {
       type: "object",
       properties: {
@@ -194,7 +194,7 @@ export const styleTools: Record<string, Tool> = {
   lora_validate: {
     name: "lora_validate",
     description:
-      "Validate that a LoRA is compatible with a checkpoint model.",
+      "Checks whether a specific LoRA file exists and is compatible with a given checkpoint model family (e.g., SDXL vs SD1.5). Returns {compatible, reason, loraFamily, checkpointFamily}. Call before style_apply or lora_build_stack to catch incompatibilities that would cause generation failures. This is a dry-run check -- it does not apply or modify anything.",
     inputSchema: {
       type: "object",
       properties: {

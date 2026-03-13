@@ -24,7 +24,7 @@ export const poseTools: Record<string, Tool> = {
   pose_extract: {
     name: "pose_extract",
     description:
-      "Extract OpenPose skeleton from an existing generated image. Returns the skeleton image path for preview or saving to library.",
+      "Run OpenPose/DWPose skeleton extraction on a generated image. Call after generation when you need body keypoints for ControlNet pose-guided generation. Returns JSON with {skeletonPath} pointing to the saved skeleton PNG. Does NOT save to the pose library -- call pose_save separately, or use pose_extract_and_save for one-step. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -51,7 +51,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_save: {
     name: "pose_save",
-    description: "Save an extracted pose to the project's pose library for reuse",
+    description:
+      "Persist an already-extracted skeleton image into the project's pose library for ControlNet reuse. Call after pose_extract has produced a skeletonPath. Returns JSON with {pose: {id, name, category}}. Does not extract -- use pose_extract first or pose_extract_and_save for one-step. ~150 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,7 +93,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_extract_and_save: {
     name: "pose_extract_and_save",
-    description: "Extract pose from a generated image and save it to the library in one step",
+    description:
+      "Extract OpenPose skeleton from a generated image AND save it to the project's pose library in one atomic call. Use instead of calling pose_extract then pose_save separately. Returns JSON with {pose: {id, name, category, skeletonPath}}. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -141,7 +143,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_list: {
     name: "pose_list",
-    description: "List poses in a project's library, optionally filtered by category or tags",
+    description:
+      "List saved skeleton poses in a project's pose library, with optional category/tag filters. Call when browsing available poses before applying one to a panel via ControlNet. Returns JSON array of {id, name, category, tags, usageCount, skeletonPath} objects. Default limit 50. ~500-2000 tokens depending on library size.",
     inputSchema: {
       type: "object",
       properties: {
@@ -170,7 +173,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_get: {
     name: "pose_get",
-    description: "Get details of a specific pose from the library",
+    description:
+      "Fetch full metadata for a single pose by its ID, including skeletonPath, tags, description, and usage history. Call when you already have a poseId (from pose_list or pose_save) and need its details before applying it. Returns JSON with all pose fields. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -185,7 +189,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_update: {
     name: "pose_update",
-    description: "Update pose metadata",
+    description:
+      "Update the name, description, category, or tags on an existing saved pose. Call when renaming or re-categorizing a pose in the library. Does not re-extract the skeleton. Returns JSON with updated {id, name, category}. ~150 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -218,7 +223,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_delete: {
     name: "pose_delete",
-    description: "Delete a pose from the library",
+    description:
+      "Permanently delete a saved skeleton pose from the library by poseId. Call when cleaning up unused or duplicate poses. Returns JSON {success, message}. ~50 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -233,7 +239,8 @@ export const poseTools: Record<string, Tool> = {
 
   pose_list_categories: {
     name: "pose_list_categories",
-    description: "List available pose categories",
+    description:
+      "List all valid pose category enum values (standing, sitting, action, lying, kneeling, custom) with human-readable descriptions. Call before pose_save when you need to pick the right category. Returns JSON array of {name, description}. ~150 tokens. No parameters required.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -247,7 +254,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_save: {
     name: "expression_save",
-    description: "Save an expression to a character's expression library",
+    description:
+      "Save a named facial expression (text prompt fragment + reference image) to a character's expression library. Call after identifying a generation with a good facial expression you want to reuse. Unlike poses (skeleton keypoints), expressions are text-based prompt fragments injected during generation. Returns JSON with {expression: {id, name, characterId}}. ~150 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -288,7 +296,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_list: {
     name: "expression_list",
-    description: "List expressions for a character",
+    description:
+      "List all saved facial expression prompt fragments for a specific character. Call when building a panel prompt and you need to pick an expression. Returns JSON array of {id, name, promptFragment, intensity, usageCount}. ~300-1000 tokens depending on library size.",
     inputSchema: {
       type: "object",
       properties: {
@@ -307,7 +316,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_get: {
     name: "expression_get",
-    description: "Get details of a specific expression",
+    description:
+      "Fetch full metadata for a single expression by its database ID. Call when you already have an expressionId (from expression_list) and need all fields including promptFragment, referencePath, and intensity. Use expression_get_by_name instead if you only have the name string. Returns JSON with all expression fields. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -322,7 +332,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_get_by_name: {
     name: "expression_get_by_name",
-    description: "Get expression by name for a character",
+    description:
+      "Look up a character's expression by its human-readable name string (e.g., 'happy', 'angry') instead of database ID. Call when you know the character and expression name but not the ID. Use expression_get instead if you already have the expressionId. Returns JSON with all expression fields or {success: false} if not found. ~200 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -341,7 +352,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_update: {
     name: "expression_update",
-    description: "Update expression metadata",
+    description:
+      "Update the name, description, promptFragment, or intensity of a saved expression. Call when refining an expression's prompt text or renaming it. Does not affect the reference image. Returns JSON with {expression: {id, name}}. ~100 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -374,7 +386,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_delete: {
     name: "expression_delete",
-    description: "Delete an expression from the library",
+    description:
+      "Permanently delete a saved facial expression from a character's library by expressionId. Call when cleaning up unused expressions. Returns JSON {success, message}. ~50 tokens.",
     inputSchema: {
       type: "object",
       properties: {
@@ -389,7 +402,8 @@ export const poseTools: Record<string, Tool> = {
 
   expression_list_common: {
     name: "expression_list_common",
-    description: "List common expression names for reference",
+    description:
+      "List the built-in common expression name constants (happy, sad, angry, ahegao, etc.) with suggested prompt fragments for each. Call before expression_save when you need to pick a canonical name or see what prompt text works for a given emotion. Returns JSON array of {name, suggestedPrompt}. ~300 tokens. No parameters required.",
     inputSchema: {
       type: "object",
       properties: {},
