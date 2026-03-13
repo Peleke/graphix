@@ -1,4 +1,6 @@
 #!/bin/bash
 # Pre-push hook: Run quick Schemathesis fuzz test
 set -euo pipefail
-exec ./scripts/run-fuzz.sh --quick
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/run-fuzz.sh" --quick

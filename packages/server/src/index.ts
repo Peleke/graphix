@@ -16,10 +16,3 @@ export * from "./rest/index.js";
 
 // Server startup
 export { startServer } from "./start.js";
-
-// Auto-start when run directly
-import { startServer } from "./start.js";
-startServer().catch((error) => {
-  console.error("[Server] Failed to start:", error);
-  process.exit(1);
-});

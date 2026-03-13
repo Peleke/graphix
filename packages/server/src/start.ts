@@ -19,10 +19,14 @@ import { startMCPServer } from "./mcp/index.js";
 
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 
-// Resolve monorepo root (2 levels up from packages/server/src)
+// Resolve project root: GRAPHIX_ROOT env var > monorepo detection > cwd fallback
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MONOREPO_ROOT = resolve(__dirname, "../../../");
+const PROJECT_ROOT = process.env.GRAPHIX_ROOT
+  || (existsSync(resolve(__dirname, "../../../packages/core"))
+    ? resolve(__dirname, "../../../")
+    : process.cwd());
 
 /**
  * Load configuration from environment
@@ -32,8 +36,8 @@ function loadConfigFromEnv(): GraphixConfig {
 
   // Resolve database path relative to monorepo root
   const sqlitePath = env.SQLITE_PATH
-    ? (env.SQLITE_PATH.startsWith("/") ? env.SQLITE_PATH : resolve(MONOREPO_ROOT, env.SQLITE_PATH))
-    : resolve(MONOREPO_ROOT, "graphix.db");
+    ? (env.SQLITE_PATH.startsWith("/") ? env.SQLITE_PATH : resolve(PROJECT_ROOT, env.SQLITE_PATH))
+    : resolve(PROJECT_ROOT, "graphix.db");
 
   const databaseConfig: DatabaseConfig = {
     mode: (env.STORAGE_MODE || "sqlite") as "turso" | "sqlite" | "memory",
@@ -113,10 +117,3 @@ export async function startServer(configOverrides?: Partial<GraphixConfig>): Pro
   console.log("[Server] Graphix server started successfully");
 }
 
-// Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startServer().catch((error) => {
-    console.error("[Server] Failed to start:", error);
-    process.exit(1);
-  });
-}

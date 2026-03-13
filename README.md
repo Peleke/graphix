@@ -232,27 +232,39 @@ Open [http://localhost:5173](http://localhost:5173) 🎉
 
 ### Using with MCP (Claude Code / Claude Desktop)
 
-Graphix exposes 200+ tools via MCP for AI-assisted comic creation. Add to your Claude settings:
+Graphix exposes 200+ tools via MCP for AI-assisted comic creation.
 
+**Option A: Install from npm** (recommended)
 ```json
 {
   "mcpServers": {
     "graphix": {
       "command": "npx",
-      "args": ["-y", "bun", "run", "/path/to/graphix/packages/server/src/start.ts"],
+      "args": ["-y", "@graphix/server"],
       "env": {
-        "MCP_MODE": "stdio",
-        "STORAGE_MODE": "sqlite",
-        "SQLITE_PATH": "/path/to/graphix/graphix.db",
-        "COMFYUI_MCP_URL": "http://localhost:3001",
-        "ALLOW_LOCAL_OLLAMA": "true"
+        "COMFYUI_MCP_URL": "http://localhost:3001"
       }
     }
   }
 }
 ```
 
-See [docs/MCP.md](./docs/MCP.md) for the full tool reference.
+**Option B: Run from source** (for development)
+```json
+{
+  "mcpServers": {
+    "graphix": {
+      "command": "bun",
+      "args": ["run", "/path/to/graphix/packages/server/src/bin-mcp.ts"],
+      "env": {
+        "COMFYUI_MCP_URL": "http://localhost:3001"
+      }
+    }
+  }
+}
+```
+
+The only required env var is `COMFYUI_MCP_URL`. SQLite database auto-creates on first run. See [docs/MCP.md](./docs/MCP.md) for the full tool reference and optional configuration.
 
 ---
 
