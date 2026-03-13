@@ -20,9 +20,11 @@ import { startMCPServer } from "./mcp/index.js";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-// Resolve monorepo root (2 levels up from packages/server/src)
+// Resolve project root: use cwd when running as installed package,
+// monorepo root when running from source
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const MONOREPO_ROOT = resolve(__dirname, "../../../");
+const isInstalledPackage = __dirname.includes("node_modules") || !__dirname.includes("packages");
+const PROJECT_ROOT = isInstalledPackage ? process.cwd() : resolve(__dirname, "../../../");
 
 /**
  * Load configuration from environment
@@ -32,8 +34,8 @@ function loadConfigFromEnv(): GraphixConfig {
 
   // Resolve database path relative to monorepo root
   const sqlitePath = env.SQLITE_PATH
-    ? (env.SQLITE_PATH.startsWith("/") ? env.SQLITE_PATH : resolve(MONOREPO_ROOT, env.SQLITE_PATH))
-    : resolve(MONOREPO_ROOT, "graphix.db");
+    ? (env.SQLITE_PATH.startsWith("/") ? env.SQLITE_PATH : resolve(PROJECT_ROOT, env.SQLITE_PATH))
+    : resolve(PROJECT_ROOT, "graphix.db");
 
   const databaseConfig: DatabaseConfig = {
     mode: (env.STORAGE_MODE || "sqlite") as "turso" | "sqlite" | "memory",

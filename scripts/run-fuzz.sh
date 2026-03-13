@@ -63,9 +63,14 @@ echo "Spec: ${SPEC_URL}"
 
 # Check if server is running
 if ! curl -sf "${BASE_URL}/health" > /dev/null 2>&1; then
-  echo "❌ Server not running at ${BASE_URL}"
-  echo "   Start server first: bun run dev"
-  exit 1
+  if [ "$QUICK" = true ]; then
+    echo "⚠️  Server not running at ${BASE_URL} — skipping fuzz tests (CI will catch it)"
+    exit 0
+  else
+    echo "❌ Server not running at ${BASE_URL}"
+    echo "   Start server first: bun run dev"
+    exit 1
+  fi
 fi
 
 # Run Schemathesis via Docker
@@ -74,7 +79,7 @@ docker run --rm --network host \
   -v "$(pwd)/schemathesis.toml:/app/schemathesis.toml:ro" \
   schemathesis/schemathesis:stable \
   run \
-  --config /app/schemathesis.toml \
+  --config-file /app/schemathesis.toml \
   --base-url "${BASE_URL}" \
   --hypothesis-max-examples "${MAX_EXAMPLES}" \
   "${SPEC_URL}"

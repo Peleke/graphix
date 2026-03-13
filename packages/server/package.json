@@ -1,31 +1,92 @@
 {
   "name": "@graphix/server",
   "version": "0.1.0",
-  "description": "MCP + REST server for graphix",
+  "description": "200-tool MCP server for AI-native graphic novel creation: character consistency, narrative-driven panel generation, pose/expression management, page composition, and LLM-powered dialogue — all backed by ComfyUI.",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "dist/index.js",
   "bin": {
-    "graphix-server": "./src/index.ts"
+    "graphix-server": "dist/bin.js",
+    "graphix-mcp": "dist/bin-mcp.js"
   },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.map",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Peleke/graphix.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/Peleke/graphix",
+  "bugs": {
+    "url": "https://github.com/Peleke/graphix/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "graphic-novel",
+    "comic",
+    "comfyui",
+    "stable-diffusion",
+    "ai-art",
+    "storyboard",
+    "character-consistency",
+    "ip-adapter",
+    "controlnet",
+    "model-context-protocol",
+    "claude",
+    "anthropic"
+  ],
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
-    "start:node": "node --experimental-specifier-resolution=node src/index.node.ts",
+    "start": "node dist/bin.js",
+    "build": "tsup",
+    "build:clean": "rm -rf dist && tsup",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {
-    "@graphix/core": "*",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@hono/node-server": "^1.13.0",
     "@hono/swagger-ui": "^0.5.3",
     "@hono/zod-openapi": "^1.2.0",
     "@hono/zod-validator": "^0.7.6",
+    "@libsql/client": "^0.14.0",
+    "@mastra/core": "^0.24.9",
+    "@mastra/memory": "^0.15.13",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@paralleldrive/cuid2": "^2.2.2",
+    "@supabase/storage-js": "^2.91.0",
+    "drizzle-orm": "^0.38.0",
     "hono": "^4.6.0",
+    "nanoid": "^5.0.9",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.0",
     "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
+    "@graphix/core": "*",
     "@types/bun": "latest",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.7.0"
   }
 }
