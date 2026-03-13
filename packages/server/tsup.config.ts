@@ -34,10 +34,6 @@ export default defineConfig({
     "nanoid",
     "@supabase/storage-js",
   ],
-  banner: {
-    // Shebang for bin entries — tsup applies to all, but only matters for bin files
-    js: "",
-  },
   esbuildOptions(options) {
     // Ensure .js extensions in output for NodeNext resolution
     options.outExtension = { ".js": ".js" };
