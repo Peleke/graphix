@@ -34,6 +34,9 @@ jobs:
         working-directory: packages/server
         run: npx tsup
 
+      - name: Test
+        run: bun test packages/core
+
       - name: Publish with provenance
         working-directory: packages/server
         run: npm publish --access public --provenance

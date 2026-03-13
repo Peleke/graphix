@@ -19,12 +19,14 @@ import { startMCPServer } from "./mcp/index.js";
 
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 
-// Resolve project root: use cwd when running as installed package,
-// monorepo root when running from source
+// Resolve project root: GRAPHIX_ROOT env var > monorepo detection > cwd fallback
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const isInstalledPackage = __dirname.includes("node_modules") || !__dirname.includes("packages");
-const PROJECT_ROOT = isInstalledPackage ? process.cwd() : resolve(__dirname, "../../../");
+const PROJECT_ROOT = process.env.GRAPHIX_ROOT
+  || (existsSync(resolve(__dirname, "../../../packages/core"))
+    ? resolve(__dirname, "../../../")
+    : process.cwd());
 
 /**
  * Load configuration from environment
@@ -115,10 +117,3 @@ export async function startServer(configOverrides?: Partial<GraphixConfig>): Pro
   console.log("[Server] Graphix server started successfully");
 }
 
-// Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startServer().catch((error) => {
-    console.error("[Server] Failed to start:", error);
-    process.exit(1);
-  });
-}
