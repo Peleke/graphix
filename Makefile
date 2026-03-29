@@ -2,7 +2,7 @@
 # GRAPHIX MAKEFILE - Development automation for the Graphix monorepo
 # ============================================================================
 
-.PHONY: help install dev dev-web dev-desktop dev-server build test clean nuke
+.PHONY: help install dev dev-full dev-web dev-desktop dev-server dev-comfyui build test clean nuke
 
 # Colors for pretty output
 CYAN := \033[36m
@@ -21,11 +21,13 @@ help:
 	@echo "$(YELLOW)QUICK START:$(RESET)"
 	@echo "  $(GREEN)make install$(RESET)      - Install all dependencies (first time)"
 	@echo "  $(GREEN)make dev$(RESET)          - Start everything (server + web UI)"
+	@echo "  $(GREEN)make dev-full$(RESET)     - Start everything + comfyui-mcp (for image generation)"
 	@echo "  $(GREEN)make dev-desktop$(RESET)  - Start desktop app (Tauri)"
 	@echo ""
 	@echo "$(YELLOW)INDIVIDUAL SERVICES:$(RESET)"
 	@echo "  $(GREEN)make dev-server$(RESET)   - Start backend server only (port 3002)"
 	@echo "  $(GREEN)make dev-web$(RESET)      - Start web UI only (port 5173)"
+	@echo "  $(GREEN)make dev-comfyui$(RESET)  - Start comfyui-mcp only (port 3001)"
 	@echo ""
 	@echo "$(YELLOW)BUILD & TEST:$(RESET)"
 	@echo "  $(GREEN)make build$(RESET)        - Build all packages"
@@ -89,6 +91,21 @@ dev-desktop: dev-server-bg
 	@echo "$(CYAN)🖥️  Starting Tauri desktop app...$(RESET)"
 	@echo "$(YELLOW)   First build takes ~2 min (downloading Rust crates)$(RESET)"
 	cd packages/ui && bun run tauri:dev
+
+dev-comfyui:
+	@echo "$(CYAN)🎨 Starting comfyui-mcp...$(RESET)"
+	cd ../comfyui-mcp && npm start
+
+dev-comfyui-bg:
+	@echo "$(CYAN)🎨 Starting comfyui-mcp in background...$(RESET)"
+	@cd ../comfyui-mcp && npm start &
+	@sleep 3
+
+dev-full: dev-comfyui-bg dev-server-bg dev-web
+	@echo "$(GREEN)🚀 Full stack running (with image generation)!$(RESET)"
+	@echo "   ComfyUI MCP: http://localhost:3001"
+	@echo "   Server: http://localhost:3002"
+	@echo "   Web UI: http://localhost:5173"
 
 # ============================================================================
 # BUILD
@@ -174,4 +191,5 @@ kill:
 	-pkill -f "bun run dev" 2>/dev/null
 	-pkill -f "vite" 2>/dev/null
 	-pkill -f "graphix" 2>/dev/null
+	-pkill -f "comfyui-mcp" 2>/dev/null
 	@echo "$(GREEN)✅ Processes killed!$(RESET)"

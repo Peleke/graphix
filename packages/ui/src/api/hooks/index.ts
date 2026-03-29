@@ -16,3 +16,4 @@ export * from "./useControlNet";
 export * from "./useUploads";
 export * from "./useTextGeneration";
 export * from "./useBeats";
+export * from "./useServiceHealth";
